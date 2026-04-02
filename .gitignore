@@ -148,12 +148,13 @@ dist
 .Python
 [Bb]in
 [Ii]nclude
-[Ll]ib
+/[Ll]ib/
 [Ll]ib64
 [Ll]ocal
 [Ss]cripts
 pyvenv.cfg
 .venv
+*_venv/*
 pip-selfcheck.json
 
 # End of https://www.toptal.com/developers/gitignore/api/venv,node
