@@ -9,14 +9,24 @@ from pathlib import Path
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
+from dotenv import load_dotenv
+from typing import Optional
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # ================================================================
 # S3 설정 (부모 폴더 포함)
 # ================================================================
 
-S3_BUCKET = "skn23-final-1team-355904321127-ap-northeast-2-an"
-S3_PREFIX = "zigbang_data"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)
+load_dotenv(os.path.join(ROOT_DIR, ".env"))
+S3_BUCKET = os.getenv("S3_BUCKET")
+S3_PREFIX = os.getenv("S3_PREFIX", "zigbang_data")
 s3_client = boto3.client("s3")
+
+# KST 타임존 설정
+KST = ZoneInfo("Asia/Seoul")
 
 def get_full_s3_path(s3_path: str) -> str:
     return f"{S3_PREFIX}/{s3_path}".replace("//", "/")
@@ -58,8 +68,8 @@ def get_ext(url):
     return ext
 
 def download_and_upload_to_s3(args):
-    url, item_id, filename = args
-    s3_path = f"images/{item_id}/{filename}"
+    url, item_id, filename, date_str = args
+    s3_path = f"images/{date_str}/{item_id}/{filename}"
     if check_s3_exists(s3_path): return "skip"
     try:
         if "?" not in url: url = f"{url}?w=1200"
@@ -71,16 +81,22 @@ def download_and_upload_to_s3(args):
         return f"fail_{res.status_code}"
     except Exception as e: return f"error_{e}"
 
-def main():
-    # 최신 이미지 CSV 자동 탐색
-    pattern = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data/csv/image/zigbang_images_*.csv")
-    files = sorted(glob.glob(pattern))
-    if not files:
-        print("❌ 분석할 이미지 CSV 파일이 없습니다.")
-        return
+def main(csv_path: Optional[str] = None):
+    # KST 기준 오늘 날짜 생성
+    date_str = datetime.now(KST).strftime("%Y-%m-%d")
     
-    full_csv_path = Path(files[-1])
-    print(f"📂 최신 CSV 로드: {full_csv_path.name}")
+    # CSV 경로가 인자로 안 들어오면 최신 파일 자동 탐색
+    if not csv_path:
+        pattern = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data/csv/image/zigbang_images_*.csv")
+        files = sorted(glob.glob(pattern))
+        if not files:
+            print("❌ 분석할 이미지 CSV 파일이 없습니다.")
+            return
+        full_csv_path = Path(files[-1])
+    else:
+        full_csv_path = Path(csv_path)
+
+    print(f"📂 CSV 로드: {full_csv_path.name}")
     
     df = pd.read_csv(full_csv_path, encoding="utf-8-sig")
     col_id = next((c for c in df.columns if any(k in c.lower() for k in ["매물", "id", "번호"])), None)
@@ -91,7 +107,8 @@ def main():
 
     tasks = []
     for _, row in df.iterrows():
-        item_id, url = str(row[col_id]), str(row[col_url]).strip()
+        item_id = str(row[col_id])
+        url = str(row[col_url]).strip()
         if not url or url == "nan": continue
         tasks.append((url, item_id))
 
@@ -100,9 +117,9 @@ def main():
     for item_id, group in df_tasks.groupby('item_id'):
         for i, (_, row) in enumerate(group.iterrows(), 1):
             url = row['url']
-            final_tasks.append((url, item_id, f"{item_id}_{i}{get_ext(url)}"))
+            final_tasks.append((url, item_id, f"{item_id}_{i}{get_ext(url)}", date_str))
 
-    print(f"📦 총 {len(final_tasks)}개 이미지 S3 직송 시작 (병렬 {MAX_WORKERS})\n")
+    print(f"📦 총 {len(final_tasks)}개 이미지 S3 직송 시작 (병렬 {MAX_WORKERS}, 날짜: {date_str})\n")
     success, skip, fail = 0, 0, 0
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         future_to_task = {executor.submit(download_and_upload_to_s3, task): task for task in final_tasks}

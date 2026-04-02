@@ -63,7 +63,7 @@ GH_CACHE   = os.path.join(CACHE_DIR, "geohash_list.json")
 ITEM_FILE  = ""
 IMAGE_FILE = ""
 
-MAX_WORKERS   = 10 
+MAX_WORKERS   = 20 
 ID_WORKERS    = 20 
 SAVE_INTERVAL = 50
 
@@ -234,6 +234,11 @@ def crawl():
     print("\n📦 결과물을 S3로 업로드 중...")
     upload_to_s3(ITEM_FILE,  f"csv/item/{os.path.basename(ITEM_FILE)}")
     upload_to_s3(IMAGE_FILE, f"csv/image/{os.path.basename(IMAGE_FILE)}")
+
+    # 🖼️ 이미지 다운로드 및 S3 직송 (추가!)
+    print("\n📸 이미지 수집 및 S3 업로드 시작...")
+    import download_images_fast
+    download_images_fast.main(IMAGE_FILE)
 
     total_elapsed = time.time() - start_total
     print("\n" + "=" * 60)
