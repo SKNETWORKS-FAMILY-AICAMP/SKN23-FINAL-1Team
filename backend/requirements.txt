@@ -25,3 +25,18 @@ typing_extensions==4.15.0
 uvicorn==0.42.0
 watchfiles==1.1.1
 websockets==16.0
+
+# Added for Project Needs
+boto3
+requests
+pandas
+pygeohash
+pydantic-settings
+sqlalchemy
+alembic
+asyncpg
+python-multipart
+passlib[bcrypt]
+python-jose[cryptography]
+tqdm
+
