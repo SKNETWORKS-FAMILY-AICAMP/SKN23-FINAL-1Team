@@ -14,6 +14,13 @@ from typing import List, Dict, Any, Optional, Tuple, Set
 
 # KST 타임존 설정
 KST = ZoneInfo("Asia/Seoul")
+
+# 세션 설정 (재시도 로직 포함)
+session = requests.Session()
+retry = Retry(total=5, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+adapter = HTTPAdapter(max_retries=retry)
+session.mount("http://", adapter)
+session.mount("https://", adapter)
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import pygeohash as pgh
