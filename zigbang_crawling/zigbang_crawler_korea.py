@@ -48,7 +48,7 @@ GH_CACHE   = os.path.join(CACHE_DIR, "geohash_list.json")
 ITEM_FILE  = ""
 IMAGE_FILE = ""
 
-MAX_WORKERS   = 30 
+MAX_WORKERS   = 10 
 ID_WORKERS    = 20 
 SAVE_INTERVAL = 50
 
