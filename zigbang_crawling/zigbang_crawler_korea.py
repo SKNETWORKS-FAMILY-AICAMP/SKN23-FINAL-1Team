@@ -129,8 +129,12 @@ def append_images(rows):
 def get_item_ids(geohash: str) -> List[int]:
     try:
         res = session.get(ZIGBANG_API["geohash"], params={"geohash": geohash}, headers=HEADERS, timeout=10)
-        if res.status_code == 200: return [i["itemId"] for i in res.json().get("items", [])]
-    except: pass
+        if res.status_code == 200: 
+            return [i["itemId"] for i in res.json().get("items", [])]
+        else:
+            print(f"⚠️ API Error ({geohash}): Status {res.status_code}")
+    except Exception as e:
+        print(f"❌ Network Error ({geohash}): {e}")
     return []
 
 def get_detail(item_id: int) -> Optional[Dict]:
