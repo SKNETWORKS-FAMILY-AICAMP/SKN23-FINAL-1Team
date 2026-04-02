@@ -156,4 +156,20 @@ pyvenv.cfg
 .venv
 pip-selfcheck.json
 
-# End of https://www.toptal.com/developers/gitignore/api/venv,node
+# Windows Zone.Identifier files (ADS)
+*:Zone.Identifier
+
+# Python Virtual Environment
+venv/
+.venv/
+
+# Crawler Data (CSV, Cache)
+# data/
+# zigbang_crawling/data/
+# *.csv
+# *.json
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
