@@ -6,6 +6,8 @@ import os
 import time
 import glob
 import json
+import boto3
+from botocore.exceptions import ClientError
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -13,17 +15,208 @@ import threading
 import pygeohash as pgh
 
 # ======================================================
-# 세션 설정
+# S3 설정 (부모 폴더 포함)
 # ======================================================
 
-session = requests.Session()
-retry_strategy = Retry(total=3, backoff_factor=1)
-adapter = HTTPAdapter(max_retries=retry_strategy)
-session.mount("https://", adapter)
+S3_BUCKET = "skn23-final-1team-355904321127-ap-northeast-2-an"
+S3_PREFIX = "zigbang_data" # 모든 저장 경로의 부모 폴더
+s3_client = boto3.client("s3")
+
+def upload_to_s3(local_file: str, s3_path: str):
+    """로컬 파일을 S3의 부모 폴더 아래에 업로드"""
+    full_s3_path = f"{S3_PREFIX}/{s3_path}".replace("//", "/")
+    try:
+        s3_client.upload_file(local_file, S3_BUCKET, full_s3_path)
+        print(f"☁️  S3 업로드 성공: {full_s3_path}")
+    except Exception as e:
+        print(f"❌ S3 업로드 실패 ({os.path.basename(local_file)}): {e}")
 
 # ======================================================
-# 전국 지역 bounding box
+# 설정 (로컬 경로 및 API - 기존과 동일)
 # ======================================================
+
+BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
+ITEM_DIR   = os.path.join(BASE_DIR, "data", "csv", "item")
+IMAGE_DIR  = os.path.join(BASE_DIR, "data", "csv", "image")
+CACHE_DIR  = os.path.join(BASE_DIR, "data", "cache")
+GH_CACHE   = os.path.join(CACHE_DIR, "geohash_list.json")
+
+ITEM_FILE  = ""
+IMAGE_FILE = ""
+
+MAX_WORKERS   = 30 
+ID_WORKERS    = 20 
+SAVE_INTERVAL = 50
+
+ZIGBANG_API = {
+    "geohash":     "https://apis.zigbang.com/v2/items/oneroom",
+    "item_detail": "https://apis.zigbang.com/v3/items/{item_id}",
+}
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+    "Accept":     "application/json",
+    "Referer":    "https://www.zigbang.com/",
+    "Origin":     "https://www.zigbang.com",
+}
+
+lock = threading.Lock()
+
+# ... (지오해시, 히스토리 로드, API, 변환 로직 생략 - 이전과 동일) ...
+
+def get_all_geohashes(precision: int = 5) -> List[str]:
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    if os.path.exists(GH_CACHE):
+        with open(GH_CACHE, "r", encoding="utf-8") as f:
+            print("💾 캐시된 지오해시 리스트 로딩 완료!")
+            return json.load(f)
+    print("🧮 지오해시 리스트 새로 계산 중...")
+    lat_step, lng_step = 0.0439, 0.0879
+    all_gh = set()
+    for region, bounds in REGION_BOUNDS.items():
+        lat = bounds["lat_min"]
+        while lat <= bounds["lat_max"]:
+            lng = bounds["lng_min"]
+            while lng <= bounds["lng_max"]:
+                all_gh.add(pgh.encode(lat, lng, precision=precision))
+                lng += lng_step
+            lat += lat_step
+    result = sorted(list(all_gh))
+    with open(GH_CACHE, "w", encoding="utf-8") as f:
+        json.dump(result, f)
+    return result
+
+def setup_files_and_get_states() -> Dict[int, str]:
+    os.makedirs(ITEM_DIR, exist_ok=True)
+    os.makedirs(IMAGE_DIR, exist_ok=True)
+    item_states = {}
+    pattern = os.path.join(ITEM_DIR, "zigbang_items*.csv")
+    prev_files = sorted(glob.glob(pattern))
+    if prev_files:
+        print(f"🔍 히스토리 데이터 파일 {len(prev_files)}개 분석 중...")
+        for f_path in prev_files:
+            try:
+                with open(f_path, "r", encoding="utf-8-sig") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        iid = int(row["매물번호"]); item_states[iid] = row.get("상태", "ACTIVE")
+            except Exception as e: print(f"⚠️ {os.path.basename(f_path)} 분석 실패: {e}")
+        print(f"📊 누적 매물: {len(item_states)}개")
+    else: print("📊 히스토리 없음. 새로운 데이터베이스를 구축합니다.")
+    global ITEM_FILE, IMAGE_FILE
+    now_str = datetime.now().strftime("%Y%m%d_%H%M")
+    ITEM_FILE, IMAGE_FILE = os.path.join(ITEM_DIR, f"zigbang_items_{now_str}.csv"), os.path.join(IMAGE_DIR, f"zigbang_images_{now_str}.csv")
+    ITEM_COLUMNS = ["매물번호", "상태", "매물_URL", "전체주소", "지번주소", "보증금", "월세", "관리비", "건물유형", "방타입", "전용면적_m2", "층", "총층", "위도", "경도", "대표이미지", "수집일시"]
+    IMAGE_COLUMNS = ["매물번호", "이미지URL"]
+    with open(ITEM_FILE, "w", newline="", encoding="utf-8-sig") as f: csv.DictWriter(f, fieldnames=ITEM_COLUMNS).writeheader()
+    with open(IMAGE_FILE, "w", newline="", encoding="utf-8-sig") as f: csv.DictWriter(f, fieldnames=IMAGE_COLUMNS).writeheader()
+    return item_states
+
+def append_item(row):
+    ITEM_COLUMNS = ["매물번호", "상태", "매물_URL", "전체주소", "지번주소", "보증금", "월세", "관리비", "건물유형", "방타입", "전용면적_m2", "층", "총층", "위도", "경도", "대표이미지", "수집일시"]
+    with lock:
+        with open(ITEM_FILE, "a", newline="", encoding="utf-8-sig") as f: csv.DictWriter(f, fieldnames=ITEM_COLUMNS).writerow(row)
+
+def append_images(rows):
+    IMAGE_COLUMNS = ["매물번호", "이미지URL"]
+    with lock:
+        with open(IMAGE_FILE, "a", newline="", encoding="utf-8-sig") as f: csv.DictWriter(f, fieldnames=IMAGE_COLUMNS).writerows(rows)
+
+def get_item_ids(geohash: str) -> List[int]:
+    try:
+        res = session.get(ZIGBANG_API["geohash"], params={"geohash": geohash}, headers=HEADERS, timeout=10)
+        if res.status_code == 200: return [i["itemId"] for i in res.json().get("items", [])]
+    except: pass
+    return []
+
+def get_detail(item_id: int) -> Optional[Dict]:
+    try:
+        url = ZIGBANG_API["item_detail"].format(item_id=item_id)
+        res = session.get(url, headers=HEADERS, timeout=15)
+        if res.status_code == 200: return res.json()
+    except: pass
+    return None
+
+def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[Dict]]:
+    item = data.get("item", {})
+    if not item: return None, []
+    item_id, addr = item.get("itemId"), item.get("jibunAddress", "")
+    raw_imgs = item.get("images", [])
+    images = [f"{img.strip()}?w=1200" for img in raw_imgs if img]
+    item_row = {
+        "매물번호": item_id, "상태": status, "매물_URL": f"https://www.zigbang.com/home/oneroom/items/{item_id}",
+        "전체주소": addr, "지번주소": addr, "보증금": item.get("price", {}).get("deposit"), "월세": item.get("price", {}).get("rent"),
+        "관리비": item.get("manageCost", {}).get("amount"), "건물유형": item.get("serviceType"), "방타입": item.get("roomType"),
+        "전용면적_m2": item.get("area", {}).get("전용면적M2"), "층": item.get("floor", {}).get("floor"), "총층": item.get("floor", {}).get("allFloors"),
+        "위도": item.get("location", {}).get("lat"), "경도": item.get("location", {}).get("lng"), "대표이미지": images[0] if images else "", "수집일시": datetime.now().isoformat(),
+    }
+    image_rows = [{"매물번호": item_id, "이미지URL": img} for img in images]
+    return item_row, image_rows
+
+# ======================================================
+# 메인
+# ======================================================
+
+def crawl():
+    print("=" * 60)
+    print("🏠 직방 전국 크롤링 & 상태 추적 시스템 (Turbo v2 + S3)")
+    print(f"   실행 일시: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 60 + "\n")
+
+    start_total = time.time()
+    item_states = setup_files_and_get_states()
+    last_active_ids = {iid for iid, status in item_states.items() if status == "ACTIVE"}
+    geohash_list = get_all_geohashes()
+    print(f"📍 총 {len(geohash_list)}개의 지오해시 구역 분석 시작...")
+
+    current_found_ids: Set[int] = set()
+    print(f"🚀 ID 수집 중... (병렬 {ID_WORKERS}개)")
+    with ThreadPoolExecutor(max_workers=ID_WORKERS) as executor:
+        future_to_gh = {executor.submit(get_item_ids, gh): gh for gh in geohash_list}
+        done_gh = 0
+        for future in as_completed(future_to_gh):
+            ids = future.result()
+            if ids: current_found_ids.update(ids)
+            done_gh += 1
+            if done_gh % 200 == 0 or done_gh == len(geohash_list): print(f"   - 진행률: [{done_gh}/{len(geohash_list)}] ({done_gh/len(geohash_list)*100:.1f}%)")
+
+    new_ids = current_found_ids - item_states.keys()
+    reactivated_ids = (current_found_ids & item_states.keys()) - last_active_ids
+    deleted_ids = last_active_ids - current_found_ids
+    to_fetch_ids = new_ids | reactivated_ids
+
+    print(f"\n🔍 분석 결과: 현재 {len(current_found_ids)}개 (신규 {len(new_ids)}, 재활성 {len(reactivated_ids)}, 삭제 {len(deleted_ids)})")
+
+    if deleted_ids:
+        print(f"🚫 {len(deleted_ids)}개의 매물을 INACTIVE 상태로 기록 중...")
+        for did in deleted_ids: append_item({"매물번호": did, "상태": "INACTIVE", "수집일시": datetime.now().isoformat()})
+
+    if to_fetch_ids:
+        print(f"📋 상세 정보 수집 중... (대상: {len(to_fetch_ids)}개, 병렬 {MAX_WORKERS}개)")
+        start_detail = time.time()
+        done = 0
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = {executor.submit(get_detail, iid): iid for iid in to_fetch_ids}
+            for future in as_completed(futures):
+                data = future.result(); done += 1
+                if data:
+                    item_row, image_rows = transform(data, status="ACTIVE")
+                    if item_row: append_item(item_row); append_images(image_rows)
+                if done % SAVE_INTERVAL == 0 or done == len(to_fetch_ids):
+                    elapsed_detail = time.time() - start_detail
+                    speed = done / elapsed_detail if elapsed_detail > 0 else 0
+                    print(f"  [{done:5d}/{len(to_fetch_ids)}] 속도: {speed:.1f}/초")
+
+    # 🚀 크롤링 종료 후 CSV 파일을 S3로 전송!
+    print("\n📦 결과물을 S3로 업로드 중...")
+    upload_to_s3(ITEM_FILE,  f"csv/item/{os.path.basename(ITEM_FILE)}")
+    upload_to_s3(IMAGE_FILE, f"csv/image/{os.path.basename(IMAGE_FILE)}")
+
+    total_elapsed = time.time() - start_total
+    print("\n" + "=" * 60)
+    print("🎉 모든 작업 완료!")
+    print(f"   ⏱️  총 소요시간: {total_elapsed/60:.1f}분")
+    print("=" * 60)
 
 REGION_BOUNDS = {
     "서울":    {"lat_min": 37.413, "lat_max": 37.715, "lng_min": 126.734, "lng_max": 127.269},
@@ -44,259 +237,6 @@ REGION_BOUNDS = {
     "전라남도":{"lat_min": 33.940, "lat_max": 35.520, "lng_min": 125.970, "lng_max": 127.790},
     "제주":    {"lat_min": 33.100, "lat_max": 33.570, "lng_min": 126.100, "lng_max": 126.990},
 }
-
-TARGET_REGIONS = list(REGION_BOUNDS.keys())
-
-# ======================================================
-# 설정
-# ======================================================
-
-BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
-ITEM_DIR   = os.path.join(BASE_DIR, "data", "csv", "item")
-IMAGE_DIR  = os.path.join(BASE_DIR, "data", "csv", "image")
-CACHE_DIR  = os.path.join(BASE_DIR, "data", "cache")
-GH_CACHE   = os.path.join(CACHE_DIR, "geohash_list.json")
-
-ITEM_FILE  = ""
-IMAGE_FILE = ""
-
-MAX_WORKERS   = 30 # 상세 정보 수집용 (로컬 성능에 따라 조절)
-ID_WORKERS    = 20 # 지오해시 ID 수집용 (네트워크 병렬화)
-SAVE_INTERVAL = 50
-
-ZIGBANG_API = {
-    "geohash":     "https://apis.zigbang.com/v2/items/oneroom",
-    "item_detail": "https://apis.zigbang.com/v3/items/{item_id}",
-}
-
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
-    "Accept":     "application/json",
-    "Referer":    "https://www.zigbang.com/",
-    "Origin":     "https://www.zigbang.com",
-}
-
-lock = threading.Lock()
-
-# ======================================================
-# 지오해시 로직 (캐싱 포함)
-# ======================================================
-
-def get_all_geohashes(precision: int = 5) -> List[str]:
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    if os.path.exists(GH_CACHE):
-        with open(GH_CACHE, "r", encoding="utf-8") as f:
-            print("💾 캐시된 지오해시 리스트 로딩 완료!")
-            return json.load(f)
-
-    print("🧮 지오해시 리스트 새로 계산 중...")
-    lat_step = 0.0439
-    lng_step = 0.0879
-    all_gh = set()
-    for region, bounds in REGION_BOUNDS.items():
-        lat = bounds["lat_min"]
-        while lat <= bounds["lat_max"]:
-            lng = bounds["lng_min"]
-            while lng <= bounds["lng_max"]:
-                all_gh.add(pgh.encode(lat, lng, precision=precision))
-                lng += lng_step
-            lat += lat_step
-    result = sorted(list(all_gh))
-    with open(GH_CACHE, "w", encoding="utf-8") as f:
-        json.dump(result, f)
-    return result
-
-# ======================================================
-# 히스토리 로드 및 파일 설정
-# ======================================================
-
-def setup_files_and_get_states() -> Dict[int, str]:
-    os.makedirs(ITEM_DIR, exist_ok=True)
-    os.makedirs(IMAGE_DIR, exist_ok=True)
-    
-    item_states = {}
-    pattern = os.path.join(ITEM_DIR, "zigbang_items*.csv")
-    prev_files = sorted(glob.glob(pattern))
-
-    if prev_files:
-        print(f"🔍 히스토리 데이터 파일 {len(prev_files)}개 분석 중...")
-        for f_path in prev_files:
-            try:
-                with open(f_path, "r", encoding="utf-8-sig") as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        iid = int(row["매물번호"])
-                        item_states[iid] = row.get("상태", "ACTIVE")
-            except Exception as e:
-                print(f"   ⚠️ {os.path.basename(f_path)} 분석 실패: {e}")
-        
-        active_count = sum(1 for s in item_states.values() if s == "ACTIVE")
-        print(f"📊 누적 매물: {len(item_states)}개 (현재 활성 추정: {active_count}개)")
-    else:
-        print("📊 히스토리 없음. 새로운 데이터베이스를 구축합니다.")
-
-    global ITEM_FILE, IMAGE_FILE
-    now_str = datetime.now().strftime("%Y%m%d_%H%M")
-    ITEM_FILE  = os.path.join(ITEM_DIR, f"zigbang_items_{now_str}.csv")
-    IMAGE_FILE = os.path.join(IMAGE_DIR, f"zigbang_images_{now_str}.csv")
-
-    ITEM_COLUMNS = [
-        "매물번호", "상태", "매물_URL", "전체주소", "지번주소",
-        "보증금", "월세", "관리비", "건물유형", "방타입",
-        "전용면적_m2", "층", "총층", "위도", "경도", "대표이미지", "수집일시",
-    ]
-    IMAGE_COLUMNS = ["매물번호", "이미지URL"]
-
-    with open(ITEM_FILE, "w", newline="", encoding="utf-8-sig") as f:
-        csv.DictWriter(f, fieldnames=ITEM_COLUMNS).writeheader()
-    with open(IMAGE_FILE, "w", newline="", encoding="utf-8-sig") as f:
-        csv.DictWriter(f, fieldnames=IMAGE_COLUMNS).writeheader()
-    
-    return item_states
-
-# ======================================================
-# CSV 저장
-# ======================================================
-
-def append_item(row):
-    ITEM_COLUMNS = ["매물번호", "상태", "매물_URL", "전체주소", "지번주소", "보증금", "월세", "관리비", "건물유형", "방타입", "전용면적_m2", "층", "총층", "위도", "경도", "대표이미지", "수집일시"]
-    with lock:
-        with open(ITEM_FILE, "a", newline="", encoding="utf-8-sig") as f:
-            csv.DictWriter(f, fieldnames=ITEM_COLUMNS).writerow(row)
-
-def append_images(rows):
-    IMAGE_COLUMNS = ["매물번호", "이미지URL"]
-    with lock:
-        with open(IMAGE_FILE, "a", newline="", encoding="utf-8-sig") as f:
-            csv.DictWriter(f, fieldnames=IMAGE_COLUMNS).writerows(rows)
-
-# ======================================================
-# API
-# ======================================================
-
-def get_item_ids(geohash: str) -> List[int]:
-    try:
-        res = session.get(ZIGBANG_API["geohash"], params={"geohash": geohash}, headers=HEADERS, timeout=10)
-        if res.status_code == 200:
-            return [i["itemId"] for i in res.json().get("items", [])]
-    except: pass
-    return []
-
-def get_detail(item_id: int) -> Optional[Dict]:
-    try:
-        url = ZIGBANG_API["item_detail"].format(item_id=item_id)
-        res = session.get(url, headers=HEADERS, timeout=15)
-        if res.status_code == 200: return res.json()
-    except: pass
-    return None
-
-# ======================================================
-# 변환
-# ======================================================
-
-def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[Dict]]:
-    item = data.get("item", {})
-    if not item: return None, []
-    item_id  = item.get("itemId")
-    addr     = item.get("jibunAddress", "")
-    raw_imgs = item.get("images", [])
-    images   = [f"{img.strip()}?w=1200" for img in raw_imgs if img]
-
-    item_row = {
-        "매물번호":    item_id, "상태": status,
-        "매물_URL":    f"https://www.zigbang.com/home/oneroom/items/{item_id}",
-        "전체주소":    addr, "지번주소": addr,
-        "보증금":      item.get("price", {}).get("deposit"),
-        "월세":        item.get("price", {}).get("rent"),
-        "관리비":      item.get("manageCost", {}).get("amount"),
-        "건물유형":    item.get("serviceType"), "방타입": item.get("roomType"),
-        "전용면적_m2": item.get("area", {}).get("전용면적M2"),
-        "층":          item.get("floor", {}).get("floor"), "총층": item.get("floor", {}).get("allFloors"),
-        "위도":        item.get("location", {}).get("lat"), "경도": item.get("location", {}).get("lng"),
-        "대표이미지":  images[0] if images else "", "수집일시": datetime.now().isoformat(),
-    }
-    image_rows = [{"매물번호": item_id, "이미지URL": img} for img in images]
-    return item_row, image_rows
-
-# ======================================================
-# 메인
-# ======================================================
-
-def crawl():
-    print("=" * 60)
-    print("🏠 직방 전국 크롤링 & 상태 추적 시스템 (Turbo v2)")
-    print(f"   실행 일시: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 60 + "\n")
-
-    start_total = time.time()
-
-    # 0. 히스토리 로드
-    item_states = setup_files_and_get_states()
-    last_active_ids = {iid for iid, status in item_states.items() if status == "ACTIVE"}
-
-    # 1. 지오해시 리스트 로드 (캐싱)
-    geohash_list = get_all_geohashes()
-    print(f"📍 총 {len(geohash_list)}개의 지오해시 구역 분석 시작...")
-
-    # 2. 현재 매물 ID 수집 (병렬화!)
-    current_found_ids: Set[int] = set()
-    print(f"🚀 ID 수집 중... (병렬 {ID_WORKERS}개)")
-    
-    with ThreadPoolExecutor(max_workers=ID_WORKERS) as executor:
-        future_to_gh = {executor.submit(get_item_ids, gh): gh for gh in geohash_list}
-        done_gh = 0
-        for future in as_completed(future_to_gh):
-            ids = future.result()
-            if ids: current_found_ids.update(ids)
-            done_gh += 1
-            if done_gh % 200 == 0 or done_gh == len(geohash_list):
-                print(f"   - 진행률: [{done_gh}/{len(geohash_list)}] ({done_gh/len(geohash_list)*100:.1f}%)")
-
-    # 3. 상태 변화 계산
-    new_ids         = current_found_ids - item_states.keys()
-    reactivated_ids = (current_found_ids & item_states.keys()) - last_active_ids
-    deleted_ids     = last_active_ids - current_found_ids
-    to_fetch_ids    = new_ids | reactivated_ids
-
-    print(f"\n🔍 분석 결과:")
-    print(f"   - 현재 발견: {len(current_found_ids)}개")
-    print(f"   - ✨ 신규:   {len(new_ids)}개")
-    print(f"   - ♻️  재활성: {len(reactivated_ids)}개")
-    print(f"   - 🚫 삭제됨: {len(deleted_ids)}개")
-    print("-" * 60 + "\n")
-
-    # 4. 삭제된 매물 기록
-    if deleted_ids:
-        print(f"🚫 {len(deleted_ids)}개의 매물을 INACTIVE 상태로 기록 중...")
-        for did in deleted_ids:
-            append_item({"매물번호": did, "상태": "INACTIVE", "수집일시": datetime.now().isoformat()})
-
-    # 5. 상세 정보 수집 (병렬)
-    if to_fetch_ids:
-        print(f"📋 상세 정보 수집 중... (대상: {len(to_fetch_ids)}개, 병렬 {MAX_WORKERS}개)")
-        start_detail = time.time()
-        done  = 0
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            futures = {executor.submit(get_detail, iid): iid for iid in to_fetch_ids}
-            for future in as_completed(futures):
-                data = future.result()
-                done += 1
-                if data:
-                    item_row, image_rows = transform(data, status="ACTIVE")
-                    if item_row:
-                        append_item(item_row)
-                        append_images(image_rows)
-                if done % SAVE_INTERVAL == 0 or done == len(to_fetch_ids):
-                    elapsed_detail = time.time() - start_detail
-                    speed = done / elapsed_detail if elapsed_detail > 0 else 0
-                    print(f"  [{done:5d}/{len(to_fetch_ids)}] 속도: {speed:.1f}/초")
-
-    total_elapsed = time.time() - start_total
-    print("\n" + "=" * 60)
-    print("🎉 모든 작업 완료!")
-    print(f"   📄 저장 파일: {os.path.basename(ITEM_FILE)}")
-    print(f"   ⏱️  총 소요시간: {total_elapsed/60:.1f}분")
-    print("=" * 60)
 
 if __name__ == "__main__":
     crawl()
