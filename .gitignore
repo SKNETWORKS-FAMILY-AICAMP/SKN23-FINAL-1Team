@@ -164,10 +164,10 @@ venv/
 .venv/
 
 # Crawler Data (CSV, Cache)
-# data/
-# zigbang_crawling/data/
-# *.csv
-# *.json
+data/
+zigbang_crawling/data/
+*.csv
+*.json
 
 # Python cache
 __pycache__/
