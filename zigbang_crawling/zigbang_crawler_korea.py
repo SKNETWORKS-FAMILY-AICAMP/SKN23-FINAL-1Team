@@ -11,6 +11,14 @@ from botocore.exceptions import ClientError
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import List, Dict, Any, Optional, Tuple, Set
+from dotenv import load_dotenv
+
+# ======================================================
+# 환경 변수 로드 (프로젝트 루트의 .env 읽기)
+# ======================================================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)
+load_dotenv(os.path.join(ROOT_DIR, ".env"))
 
 # KST 타임존 설정
 KST = ZoneInfo("Asia/Seoul")
@@ -26,11 +34,11 @@ import threading
 import pygeohash as pgh
 
 # ======================================================
-# S3 설정 (부모 폴더 포함)
+# S3 설정 (환경 변수에서 로드)
 # ======================================================
 
-S3_BUCKET = "skn23-final-1team-355904321127-ap-northeast-2-an"
-S3_PREFIX = "zigbang_data" # 모든 저장 경로의 부모 폴더
+S3_BUCKET = os.getenv("S3_BUCKET")
+S3_PREFIX = os.getenv("S3_PREFIX", "zigbang_data") 
 s3_client = boto3.client("s3")
 
 def upload_to_s3(local_file: str, s3_path: str):
