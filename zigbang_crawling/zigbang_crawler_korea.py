@@ -9,7 +9,11 @@ import json
 import boto3
 from botocore.exceptions import ClientError
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import List, Dict, Any, Optional, Tuple, Set
+
+# KST 타임존 설정
+KST = ZoneInfo("Asia/Seoul")
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import pygeohash as pgh
@@ -104,7 +108,7 @@ def setup_files_and_get_states() -> Dict[int, str]:
         print(f"📊 누적 매물: {len(item_states)}개")
     else: print("📊 히스토리 없음. 새로운 데이터베이스를 구축합니다.")
     global ITEM_FILE, IMAGE_FILE
-    now_str = datetime.now().strftime("%Y%m%d_%H%M")
+    now_str = datetime.now(KST).strftime("%Y%m%d_%H%M")
     ITEM_FILE, IMAGE_FILE = os.path.join(ITEM_DIR, f"zigbang_items_{now_str}.csv"), os.path.join(IMAGE_DIR, f"zigbang_images_{now_str}.csv")
     ITEM_COLUMNS = ["매물번호", "상태", "매물_URL", "전체주소", "지번주소", "보증금", "월세", "관리비", "건물유형", "방타입", "전용면적_m2", "층", "총층", "위도", "경도", "대표이미지", "수집일시"]
     IMAGE_COLUMNS = ["매물번호", "이미지URL"]
@@ -148,7 +152,7 @@ def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[
         "전체주소": addr, "지번주소": addr, "보증금": item.get("price", {}).get("deposit"), "월세": item.get("price", {}).get("rent"),
         "관리비": item.get("manageCost", {}).get("amount"), "건물유형": item.get("serviceType"), "방타입": item.get("roomType"),
         "전용면적_m2": item.get("area", {}).get("전용면적M2"), "층": item.get("floor", {}).get("floor"), "총층": item.get("floor", {}).get("allFloors"),
-        "위도": item.get("location", {}).get("lat"), "경도": item.get("location", {}).get("lng"), "대표이미지": images[0] if images else "", "수집일시": datetime.now().isoformat(),
+        "위도": item.get("location", {}).get("lat"), "경도": item.get("location", {}).get("lng"), "대표이미지": images[0] if images else "", "수집일시": datetime.now(KST).isoformat(),
     }
     image_rows = [{"매물번호": item_id, "이미지URL": img} for img in images]
     return item_row, image_rows
@@ -160,7 +164,7 @@ def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[
 def crawl():
     print("=" * 60)
     print("🏠 직방 전국 크롤링 & 상태 추적 시스템 (Turbo v2 + S3)")
-    print(f"   실행 일시: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"   실행 일시: {datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60 + "\n")
 
     start_total = time.time()
@@ -189,7 +193,7 @@ def crawl():
 
     if deleted_ids:
         print(f"🚫 {len(deleted_ids)}개의 매물을 INACTIVE 상태로 기록 중...")
-        for did in deleted_ids: append_item({"매물번호": did, "상태": "INACTIVE", "수집일시": datetime.now().isoformat()})
+        for did in deleted_ids: append_item({"매물번호": did, "상태": "INACTIVE", "수집일시": datetime.now(KST).isoformat()})
 
     if to_fetch_ids:
         print(f"📋 상세 정보 수집 중... (대상: {len(to_fetch_ids)}개, 병렬 {MAX_WORKERS}개)")
