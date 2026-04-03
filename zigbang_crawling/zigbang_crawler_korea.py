@@ -6,6 +6,7 @@ import os
 import time
 import glob
 import json
+import random
 import boto3
 from botocore.exceptions import ClientError
 from datetime import datetime
@@ -80,17 +81,26 @@ HEADERS = {
 }
 # ... (상단 설정 부분)
 MAX_WORKERS   = 10 
-ID_WORKERS    = 30 # 구역이 늘어나니까 ID 수집 병렬도를 높여!
+ID_WORKERS    = 15 # 구역이 늘어나니까 안전하게 15로 조정!
 SAVE_INTERVAL = 50
 
 # ... (중략) ...
 
 def get_all_geohashes(precision: int = 6) -> List[str]:
     os.makedirs(CACHE_DIR, exist_ok=True)
+    
+    # 💾 캐시된 파일이 있으면 즉시 로드!
+    if os.path.exists(GH_CACHE):
+        with open(GH_CACHE, "r", encoding="utf-8") as f:
+            result = json.load(f)
+            print(f"💾 캐시된 지오해시 리스트 로딩 완료! (총 {len(result)} 구역)")
+            return result
+
     # 정밀도 6에 맞춰 간격을 훨씬 촘촘하게 (약 1km 단위)
     lat_step, lng_step = 0.005, 0.01 
-
+    
     print(f"🧮 지오해시 리스트 계산 중 (정밀도 {precision}, 촘촘한 간격 적용)...")
+    # ... (이후 계산 로직 동일)
     all_gh = set()
     for region, bounds in REGION_BOUNDS.items():
         lat = bounds["lat_min"]
@@ -143,10 +153,15 @@ def append_images(rows):
         with open(IMAGE_FILE, "a", newline="", encoding="utf-8-sig") as f: csv.DictWriter(f, fieldnames=IMAGE_COLUMNS).writerows(rows)
 
 def get_item_ids(geohash: str) -> List[int]:
+    # 🕵️ 스텔스 모드: 사람인 척 살짝 쉬어주기 (차단 방지)
+    time.sleep(random.uniform(0.1, 0.4))
     try:
         res = session.get(ZIGBANG_API["geohash"], params={"geohash": geohash}, headers=HEADERS, timeout=10)
         if res.status_code == 200: 
             return [i["itemId"] for i in res.json().get("items", [])]
+        elif res.status_code == 403:
+            print(f"🚫 IP 차단 감지 (403)! ({geohash})")
+            return []
         else:
             print(f"⚠️ API Error ({geohash}): Status {res.status_code}")
     except Exception as e:
