@@ -9,6 +9,14 @@ import json
 import random
 import boto3
 from botocore.exceptions import ClientError
+
+# 유저 에이전트 리스트 (사람인 척하기!)
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
+]
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import List, Dict, Any, Optional, Tuple, Set
@@ -81,7 +89,7 @@ HEADERS = {
 }
 # ... (상단 설정 부분)
 MAX_WORKERS   = 10 
-ID_WORKERS    = 15 # 구역이 늘어나니까 안전하게 15로 조정!
+ID_WORKERS    = 10 # 초정밀 모드이므로 안전하게 10으로 하향 조정!
 SAVE_INTERVAL = 50
 
 # ... (중략) ...
@@ -96,10 +104,11 @@ def get_all_geohashes(precision: int = 6) -> List[str]:
             print(f"💾 캐시된 지오해시 리스트 로딩 완료! (총 {len(result)} 구역)")
             return result
 
-    # 정밀도 6에 맞춰 간격을 훨씬 촘촘하게 (약 1km 단위)
-    lat_step, lng_step = 0.005, 0.01 
+    # ⚖️ 타협안: 정밀도 6은 유지하되, 간격을 살짝 넓혀서 약 6만 개 수준으로 최적화
+    lat_step, lng_step = 0.01, 0.02 
     
-    print(f"🧮 지오해시 리스트 계산 중 (정밀도 {precision}, 촘촘한 간격 적용)...")
+    print(f"🧮 지오해시 리스트 계산 중 (정밀도 {precision}, 최적화된 간격 적용)...")
+    # ... (이후 계산 로직 동일)
     # ... (이후 계산 로직 동일)
     all_gh = set()
     for region, bounds in REGION_BOUNDS.items():
@@ -153,10 +162,18 @@ def append_images(rows):
         with open(IMAGE_FILE, "a", newline="", encoding="utf-8-sig") as f: csv.DictWriter(f, fieldnames=IMAGE_COLUMNS).writerows(rows)
 
 def get_item_ids(geohash: str) -> List[int]:
-    # 🕵️ 스텔스 모드: 사람인 척 살짝 쉬어주기 (차단 방지)
-    time.sleep(random.uniform(0.1, 0.4))
+    # 🕵️ 초정밀 스텔스: 더 길게, 더 불규칙하게 쉬어주기 (차단 방지)
+    time.sleep(random.uniform(0.5, 1.2))
+    
+    # 매번 다른 유저 에이전트 사용!
+    headers = {
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept": "application/json",
+        "Referer": "https://www.zigbang.com/",
+    }
+    
     try:
-        res = session.get(ZIGBANG_API["geohash"], params={"geohash": geohash}, headers=HEADERS, timeout=10)
+        res = session.get(ZIGBANG_API["geohash"], params={"geohash": geohash}, headers=headers, timeout=10)
         if res.status_code == 200: 
             return [i["itemId"] for i in res.json().get("items", [])]
         elif res.status_code == 403:
