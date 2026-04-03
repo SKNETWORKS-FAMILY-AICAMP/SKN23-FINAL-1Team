@@ -77,6 +77,7 @@ HEADERS = {
     "Accept":     "application/json",
     "Referer":    "https://www.zigbang.com/",
     "Origin":     "https://www.zigbang.com",
+}
 # ... (상단 설정 부분)
 MAX_WORKERS   = 10 
 ID_WORKERS    = 30 # 구역이 늘어나니까 ID 수집 병렬도를 높여!
