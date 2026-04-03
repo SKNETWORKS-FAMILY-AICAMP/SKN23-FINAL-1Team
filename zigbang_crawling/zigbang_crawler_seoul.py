@@ -305,14 +305,16 @@ def crawl():
 
     print(f"\n🔍 분석 결과: 현재 {len(current_found_ids)}개 (신규 {len(new_ids)}, 재활성 {len(reactivated_ids)}, 삭제 {len(deleted_ids)})")
 
+    # 🎯 삭제 로직 수정: 현재 찾은 ID 리스트에 진짜 없는 놈들만!
+    deleted_ids = last_active_ids - current_found_ids
+    
     if deleted_ids:
-        # 실제로 활성(ACTIVE) 상태였던 놈들만 INACTIVE로 전환해서 기록해! 
-        # (이미 죽은 놈은 또 죽일 필요 없으니까.)
         to_deactivate = [did for did in deleted_ids if item_states.get(did) == "ACTIVE"]
         if to_deactivate:
             print(f"🚫 {len(to_deactivate)}개의 매물을 INACTIVE 상태로 기록 중...")
             for did in to_deactivate: 
                 append_item({"매물번호": did, "상태": "INACTIVE", "수집일시": datetime.now(KST).isoformat()})
+                with lock: item_states[did] = "INACTIVE"
         else:
             print("✨ 새로 삭제된 매물은 없네! (이미 INACTIVE 상태)")
 
@@ -321,25 +323,19 @@ def crawl():
         start_detail = time.time()
         done = 0
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            # iid를 future와 매핑해서 에러 시 식별 가능하게 함
             futures = {executor.submit(get_detail, iid): iid for iid in to_fetch_ids}
             for future in as_completed(futures):
-                current_iid = futures[future] # 현재 처리 중인 ID 꺼내기
+                current_iid = futures[future]
                 data = future.result(); done += 1
                 if data:
                     item_row, image_rows = transform(data, status="ACTIVE")
                     if item_row: 
                         append_item(item_row)
-                        # 🎯 즉시 기억 업데이트! (다음 루프나 실행에서 신규로 안 잡히게)
-                        with lock:
-                            item_states[current_iid] = "ACTIVE"
-                        
-                        if image_rows:
-                            append_images(image_rows)
-                    else:
-                        print(f"⚠️ 데이터 변환 실패 (ID: {current_iid})")
-                
-                if done % SAVE_INTERVAL == 0 or done == len(to_fetch_ids):
+                        with lock: item_states[current_iid] = "ACTIVE"
+                        if image_rows: append_images(image_rows)
+                else:
+                    # 🎯 핵심: 실패했다고 INACTIVE로 적지 마! 그냥 다음 실행 때 다시 도전하게 놔둬.
+                    print(f"⏭️ 상세 정보 수집 건너뜀 (차단 혹은 에러, ID: {current_iid})")
                     elapsed_detail = time.time() - start_detail
                     speed = done / elapsed_detail if elapsed_detail > 0 else 0
                     print(f"  [{done:5d}/{len(to_fetch_ids)}] 속도: {speed:.1f}/초")
