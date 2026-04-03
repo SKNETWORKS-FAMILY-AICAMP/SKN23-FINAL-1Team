@@ -60,13 +60,14 @@ def upload_to_s3(local_file: str, s3_path: str):
         print(f"❌ S3 업로드 실패 ({os.path.basename(local_file)}): {e}")
 
 # ======================================================
-# 설정 (로컬 경로 및 API - 기존과 동일)
+# 설정 (로컬 경로 및 API)
 # ======================================================
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
-ITEM_DIR   = os.path.join(BASE_DIR, "data", "csv", "item")
-IMAGE_DIR  = os.path.join(BASE_DIR, "data", "csv", "image")
-CACHE_DIR  = os.path.join(BASE_DIR, "data", "cache")
+DATA_DIR   = os.path.join(BASE_DIR, "data")
+ITEM_DIR   = os.path.join(DATA_DIR, "csv", "item")
+IMAGE_DIR  = os.path.join(DATA_DIR, "csv", "image")
+CACHE_DIR  = os.path.join(DATA_DIR, "cache")
 GH_CACHE   = os.path.join(CACHE_DIR, "geohash_list.json")
 
 ITEM_FILE  = ""
@@ -129,38 +130,49 @@ def get_all_geohashes(precision: int = 5) -> List[str]:
     return result
 
 def setup_files_and_get_states() -> Dict[int, str]:
-    # 🕵️ 경로 확인 및 강제 생성
     if not os.path.exists(ITEM_DIR):
-        print(f"⚠️ 경고: {ITEM_DIR} 폴더가 없습니다. 새로 생성합니다.")
         os.makedirs(ITEM_DIR, exist_ok=True)
     os.makedirs(IMAGE_DIR, exist_ok=True)
     
     item_states = {}
-    # 🔍 히스토리 분석: 하위 폴더(legacy 등)까지 싹 뒤져서 가져와!
+    date_str = datetime.now(KST).strftime("%Y%m%d")
+    
+    # 🔍 오늘 날짜 파일과 과거 파일들을 모두 분석 (재귀적)
     pattern = os.path.join(ITEM_DIR, "**", "zigbang_items*.csv")
     prev_files = sorted(glob.glob(pattern, recursive=True))
     
     if prev_files:
-        print(f"🔍 히스토리 데이터 파일 {len(prev_files)}개 분석 중... (하위 폴더 포함)")
+        print(f"🔍 히스토리 데이터 파일 {len(prev_files)}개 통합 분석 중...")
         for f_path in prev_files:
             try:
                 with open(f_path, "r", encoding="utf-8-sig") as f:
                     reader = csv.DictReader(f)
                     for row in reader:
                         iid = int(row["매물번호"])
+                        # 가장 최신 상태를 유지
                         item_states[iid] = row.get("상태", "ACTIVE")
             except Exception as e: 
                 print(f"⚠️ {os.path.basename(f_path)} 분석 실패: {e}")
         print(f"📊 누적 매물: {len(item_states)}개")
     else: 
         print("📊 히스토리 없음. 새로운 데이터베이스를 구축합니다.")
+    
     global ITEM_FILE, IMAGE_FILE
-    now_str = datetime.now(KST).strftime("%Y%m%d_%H%M%S") # 초 단위 추가! 충돌 방지
-    ITEM_FILE, IMAGE_FILE = os.path.join(ITEM_DIR, f"zigbang_items_{now_str}.csv"), os.path.join(IMAGE_DIR, f"zigbang_images_{now_str}.csv")
+    # 🎯 파일명에서 분/초 제거! 날짜별 통합 관리!
+    ITEM_FILE = os.path.join(ITEM_DIR, f"zigbang_items_{date_str}.csv")
+    IMAGE_FILE = os.path.join(IMAGE_DIR, f"zigbang_images_{date_str}.csv")
+    
+    # 파일이 없으면 헤더 생성
     ITEM_COLUMNS = ["매물번호", "상태", "매물_URL", "전체주소", "지번주소", "보증금", "월세", "관리비", "건물유형", "방타입", "전용면적_m2", "층", "총층", "위도", "경도", "대표이미지", "수집일시"]
     IMAGE_COLUMNS = ["매물번호", "이미지URL"]
-    with open(ITEM_FILE, "w", newline="", encoding="utf-8-sig") as f: csv.DictWriter(f, fieldnames=ITEM_COLUMNS).writeheader()
-    with open(IMAGE_FILE, "w", newline="", encoding="utf-8-sig") as f: csv.DictWriter(f, fieldnames=IMAGE_COLUMNS).writeheader()
+    
+    if not os.path.exists(ITEM_FILE):
+        with open(ITEM_FILE, "w", newline="", encoding="utf-8-sig") as f:
+            csv.DictWriter(f, fieldnames=ITEM_COLUMNS).writeheader()
+    if not os.path.exists(IMAGE_FILE):
+        with open(IMAGE_FILE, "w", newline="", encoding="utf-8-sig") as f:
+            csv.DictWriter(f, fieldnames=IMAGE_COLUMNS).writeheader()
+            
     return item_states
 
 def append_item(row):
