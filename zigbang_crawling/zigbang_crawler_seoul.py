@@ -328,21 +328,16 @@ def crawl():
     # 🎯 수집 전략: 한 번이라도 우리 DB에 들어온 놈은 절대 '신규'가 될 수 없음!
     new_ids = current_found_ids - item_states.keys()
     
-    # 🎯 재활성 로직 수정: 
-    # 예전에는 INACTIVE 놈이 다시 나타나면 긁었지만, 이제는 "한 번 죽은 놈은 끝이다"라고 정의한다면?
-    # 만약 진짜 부활할 수도 있으니, 일단은 '신규'에서만 확실히 빠지게 놔두고
-    # 아래 to_fetch_ids에서 필터링을 한 번 더 하자!
-    
+    # 🎯 재활성 로직: 기존 DB에 있지만 현재 활성 상태가 아닌 놈들 중 다시 나타난 놈
     reactivated_ids = (current_found_ids & item_states.keys()) - last_active_ids
     
+    # 🎯 삭제 로직: 기존에 활성 상태였는데 이번 목록에서 사라진 놈들
+    deleted_ids = last_active_ids - current_found_ids
+    
     # ❌ [네 요청대로!] 한 번 INACTIVE 된 놈은 다시는 상세 정보를 긁지 마!
-    # (진짜로 다시 살아날 수도 있지만, 네가 "안 되는 거 뻔히 안다"고 했으니 차단한다!)
     to_fetch_ids = new_ids # reactivated_ids는 과감히 버린다!
 
     print(f"\n🔍 분석 결과: 현재 {len(current_found_ids)}개 (신규 {len(new_ids)}, 재활성 {len(reactivated_ids)}, 삭제 {len(deleted_ids)})")
-
-    # 🎯 삭제 로직 수정: 현재 찾은 ID 리스트에 진짜 없는 놈들만!
-    deleted_ids = last_active_ids - current_found_ids
     
     if deleted_ids:
         to_deactivate = [did for did in deleted_ids if item_states.get(did) == "ACTIVE"]
