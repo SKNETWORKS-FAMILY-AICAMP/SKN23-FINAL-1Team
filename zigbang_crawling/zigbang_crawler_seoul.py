@@ -158,9 +158,11 @@ def setup_files_and_get_states() -> Dict[int, str]:
         print("📊 히스토리 없음. 새로운 데이터베이스를 구축합니다.")
     
     global ITEM_FILE, IMAGE_FILE
-    # 🎯 파일명에서 분/초 제거! 날짜별 통합 관리!
+    now_str = datetime.now(KST).strftime("%Y%m%d_%H%M") # 시/분 추가!
+    
+    # 🎯 아이템은 날짜별 통합, 이미지는 실행별 분리!
     ITEM_FILE = os.path.join(ITEM_DIR, f"zigbang_items_{date_str}.csv")
-    IMAGE_FILE = os.path.join(IMAGE_DIR, f"zigbang_images_{date_str}.csv")
+    IMAGE_FILE = os.path.join(IMAGE_DIR, f"zigbang_images_{now_str}.csv")
     
     # 파일이 없으면 헤더 생성
     ITEM_COLUMNS = ["매물번호", "상태", "매물_URL", "전체주소", "지번주소", "보증금", "월세", "관리비", "건물유형", "방타입", "전용면적_m2", "층", "총층", "위도", "경도", "대표이미지", "수집일시"]
@@ -169,9 +171,10 @@ def setup_files_and_get_states() -> Dict[int, str]:
     if not os.path.exists(ITEM_FILE):
         with open(ITEM_FILE, "w", newline="", encoding="utf-8-sig") as f:
             csv.DictWriter(f, fieldnames=ITEM_COLUMNS).writeheader()
-    if not os.path.exists(IMAGE_FILE):
-        with open(IMAGE_FILE, "w", newline="", encoding="utf-8-sig") as f:
-            csv.DictWriter(f, fieldnames=IMAGE_COLUMNS).writeheader()
+    
+    # 이미지 파일은 매번 새로 만드니까 무조건 헤더 생성
+    with open(IMAGE_FILE, "w", newline="", encoding="utf-8-sig") as f:
+        csv.DictWriter(f, fieldnames=IMAGE_COLUMNS).writeheader()
             
     return item_states
 
