@@ -157,12 +157,20 @@ def setup_files_and_get_states() -> Dict[int, str]:
 def append_item(row):
     ITEM_COLUMNS = ["매물번호", "상태", "매물_URL", "전체주소", "지번주소", "보증금", "월세", "관리비", "건물유형", "방타입", "전용면적_m2", "층", "총층", "위도", "경도", "대표이미지", "수집일시"]
     with lock:
-        with open(ITEM_FILE, "a", newline="", encoding="utf-8-sig") as f: csv.DictWriter(f, fieldnames=ITEM_COLUMNS).writerow(row)
+        with open(ITEM_FILE, "a", newline="", encoding="utf-8-sig") as f:
+            writer = csv.DictWriter(f, fieldnames=ITEM_COLUMNS)
+            writer.writerow(row)
+            f.flush() # 버퍼 비우기
+            os.fsync(f.fileno()) # 하드디스크에 즉시 기록 강제!
 
 def append_images(rows):
     IMAGE_COLUMNS = ["매물번호", "이미지URL"]
     with lock:
-        with open(IMAGE_FILE, "a", newline="", encoding="utf-8-sig") as f: csv.DictWriter(f, fieldnames=IMAGE_COLUMNS).writerows(rows)
+        with open(IMAGE_FILE, "a", newline="", encoding="utf-8-sig") as f:
+            writer = csv.DictWriter(f, fieldnames=IMAGE_COLUMNS)
+            writer.writerows(rows)
+            f.flush() # 버퍼 비우기
+            os.fsync(f.fileno()) # 하드디스크에 즉시 기록 강제!
 
 def get_item_ids(geohash: str) -> List[int]:
     # 🕵️ 초정밀 스텔스: 더 길게, 더 불규칙하게 쉬어주기 (차단 방지)
@@ -189,11 +197,23 @@ def get_item_ids(geohash: str) -> List[int]:
     return []
 
 def get_detail(item_id: int) -> Optional[Dict]:
+    # 🕵️ 상세 정보 수집도 살금살금 (차단 방지)
+    time.sleep(random.uniform(0.3, 0.8))
+    
+    headers = {
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept": "application/json",
+        "Referer": f"https://www.zigbang.com/home/oneroom/items/{item_id}",
+    }
     try:
         url = ZIGBANG_API["item_detail"].format(item_id=item_id)
-        res = session.get(url, headers=HEADERS, timeout=15)
-        if res.status_code == 200: return res.json()
-    except: pass
+        res = session.get(url, headers=headers, timeout=15)
+        if res.status_code == 200: 
+            return res.json()
+        elif res.status_code == 403:
+            print(f"🚫 상세 정보 수집 차단 (403)! (ID: {item_id})")
+    except Exception as e:
+        print(f"❌ 상세 정보 에러 (ID: {item_id}): {e}")
     return None
 
 def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[Dict]]:
@@ -262,12 +282,19 @@ def crawl():
         start_detail = time.time()
         done = 0
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            # iid를 future와 매핑해서 에러 시 식별 가능하게 함
             futures = {executor.submit(get_detail, iid): iid for iid in to_fetch_ids}
             for future in as_completed(futures):
+                current_iid = futures[future] # 현재 처리 중인 ID 꺼내기
                 data = future.result(); done += 1
                 if data:
                     item_row, image_rows = transform(data, status="ACTIVE")
-                    if item_row: append_item(item_row); append_images(image_rows)
+                    if item_row: 
+                        append_item(item_row)
+                        append_images(image_rows)
+                    else:
+                        print(f"⚠️ 데이터 변환 실패 (ID: {current_iid})")
+                
                 if done % SAVE_INTERVAL == 0 or done == len(to_fetch_ids):
                     elapsed_detail = time.time() - start_detail
                     speed = done / elapsed_detail if elapsed_detail > 0 else 0
