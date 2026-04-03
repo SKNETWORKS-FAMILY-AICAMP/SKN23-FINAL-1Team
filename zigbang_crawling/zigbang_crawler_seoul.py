@@ -98,9 +98,9 @@ SAVE_INTERVAL = 50
 
 # ... (중략) ...
 
-def get_all_geohashes(precision: int = 6) -> List[str]:
-    # 서울 전용 지오해시 캐시 파일명
-    SEOUL_GH_CACHE = os.path.join(CACHE_DIR, "geohash_list_seoul.json")
+def get_all_geohashes(precision: int = 5) -> List[str]:
+    # 최적화된 서울 지오해시 캐시 파일명
+    SEOUL_GH_CACHE = os.path.join(CACHE_DIR, "geohash_list_seoul_v2.json")
     
     os.makedirs(CACHE_DIR, exist_ok=True)
     if os.path.exists(SEOUL_GH_CACHE):
@@ -109,7 +109,7 @@ def get_all_geohashes(precision: int = 6) -> List[str]:
             print(f"💾 캐시된 서울 지오해시 리스트 로딩 완료! (총 {len(result)} 구역)")
             return result
 
-    print(f"🧮 서울 지오해시 리스트 계산 중 (정밀도 {precision}, 초정밀 간격 적용)...")
+    print(f"🧮 서울 지오해시 리스트 계산 중 (정밀도 {precision}, 광속 간격 적용)...")
     all_gh = set()
     bounds = REGION_BOUNDS["서울"]
     lat_step, lng_step = bounds["step_lat"], bounds["step_lng"]
@@ -125,7 +125,7 @@ def get_all_geohashes(precision: int = 6) -> List[str]:
     result = sorted(list(all_gh))
     with open(SEOUL_GH_CACHE, "w", encoding="utf-8") as f:
         json.dump(result, f)
-    print(f"✅ 총 {len(result)}개의 서울 초정밀 지오해시 구역 생성 완료!")
+    print(f"✅ 총 {len(result)}개의 서울 광속 지오해시 구역 생성 완료!")
     return result
 
 def setup_files_and_get_states() -> Dict[int, str]:
@@ -290,7 +290,7 @@ def crawl():
     print("=" * 60)
 
 REGION_BOUNDS = {
-    "서울": {"lat_min": 37.413, "lat_max": 37.715, "lng_min": 126.734, "lng_max": 127.269, "step_lat": 0.005, "step_lng": 0.01},
+    "서울": {"lat_min": 37.413, "lat_max": 37.715, "lng_min": 126.734, "lng_max": 127.269, "step_lat": 0.04, "step_lng": 0.04},
 }
 
 if __name__ == "__main__":
