@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import NextAuthProvider from "@/components/common/NextAuthProvider";
 
 export const metadata: Metadata = {
   title: "Room Project",
@@ -18,7 +19,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body className="bg-neutral-100 text-black antialiased">{children}</body>
+      <body className="bg-neutral-100 text-black antialiased">
+        <NextAuthProvider>
+          {children}
+        </NextAuthProvider>
+      </body>
     </html>
   );
 }
