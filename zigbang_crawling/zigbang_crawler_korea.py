@@ -87,9 +87,13 @@ HEADERS = {
     "Referer":    "https://www.zigbang.com/",
     "Origin":     "https://www.zigbang.com",
 }
+
+# 🔒 멀티 스레딩 안전을 위한 자물쇠 생성!
+lock = threading.Lock()
+
 # ... (상단 설정 부분)
-MAX_WORKERS   = 10 
-ID_WORKERS    = 10 # 초정밀 모드이므로 안전하게 10으로 하향 조정!
+MAX_WORKERS   = 15 
+ID_WORKERS    = 15 # 초정밀 모드이므로 안전하게 10으로 하향 조정!
 SAVE_INTERVAL = 50
 
 # ... (중략) ...
@@ -104,14 +108,11 @@ def get_all_geohashes(precision: int = 6) -> List[str]:
             print(f"💾 캐시된 지오해시 리스트 로딩 완료! (총 {len(result)} 구역)")
             return result
 
-    # ⚖️ 타협안: 정밀도 6은 유지하되, 간격을 살짝 넓혀서 약 6만 개 수준으로 최적화
-    lat_step, lng_step = 0.01, 0.02 
-    
-    print(f"🧮 지오해시 리스트 계산 중 (정밀도 {precision}, 최적화된 간격 적용)...")
-    # ... (이후 계산 로직 동일)
-    # ... (이후 계산 로직 동일)
+    print(f"🧮 지오해시 리스트 계산 중 (정밀도 {precision}, 지역별 최적화 간격 적용)...")
     all_gh = set()
     for region, bounds in REGION_BOUNDS.items():
+        lat_step = bounds["step_lat"]
+        lng_step = bounds["step_lng"]
         lat = bounds["lat_min"]
         while lat <= bounds["lat_max"]:
             lng = bounds["lng_min"]
@@ -287,23 +288,23 @@ def crawl():
     print("=" * 60)
 
 REGION_BOUNDS = {
-    "서울":    {"lat_min": 37.413, "lat_max": 37.715, "lng_min": 126.734, "lng_max": 127.269},
-    "인천":    {"lat_min": 37.250, "lat_max": 37.630, "lng_min": 126.370, "lng_max": 126.780},
-    "경기도":  {"lat_min": 36.900, "lat_max": 38.300, "lng_min": 126.300, "lng_max": 127.900},
-    "강원도":  {"lat_min": 37.000, "lat_max": 38.620, "lng_min": 127.490, "lng_max": 129.380},
-    "부산":    {"lat_min": 35.050, "lat_max": 35.400, "lng_min": 128.740, "lng_max": 129.320},
-    "대구":    {"lat_min": 35.680, "lat_max": 36.000, "lng_min": 128.420, "lng_max": 128.760},
-    "광주":    {"lat_min": 35.060, "lat_max": 35.270, "lng_min": 126.700, "lng_max": 127.010},
-    "대전":    {"lat_min": 36.170, "lat_max": 36.510, "lng_min": 127.270, "lng_max": 127.560},
-    "울산":    {"lat_min": 35.430, "lat_max": 35.680, "lng_min": 129.100, "lng_max": 129.460},
-    "세종":    {"lat_min": 36.380, "lat_max": 36.650, "lng_min": 127.170, "lng_max": 127.380},
-    "충청북도":{"lat_min": 36.190, "lat_max": 37.270, "lng_min": 127.300, "lng_max": 128.520},
-    "충청남도":{"lat_min": 35.900, "lat_max": 37.010, "lng_min": 126.020, "lng_max": 127.560},
-    "경상북도":{"lat_min": 35.560, "lat_max": 37.180, "lng_min": 128.020, "lng_max": 129.620},
-    "경상남도":{"lat_min": 34.620, "lat_max": 35.770, "lng_min": 127.560, "lng_max": 129.220},
-    "전라북도":{"lat_min": 35.230, "lat_max": 36.180, "lng_min": 126.370, "lng_max": 127.700},
-    "전라남도":{"lat_min": 33.940, "lat_max": 35.520, "lng_min": 125.970, "lng_max": 127.790},
-    "제주":    {"lat_min": 33.100, "lat_max": 33.570, "lng_min": 126.100, "lng_max": 126.990},
+    "서울":    {"lat_min": 37.413, "lat_max": 37.715, "lng_min": 126.734, "lng_max": 127.269, "step_lat": 0.01, "step_lng": 0.02},
+    "인천":    {"lat_min": 37.250, "lat_max": 37.630, "lng_min": 126.370, "lng_max": 126.780, "step_lat": 0.01, "step_lng": 0.02},
+    "경기도":  {"lat_min": 36.900, "lat_max": 38.300, "lng_min": 126.300, "lng_max": 127.900, "step_lat": 0.01, "step_lng": 0.02},
+    "부산":    {"lat_min": 35.050, "lat_max": 35.400, "lng_min": 128.740, "lng_max": 129.320, "step_lat": 0.01, "step_lng": 0.02},
+    "대구":    {"lat_min": 35.680, "lat_max": 36.000, "lng_min": 128.420, "lng_max": 128.760, "step_lat": 0.01, "step_lng": 0.02},
+    "광주":    {"lat_min": 35.060, "lat_max": 35.270, "lng_min": 126.700, "lng_max": 127.010, "step_lat": 0.01, "step_lng": 0.02},
+    "대전":    {"lat_min": 36.170, "lat_max": 36.510, "lng_min": 127.270, "lng_max": 127.560, "step_lat": 0.01, "step_lng": 0.02},
+    "울산":    {"lat_min": 35.430, "lat_max": 35.680, "lng_min": 129.100, "lng_max": 129.460, "step_lat": 0.01, "step_lng": 0.02},
+    "세종":    {"lat_min": 36.380, "lat_max": 36.650, "lng_min": 127.170, "lng_max": 127.380, "step_lat": 0.01, "step_lng": 0.02},
+    "강원도":  {"lat_min": 37.000, "lat_max": 38.620, "lng_min": 127.490, "lng_max": 129.380, "step_lat": 0.04, "step_lng": 0.08},
+    "충청북도":{"lat_min": 36.190, "lat_max": 37.270, "lng_min": 127.300, "lng_max": 128.520, "step_lat": 0.04, "step_lng": 0.08},
+    "충청남도":{"lat_min": 35.900, "lat_max": 37.010, "lng_min": 126.020, "lng_max": 127.560, "step_lat": 0.04, "step_lng": 0.08},
+    "경상북도":{"lat_min": 35.560, "lat_max": 37.180, "lng_min": 128.020, "lng_max": 129.620, "step_lat": 0.04, "step_lng": 0.08},
+    "경상남도":{"lat_min": 34.620, "lat_max": 35.770, "lng_min": 127.560, "lng_max": 129.220, "step_lat": 0.04, "step_lng": 0.08},
+    "전라북도":{"lat_min": 35.230, "lat_max": 36.180, "lng_min": 126.370, "lng_max": 127.700, "step_lat": 0.04, "step_lng": 0.08},
+    "전라남도":{"lat_min": 33.940, "lat_max": 35.520, "lng_min": 125.970, "lng_max": 127.790, "step_lat": 0.04, "step_lng": 0.08},
+    "제주":    {"lat_min": 33.100, "lat_max": 33.570, "lng_min": 126.100, "lng_max": 126.990, "step_lat": 0.04, "step_lng": 0.08},
 }
 
 if __name__ == "__main__":
