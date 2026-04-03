@@ -219,35 +219,39 @@ def get_item_ids(geohash: str) -> List[int]:
 
 def get_detail(item_id: int) -> Optional[Dict]:
     # 🕵️ 상세 정보 수집도 살금살금 (차단 방지)
-    time.sleep(random.uniform(0.3, 0.8))
+    time.sleep(random.uniform(0.5, 1.0))
     
+    # 🎯 플랜 A: v3 API (기본)
     headers = {
         "User-Agent": random.choice(USER_AGENTS),
         "Accept": "application/json",
         "Referer": f"https://www.zigbang.com/home/oneroom/items/{item_id}",
     }
-    
-    # 플랜 A: v3 API
     try:
         url = ZIGBANG_API["item_detail"].format(item_id=item_id)
         res = session.get(url, headers=headers, timeout=10)
         if res.status_code == 200: 
             return res.json()
-    except:
-        pass
+    except: pass
 
-    # 🎯 플랜 B: v2 API (v3에서 안 나오는 놈들은 여기서 나올 수도 있음!)
+    # 🎯 플랜 B: v2 일반 API (v3 실패 시)
     try:
         url_v2 = f"https://apis.zigbang.com/v2/items/{item_id}"
         res = session.get(url_v2, headers=headers, timeout=10)
         if res.status_code == 200:
             data = res.json()
-            # v2 데이터 구조를 v3랑 비슷하게 맞춰주기 (필요하다면)
-            if "item" not in data and "item" in data.get("item", {}): # 이미 감싸져 있는 경우
-                return data
-            return {"item": data} # 안 감싸져 있으면 감싸서 반환
-    except:
-        pass
+            # 데이터 구조가 'item'으로 감싸져 있지 않으면 감싸주기
+            return data if "item" in data else {"item": data}
+    except: pass
+
+    # 🎯 플랜 C: v2 빌라/투룸 전용 API (이게 복병이었어!)
+    try:
+        url_villa = f"https://apis.zigbang.com/v2/items/villa/{item_id}"
+        res = session.get(url_villa, headers=headers, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            return data if "item" in data else {"item": data}
+    except: pass
 
     return None
 
