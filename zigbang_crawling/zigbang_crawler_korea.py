@@ -77,20 +77,19 @@ HEADERS = {
     "Accept":     "application/json",
     "Referer":    "https://www.zigbang.com/",
     "Origin":     "https://www.zigbang.com",
-}
+# ... (상단 설정 부분)
+MAX_WORKERS   = 10 
+ID_WORKERS    = 30 # 구역이 늘어나니까 ID 수집 병렬도를 높여!
+SAVE_INTERVAL = 50
 
-lock = threading.Lock()
+# ... (중략) ...
 
-# ... (지오해시, 히스토리 로드, API, 변환 로직 생략 - 이전과 동일) ...
-
-def get_all_geohashes(precision: int = 5) -> List[str]:
+def get_all_geohashes(precision: int = 6) -> List[str]:
     os.makedirs(CACHE_DIR, exist_ok=True)
-    # 간격을 훨씬 촘촘하게 수정 (누락 방지)
-    lat_step, lng_step = 0.02, 0.04 
-    
-    # 캐시가 있어도 무시하고 새로 계산하고 싶다면 GH_CACHE 체크 부분을 주석 처리하거나 삭제해.
-    # 일단은 간격 수정을 반영하기 위해 새로 계산하도록 유도할게.
-    print("🧮 지오해시 리스트 계산 중 (더 촘촘한 간격 적용)...")
+    # 정밀도 6에 맞춰 간격을 훨씬 촘촘하게 (약 1km 단위)
+    lat_step, lng_step = 0.005, 0.01 
+
+    print(f"🧮 지오해시 리스트 계산 중 (정밀도 {precision}, 촘촘한 간격 적용)...")
     all_gh = set()
     for region, bounds in REGION_BOUNDS.items():
         lat = bounds["lat_min"]
@@ -103,7 +102,7 @@ def get_all_geohashes(precision: int = 5) -> List[str]:
     result = sorted(list(all_gh))
     with open(GH_CACHE, "w", encoding="utf-8") as f:
         json.dump(result, f)
-    print(f"✅ 총 {len(result)}개의 촘촘한 지오해시 구역 생성 완료!")
+    print(f"✅ 총 {len(result)}개의 초정밀 지오해시 구역 생성 완료!")
     return result
 
 def setup_files_and_get_states() -> Dict[int, str]:
