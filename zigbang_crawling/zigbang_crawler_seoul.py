@@ -218,19 +218,28 @@ def get_detail(item_id: int) -> Optional[Dict]:
 
 def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[Dict]]:
     item = data.get("item", {})
-    if not item: return None, []
-    item_id, addr = item.get("itemId"), item.get("jibunAddress", "")
+    if not item: 
+        return None, []
+    
+    item_id = item.get("itemId")
+    addr = item.get("jibunAddress", "")
     raw_imgs = item.get("images", [])
     images = [f"{img.strip()}?w=1200" for img in raw_imgs if img]
-    item_row = {
-        "매물번호": item_id, "상태": status, "매물_URL": f"https://www.zigbang.com/home/oneroom/items/{item_id}",
-        "전체주소": addr, "지번주소": addr, "보증금": item.get("price", {}).get("deposit"), "월세": item.get("price", {}).get("rent"),
-        "관리비": item.get("manageCost", {}).get("amount"), "건물유형": item.get("serviceType"), "방타입": item.get("roomType"),
-        "전용면적_m2": item.get("area", {}).get("전용면적M2"), "층": item.get("floor", {}).get("floor"), "총층": item.get("floor", {}).get("allFloors"),
-        "위도": item.get("location", {}).get("lat"), "경도": item.get("location", {}).get("lng"), "대표이미지": images[0] if images else "", "수집일시": datetime.now(KST).isoformat(),
-    }
-    image_rows = [{"매물번호": item_id, "이미지URL": img} for img in images]
-    return item_row, image_rows
+    
+    try:
+        item_row = {
+            "매물번호": item_id, "상태": status, "매물_URL": f"https://www.zigbang.com/home/oneroom/items/{item_id}",
+            "전체주소": addr, "지번주소": addr, "보증금": item.get("price", {}).get("deposit"), "월세": item.get("price", {}).get("rent"),
+            "관리비": item.get("manageCost", {}).get("amount"), "건물유형": item.get("serviceType"), "방타입": item.get("roomType"),
+            "전용면적_m2": item.get("area", {}).get("전용면적M2"), "층": item.get("floor", {}).get("floor"), "총층": item.get("floor", {}).get("allFloors"),
+            "위도": item.get("location", {}).get("lat"), "경도": item.get("location", {}).get("lng"), "대표이미지": images[0] if images else "", "수집일시": datetime.now(KST).isoformat(),
+        }
+        image_rows = [{"매물번호": item_id, "이미지URL": img} for img in images]
+        return item_row, image_rows
+    except Exception as e:
+        print(f"❌ 변환 로직 에러 (ID: {item_id}): {e}")
+        # 어떤 키가 없는지 디버깅하기 위해 data 전체가 아니라 item의 키들만 출력해볼 수도 있어
+        return None, []
 
 # ======================================================
 # 메인
