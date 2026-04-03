@@ -275,8 +275,8 @@ def crawl():
 
     # 🚀 크롤링 종료 후 CSV 파일을 S3로 전송! (서울 전용 폴더)
     print("\n📦 서울 결과물을 S3로 업로드 중...")
-    upload_to_s3(ITEM_FILE,  f"seoul/csv/item/{os.path.basename(ITEM_FILE)}")
-    upload_to_s3(IMAGE_FILE, f"seoul/csv/image/{os.path.basename(IMAGE_FILE)}")
+    upload_to_s3(ITEM_FILE,  f"csv/seoul/item/{os.path.basename(ITEM_FILE)}")
+    upload_to_s3(IMAGE_FILE, f"csv/seoul/image/{os.path.basename(IMAGE_FILE)}")
 
     # 🖼️ 서울 이미지 전용 다운로드 및 S3 직송!
     print("\n📸 [서울] 이미지 수집 및 S3 업로드 시작...")
