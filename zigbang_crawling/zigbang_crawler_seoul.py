@@ -290,7 +290,7 @@ def crawl():
     print("=" * 60)
 
 REGION_BOUNDS = {
-    "서울": {"lat_min": 37.413, "lat_max": 37.715, "lng_min": 126.734, "lng_max": 127.269, "step_lat": 0.01, "step_lng": 0.02},
+    "서울": {"lat_min": 37.413, "lat_max": 37.715, "lng_min": 126.734, "lng_max": 127.269, "step_lat": 0.005, "step_lng": 0.01},
 }
 
 if __name__ == "__main__":
