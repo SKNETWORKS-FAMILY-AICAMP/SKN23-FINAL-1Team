@@ -178,11 +178,15 @@ def setup_files_and_get_states() -> Dict[int, str]:
 def append_item(row):
     ITEM_COLUMNS = ["매물번호", "상태", "매물_URL", "전체주소", "지번주소", "보증금", "월세", "관리비", "건물유형", "방타입", "전용면적_m2", "층", "총층", "위도", "경도", "대표이미지", "수집일시"]
     with lock:
-        with open(ITEM_FILE, "a", newline="", encoding="utf-8-sig") as f:
-            writer = csv.DictWriter(f, fieldnames=ITEM_COLUMNS)
-            writer.writerow(row)
-            f.flush() # 버퍼 비우기
-            os.fsync(f.fileno()) # 하드디스크에 즉시 기록 강제!
+        try:
+            with open(ITEM_FILE, "a", newline="", encoding="utf-8-sig") as f:
+                # 🎯 핵심: 리스트에 없는 키가 들어와도 무시해! (extrasaction='ignore')
+                writer = csv.DictWriter(f, fieldnames=ITEM_COLUMNS, extrasaction='ignore')
+                writer.writerow(row)
+                f.flush()
+                os.fsync(f.fileno())
+        except Exception as e:
+            print(f"❌ CSV 쓰기 에러 (매물번호: {row.get('매물번호')}): {e}")
 
 def append_images(rows):
     IMAGE_COLUMNS = ["매물번호", "이미지URL"]
