@@ -85,12 +85,12 @@ lock = threading.Lock()
 
 def get_all_geohashes(precision: int = 5) -> List[str]:
     os.makedirs(CACHE_DIR, exist_ok=True)
-    if os.path.exists(GH_CACHE):
-        with open(GH_CACHE, "r", encoding="utf-8") as f:
-            print("💾 캐시된 지오해시 리스트 로딩 완료!")
-            return json.load(f)
-    print("🧮 지오해시 리스트 새로 계산 중...")
-    lat_step, lng_step = 0.0439, 0.0879
+    # 간격을 훨씬 촘촘하게 수정 (누락 방지)
+    lat_step, lng_step = 0.02, 0.04 
+    
+    # 캐시가 있어도 무시하고 새로 계산하고 싶다면 GH_CACHE 체크 부분을 주석 처리하거나 삭제해.
+    # 일단은 간격 수정을 반영하기 위해 새로 계산하도록 유도할게.
+    print("🧮 지오해시 리스트 계산 중 (더 촘촘한 간격 적용)...")
     all_gh = set()
     for region, bounds in REGION_BOUNDS.items():
         lat = bounds["lat_min"]
@@ -103,6 +103,7 @@ def get_all_geohashes(precision: int = 5) -> List[str]:
     result = sorted(list(all_gh))
     with open(GH_CACHE, "w", encoding="utf-8") as f:
         json.dump(result, f)
+    print(f"✅ 총 {len(result)}개의 촘촘한 지오해시 구역 생성 완료!")
     return result
 
 def setup_files_and_get_states() -> Dict[int, str]:
@@ -211,8 +212,15 @@ def crawl():
     print(f"\n🔍 분석 결과: 현재 {len(current_found_ids)}개 (신규 {len(new_ids)}, 재활성 {len(reactivated_ids)}, 삭제 {len(deleted_ids)})")
 
     if deleted_ids:
-        print(f"🚫 {len(deleted_ids)}개의 매물을 INACTIVE 상태로 기록 중...")
-        for did in deleted_ids: append_item({"매물번호": did, "상태": "INACTIVE", "수집일시": datetime.now(KST).isoformat()})
+        # 실제로 활성(ACTIVE) 상태였던 놈들만 INACTIVE로 전환해서 기록해! 
+        # (이미 죽은 놈은 또 죽일 필요 없으니까.)
+        to_deactivate = [did for did in deleted_ids if item_states.get(did) == "ACTIVE"]
+        if to_deactivate:
+            print(f"🚫 {len(to_deactivate)}개의 매물을 INACTIVE 상태로 기록 중...")
+            for did in to_deactivate: 
+                append_item({"매물번호": did, "상태": "INACTIVE", "수집일시": datetime.now(KST).isoformat()})
+        else:
+            print("✨ 새로 삭제된 매물은 없네! (이미 INACTIVE 상태)")
 
     if to_fetch_ids:
         print(f"📋 상세 정보 수집 중... (대상: {len(to_fetch_ids)}개, 병렬 {MAX_WORKERS}개)")
