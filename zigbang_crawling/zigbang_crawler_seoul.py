@@ -129,22 +129,31 @@ def get_all_geohashes(precision: int = 5) -> List[str]:
     return result
 
 def setup_files_and_get_states() -> Dict[int, str]:
-    os.makedirs(ITEM_DIR, exist_ok=True)
+    # 🕵️ 경로 확인 및 강제 생성
+    if not os.path.exists(ITEM_DIR):
+        print(f"⚠️ 경고: {ITEM_DIR} 폴더가 없습니다. 새로 생성합니다.")
+        os.makedirs(ITEM_DIR, exist_ok=True)
     os.makedirs(IMAGE_DIR, exist_ok=True)
+    
     item_states = {}
-    pattern = os.path.join(ITEM_DIR, "zigbang_items*.csv")
-    prev_files = sorted(glob.glob(pattern))
+    # 🔍 히스토리 분석: 하위 폴더(legacy 등)까지 싹 뒤져서 가져와!
+    pattern = os.path.join(ITEM_DIR, "**", "zigbang_items*.csv")
+    prev_files = sorted(glob.glob(pattern, recursive=True))
+    
     if prev_files:
-        print(f"🔍 히스토리 데이터 파일 {len(prev_files)}개 분석 중...")
+        print(f"🔍 히스토리 데이터 파일 {len(prev_files)}개 분석 중... (하위 폴더 포함)")
         for f_path in prev_files:
             try:
                 with open(f_path, "r", encoding="utf-8-sig") as f:
                     reader = csv.DictReader(f)
                     for row in reader:
-                        iid = int(row["매물번호"]); item_states[iid] = row.get("상태", "ACTIVE")
-            except Exception as e: print(f"⚠️ {os.path.basename(f_path)} 분석 실패: {e}")
+                        iid = int(row["매물번호"])
+                        item_states[iid] = row.get("상태", "ACTIVE")
+            except Exception as e: 
+                print(f"⚠️ {os.path.basename(f_path)} 분석 실패: {e}")
         print(f"📊 누적 매물: {len(item_states)}개")
-    else: print("📊 히스토리 없음. 새로운 데이터베이스를 구축합니다.")
+    else: 
+        print("📊 히스토리 없음. 새로운 데이터베이스를 구축합니다.")
     global ITEM_FILE, IMAGE_FILE
     now_str = datetime.now(KST).strftime("%Y%m%d_%H%M%S") # 초 단위 추가! 충돌 방지
     ITEM_FILE, IMAGE_FILE = os.path.join(ITEM_DIR, f"zigbang_items_{now_str}.csv"), os.path.join(IMAGE_DIR, f"zigbang_images_{now_str}.csv")
@@ -217,28 +226,37 @@ def get_detail(item_id: int) -> Optional[Dict]:
     return None
 
 def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[Dict]]:
-    item = data.get("item", {})
+    item = data.get("item")
     if not item: 
+        # 🕵️ 범인 검거: 왜 상세 데이터가 비어있는지 출력!
+        print(f"⚠️ 상세 데이터 내용 없음 (API는 성공했지만 'item' 필드가 비어있음)")
         return None, []
     
     item_id = item.get("itemId")
     addr = item.get("jibunAddress", "")
+    
+    # 데이터 구조 디버깅 로그
     raw_imgs = item.get("images", [])
     images = [f"{img.strip()}?w=1200" for img in raw_imgs if img]
     
     try:
+        # 필수 필드들이 있는지 체크하면서 생성
+        price = item.get("price", {})
+        location = item.get("location", {})
+        floor = item.get("floor", {})
+        
         item_row = {
             "매물번호": item_id, "상태": status, "매물_URL": f"https://www.zigbang.com/home/oneroom/items/{item_id}",
-            "전체주소": addr, "지번주소": addr, "보증금": item.get("price", {}).get("deposit"), "월세": item.get("price", {}).get("rent"),
+            "전체주소": addr, "지번주소": addr, "보증금": price.get("deposit"), "월세": price.get("rent"),
             "관리비": item.get("manageCost", {}).get("amount"), "건물유형": item.get("serviceType"), "방타입": item.get("roomType"),
-            "전용면적_m2": item.get("area", {}).get("전용면적M2"), "층": item.get("floor", {}).get("floor"), "총층": item.get("floor", {}).get("allFloors"),
-            "위도": item.get("location", {}).get("lat"), "경도": item.get("location", {}).get("lng"), "대표이미지": images[0] if images else "", "수집일시": datetime.now(KST).isoformat(),
+            "전용면적_m2": item.get("area", {}).get("전용면적M2"), "층": floor.get("floor"), "총층": floor.get("allFloors"),
+            "위도": location.get("lat"), "경도": location.get("lng"), "대표이미지": images[0] if images else "", "수집일시": datetime.now(KST).isoformat(),
         }
         image_rows = [{"매물번호": item_id, "이미지URL": img} for img in images]
         return item_row, image_rows
     except Exception as e:
-        print(f"❌ 변환 로직 에러 (ID: {item_id}): {e}")
-        # 어떤 키가 없는지 디버깅하기 위해 data 전체가 아니라 item의 키들만 출력해볼 수도 있어
+        # 🕵️ 여기서 어떤 필드 때문에 죽는지 범인을 잡는다!
+        print(f"❌ 변환 에러 (ID: {item_id}): {e} | 키 목록: {list(item.keys())}")
         return None, []
 
 # ======================================================
