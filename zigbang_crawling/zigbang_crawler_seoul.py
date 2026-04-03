@@ -225,37 +225,28 @@ def get_detail(item_id: int) -> Optional[Dict]:
     # 🕵️ 상세 정보 수집도 살금살금 (차단 방지)
     time.sleep(random.uniform(0.5, 1.0))
     
-    # 🎯 플랜 A: v3 API (기본)
     headers = {
         "User-Agent": random.choice(USER_AGENTS),
         "Accept": "application/json",
         "Referer": f"https://www.zigbang.com/home/oneroom/items/{item_id}",
     }
-    try:
-        url = ZIGBANG_API["item_detail"].format(item_id=item_id)
-        res = session.get(url, headers=headers, timeout=10)
-        if res.status_code == 200: 
-            return res.json()
-    except: pass
+    
+    urls = [
+        ZIGBANG_API["item_detail"].format(item_id=item_id),
+        f"https://apis.zigbang.com/v2/items/{item_id}",
+        f"https://apis.zigbang.com/v2/items/villa/{item_id}"
+    ]
 
-    # 🎯 플랜 B: v2 일반 API (v3 실패 시)
-    try:
-        url_v2 = f"https://apis.zigbang.com/v2/items/{item_id}"
-        res = session.get(url_v2, headers=headers, timeout=10)
-        if res.status_code == 200:
-            data = res.json()
-            # 데이터 구조가 'item'으로 감싸져 있지 않으면 감싸주기
-            return data if "item" in data else {"item": data}
-    except: pass
-
-    # 🎯 플랜 C: v2 빌라/투룸 전용 API (이게 복병이었어!)
-    try:
-        url_villa = f"https://apis.zigbang.com/v2/items/villa/{item_id}"
-        res = session.get(url_villa, headers=headers, timeout=10)
-        if res.status_code == 200:
-            data = res.json()
-            return data if "item" in data else {"item": data}
-    except: pass
+    for url in urls:
+        try:
+            res = session.get(url, headers=headers, timeout=10)
+            if res.status_code == 200:
+                data = res.json()
+                return data if "item" in data else {"item": data}
+            elif res.status_code == 404:
+                # 🎯 핵심: 404 뜨면 진짜 없는 매물임! 유령 퇴치!
+                return {"status": "DELETED", "itemId": item_id}
+        except: pass
 
     return None
 
@@ -265,20 +256,22 @@ def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[
         return None, []
     
     item_id = item.get("itemId")
-    # 주소 필드가 여러 개일 수 있으니 안전하게 가져오기
     addr = item.get("jibunAddress") or item.get("address", "")
     
     raw_imgs = item.get("images", [])
     images = [f"{img.strip()}?w=1200" for img in raw_imgs if img]
     
     try:
-        price_info = item.get("price", {})
-        # 🎯 핵심: 월세/전세는 deposit, 매매는 price 필드를 씀!
+        # 🎯 진짜 안전한 필드 추출 (None 방어막!)
+        price_info = item.get("price") or {}
+        location = item.get("location") or {}
+        floor_info = item.get("floor") or {}
+        area_info = item.get("area") or {}
+        manage_info = item.get("manageCost") or {} # 관리비 필드가 None일 경우 대비
+        
+        # 매매가 혹은 보증금 추출
         deposit = price_info.get("deposit") or price_info.get("price") 
         rent = price_info.get("rent", 0)
-        
-        location = item.get("location", {})
-        floor_info = item.get("floor", {})
         
         item_row = {
             "매물번호": item_id, 
@@ -286,12 +279,12 @@ def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[
             "매물_URL": f"https://www.zigbang.com/home/oneroom/items/{item_id}",
             "전체주소": addr, 
             "지번주소": addr, 
-            "보증금": deposit, # 매매인 경우 매매가가 여기 들어감!
+            "보증금": deposit,
             "월세": rent,
-            "관리비": item.get("manageCost", {}).get("amount"), 
+            "관리비": manage_info.get("amount") if isinstance(manage_info, dict) else None, 
             "건물유형": item.get("serviceType"), 
             "방타입": item.get("roomType"),
-            "전용면적_m2": item.get("area", {}).get("전용면적M2") or item.get("area", {}).get("m2"), 
+            "전용면적_m2": area_info.get("전용면적M2") or area_info.get("m2"), 
             "층": floor_info.get("floor"), 
             "총층": floor_info.get("allFloors"),
             "위도": location.get("lat"), 
@@ -362,6 +355,13 @@ def crawl():
                 current_iid = futures[future]
                 data = future.result(); done += 1
                 if data:
+                    # 🎯 유령 매물 즉시 퇴치!
+                    if data.get("status") == "DELETED":
+                        print(f"👻 유령 매물 발견 (404): {current_iid} - INACTIVE 처리")
+                        append_item({"매물번호": current_iid, "상태": "INACTIVE", "수집일시": datetime.now(KST).isoformat()})
+                        with lock: item_states[current_iid] = "INACTIVE"
+                        continue
+
                     item_row, image_rows = transform(data, status="ACTIVE")
                     if item_row: 
                         append_item(item_row)
