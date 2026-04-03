@@ -226,49 +226,75 @@ def get_detail(item_id: int) -> Optional[Dict]:
         "Accept": "application/json",
         "Referer": f"https://www.zigbang.com/home/oneroom/items/{item_id}",
     }
+    
+    # 플랜 A: v3 API
     try:
         url = ZIGBANG_API["item_detail"].format(item_id=item_id)
-        res = session.get(url, headers=headers, timeout=15)
+        res = session.get(url, headers=headers, timeout=10)
         if res.status_code == 200: 
             return res.json()
-        elif res.status_code == 403:
-            print(f"🚫 상세 정보 수집 차단 (403)! (ID: {item_id})")
-    except Exception as e:
-        print(f"❌ 상세 정보 에러 (ID: {item_id}): {e}")
+    except:
+        pass
+
+    # 🎯 플랜 B: v2 API (v3에서 안 나오는 놈들은 여기서 나올 수도 있음!)
+    try:
+        url_v2 = f"https://apis.zigbang.com/v2/items/{item_id}"
+        res = session.get(url_v2, headers=headers, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            # v2 데이터 구조를 v3랑 비슷하게 맞춰주기 (필요하다면)
+            if "item" not in data and "item" in data.get("item", {}): # 이미 감싸져 있는 경우
+                return data
+            return {"item": data} # 안 감싸져 있으면 감싸서 반환
+    except:
+        pass
+
     return None
 
 def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[Dict]]:
     item = data.get("item")
     if not item: 
-        # 🕵️ 범인 검거: 왜 상세 데이터가 비어있는지 출력!
-        print(f"⚠️ 상세 데이터 내용 없음 (API는 성공했지만 'item' 필드가 비어있음)")
         return None, []
     
     item_id = item.get("itemId")
-    addr = item.get("jibunAddress", "")
+    # 주소 필드가 여러 개일 수 있으니 안전하게 가져오기
+    addr = item.get("jibunAddress") or item.get("address", "")
     
-    # 데이터 구조 디버깅 로그
     raw_imgs = item.get("images", [])
     images = [f"{img.strip()}?w=1200" for img in raw_imgs if img]
     
     try:
-        # 필수 필드들이 있는지 체크하면서 생성
-        price = item.get("price", {})
+        price_info = item.get("price", {})
+        # 🎯 핵심: 월세/전세는 deposit, 매매는 price 필드를 씀!
+        deposit = price_info.get("deposit") or price_info.get("price") 
+        rent = price_info.get("rent", 0)
+        
         location = item.get("location", {})
-        floor = item.get("floor", {})
+        floor_info = item.get("floor", {})
         
         item_row = {
-            "매물번호": item_id, "상태": status, "매물_URL": f"https://www.zigbang.com/home/oneroom/items/{item_id}",
-            "전체주소": addr, "지번주소": addr, "보증금": price.get("deposit"), "월세": price.get("rent"),
-            "관리비": item.get("manageCost", {}).get("amount"), "건물유형": item.get("serviceType"), "방타입": item.get("roomType"),
-            "전용면적_m2": item.get("area", {}).get("전용면적M2"), "층": floor.get("floor"), "총층": floor.get("allFloors"),
-            "위도": location.get("lat"), "경도": location.get("lng"), "대표이미지": images[0] if images else "", "수집일시": datetime.now(KST).isoformat(),
+            "매물번호": item_id, 
+            "상태": status, 
+            "매물_URL": f"https://www.zigbang.com/home/oneroom/items/{item_id}",
+            "전체주소": addr, 
+            "지번주소": addr, 
+            "보증금": deposit, # 매매인 경우 매매가가 여기 들어감!
+            "월세": rent,
+            "관리비": item.get("manageCost", {}).get("amount"), 
+            "건물유형": item.get("serviceType"), 
+            "방타입": item.get("roomType"),
+            "전용면적_m2": item.get("area", {}).get("전용면적M2") or item.get("area", {}).get("m2"), 
+            "층": floor_info.get("floor"), 
+            "총층": floor_info.get("allFloors"),
+            "위도": location.get("lat"), 
+            "경도": location.get("lng"), 
+            "대표이미지": images[0] if images else "", 
+            "수집일시": datetime.now(KST).isoformat(),
         }
         image_rows = [{"매물번호": item_id, "이미지URL": img} for img in images]
         return item_row, image_rows
     except Exception as e:
-        # 🕵️ 여기서 어떤 필드 때문에 죽는지 범인을 잡는다!
-        print(f"❌ 변환 에러 (ID: {item_id}): {e} | 키 목록: {list(item.keys())}")
+        print(f"❌ 변환 에러 (ID: {item_id}): {e}")
         return None, []
 
 # ======================================================
