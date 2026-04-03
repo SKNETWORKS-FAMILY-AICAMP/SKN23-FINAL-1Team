@@ -325,10 +325,19 @@ def crawl():
             done_gh += 1
             if done_gh % 200 == 0 or done_gh == len(geohash_list): print(f"   - 진행률: [{done_gh}/{len(geohash_list)}] ({done_gh/len(geohash_list)*100:.1f}%)")
 
+    # 🎯 수집 전략: 한 번이라도 우리 DB에 들어온 놈은 절대 '신규'가 될 수 없음!
     new_ids = current_found_ids - item_states.keys()
+    
+    # 🎯 재활성 로직 수정: 
+    # 예전에는 INACTIVE 놈이 다시 나타나면 긁었지만, 이제는 "한 번 죽은 놈은 끝이다"라고 정의한다면?
+    # 만약 진짜 부활할 수도 있으니, 일단은 '신규'에서만 확실히 빠지게 놔두고
+    # 아래 to_fetch_ids에서 필터링을 한 번 더 하자!
+    
     reactivated_ids = (current_found_ids & item_states.keys()) - last_active_ids
-    deleted_ids = last_active_ids - current_found_ids
-    to_fetch_ids = new_ids | reactivated_ids
+    
+    # ❌ [네 요청대로!] 한 번 INACTIVE 된 놈은 다시는 상세 정보를 긁지 마!
+    # (진짜로 다시 살아날 수도 있지만, 네가 "안 되는 거 뻔히 안다"고 했으니 차단한다!)
+    to_fetch_ids = new_ids # reactivated_ids는 과감히 버린다!
 
     print(f"\n🔍 분석 결과: 현재 {len(current_found_ids)}개 (신규 {len(new_ids)}, 재활성 {len(reactivated_ids)}, 삭제 {len(deleted_ids)})")
 
@@ -349,17 +358,19 @@ def crawl():
         print(f"📋 상세 정보 수집 중... (대상: {len(to_fetch_ids)}개, 병렬 {MAX_WORKERS}개)")
         start_detail = time.time()
         done = 0
+        ghost_count = 0 # 👻 유령 매물 카운트용
+        
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = {executor.submit(get_detail, iid): iid for iid in to_fetch_ids}
             for future in as_completed(futures):
                 current_iid = futures[future]
                 data = future.result(); done += 1
                 if data:
-                    # 🎯 유령 매물 즉시 퇴치!
+                    # 🎯 유령 매물 카운트 및 처리
                     if data.get("status") == "DELETED":
-                        print(f"👻 유령 매물 발견 (404): {current_iid} - INACTIVE 처리")
                         append_item({"매물번호": current_iid, "상태": "INACTIVE", "수집일시": datetime.now(KST).isoformat()})
                         with lock: item_states[current_iid] = "INACTIVE"
+                        ghost_count += 1
                         continue
 
                     item_row, image_rows = transform(data, status="ACTIVE")
@@ -368,11 +379,16 @@ def crawl():
                         with lock: item_states[current_iid] = "ACTIVE"
                         if image_rows: append_images(image_rows)
                 else:
-                    # 🎯 핵심: 실패했다고 INACTIVE로 적지 마! 그냥 다음 실행 때 다시 도전하게 놔둬.
-                    print(f"⏭️ 상세 정보 수집 건너뜀 (차단 혹은 에러, ID: {current_iid})")
+                    # 🎯 차단 혹은 에러인 경우 그냥 넘어가기
+                    pass
+
+                if done % SAVE_INTERVAL == 0 or done == len(to_fetch_ids):
                     elapsed_detail = time.time() - start_detail
                     speed = done / elapsed_detail if elapsed_detail > 0 else 0
-                    print(f"  [{done:5d}/{len(to_fetch_ids)}] 속도: {speed:.1f}/초")
+                    print(f"  [{done:5d}/{len(to_fetch_ids)}] 속도: {speed:.1f}/초 (유령 감지: {ghost_count}개)")
+
+        if ghost_count > 0:
+            print(f"\n👻 오늘 총 {ghost_count}개의 유령 매물(404)을 성불시켰습니다.")
 
     # 🚀 크롤링 종료 후 CSV 파일을 S3로 전송! (서울 전용 폴더)
     print("\n📦 서울 결과물을 S3로 업로드 중...")
