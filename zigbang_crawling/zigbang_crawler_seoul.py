@@ -146,7 +146,7 @@ def setup_files_and_get_states() -> Dict[int, str]:
         print(f"📊 누적 매물: {len(item_states)}개")
     else: print("📊 히스토리 없음. 새로운 데이터베이스를 구축합니다.")
     global ITEM_FILE, IMAGE_FILE
-    now_str = datetime.now(KST).strftime("%Y%m%d_%H%M")
+    now_str = datetime.now(KST).strftime("%Y%m%d_%H%M%S") # 초 단위 추가! 충돌 방지
     ITEM_FILE, IMAGE_FILE = os.path.join(ITEM_DIR, f"zigbang_items_{now_str}.csv"), os.path.join(IMAGE_DIR, f"zigbang_images_{now_str}.csv")
     ITEM_COLUMNS = ["매물번호", "상태", "매물_URL", "전체주소", "지번주소", "보증금", "월세", "관리비", "건물유형", "방타입", "전용면적_m2", "층", "총층", "위도", "경도", "대표이미지", "수집일시"]
     IMAGE_COLUMNS = ["매물번호", "이미지URL"]
