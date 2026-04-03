@@ -330,7 +330,12 @@ def crawl():
                     item_row, image_rows = transform(data, status="ACTIVE")
                     if item_row: 
                         append_item(item_row)
-                        append_images(image_rows)
+                        # 🎯 즉시 기억 업데이트! (다음 루프나 실행에서 신규로 안 잡히게)
+                        with lock:
+                            item_states[current_iid] = "ACTIVE"
+                        
+                        if image_rows:
+                            append_images(image_rows)
                     else:
                         print(f"⚠️ 데이터 변환 실패 (ID: {current_iid})")
                 
