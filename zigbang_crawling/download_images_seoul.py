@@ -129,7 +129,7 @@ def main(csv_path: Optional[str] = None):
 
     print("\n" + "=" * 50)
     print("서울 이미지 수집 완료!")
-    print(f"성공: {success} / ⏭️  스킵: {skip} / ❌ 실패: {fail}")
+    print(f"성공: {success} / 스킵: {skip} / 실패: {fail}")
     print(f"S3 경로: s3://{S3_BUCKET}/{S3_PREFIX}/images/seoul/{date_str}/")
     print("=" * 50)
 
