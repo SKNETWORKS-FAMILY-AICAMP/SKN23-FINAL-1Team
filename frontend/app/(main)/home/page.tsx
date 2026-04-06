@@ -1,5 +1,5 @@
-import HomePageContainer from "@/components/feature/home/HomePageContainer";
+import { HomeContainer } from "@/components/room-finder/home-container"
 
 export default function HomePage() {
-  return <HomePageContainer />;
+  return <HomeContainer />
 }
