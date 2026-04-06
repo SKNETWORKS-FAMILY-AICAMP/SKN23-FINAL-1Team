@@ -48,7 +48,7 @@ def upload_binary_to_s3(binary_data: bytes, s3_path: str, content_type: str = "i
         )
         return True
     except Exception as e:
-        print(f"❌ S3 업로드 에러 ({s3_path}): {e}")
+        print(f"S3 업로드 에러 ({s3_path}): {e}")
         return False
 
 # ================================================================
@@ -90,20 +90,20 @@ def main(csv_path: Optional[str] = None):
         pattern = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data/csv/image/zigbang_images_*.csv")
         files = sorted(glob.glob(pattern))
         if not files:
-            print("❌ 분석할 이미지 CSV 파일이 없습니다.")
+            print("분석할 이미지 CSV 파일이 없습니다.")
             return
         full_csv_path = Path(files[-1])
     else:
         full_csv_path = Path(csv_path)
 
-    print(f"📂 CSV 로드: {full_csv_path.name}")
+    print(f"CSV 로드: {full_csv_path.name}")
     
     df = pd.read_csv(full_csv_path, encoding="utf-8-sig")
     col_id = next((c for c in df.columns if any(k in c.lower() for k in ["매물", "id", "번호"])), None)
     col_url = next((c for c in df.columns if any(k in c.lower() for k in ["url", "이미지", "image"])), None)
 
     if not col_id or not col_url:
-        print("❌ 컬럼 감지 실패"); return
+        print("컬럼 감지 실패"); return
 
     tasks = []
     for _, row in df.iterrows():
@@ -119,7 +119,7 @@ def main(csv_path: Optional[str] = None):
             url = row['url']
             final_tasks.append((url, item_id, f"{item_id}_{i}{get_ext(url)}", date_str))
 
-    print(f"📦 총 {len(final_tasks)}개 이미지 S3 직송 시작 (병렬 {MAX_WORKERS}, 날짜: {date_str})\n")
+    print(f"총 {len(final_tasks)}개 이미지 S3 직송 시작 (병렬 {MAX_WORKERS}, 날짜: {date_str})\n")
     success, skip, fail = 0, 0, 0
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         future_to_task = {executor.submit(download_and_upload_to_s3, task): task for task in final_tasks}
@@ -132,9 +132,9 @@ def main(csv_path: Optional[str] = None):
                 pbar.update(1)
 
     print("\n" + "=" * 50)
-    print("🎉 S3 직송 완료!")
-    print(f"   ✅ 성공: {success} / ⏭️  스킵: {skip} / ❌ 실패: {fail}")
-    print(f"   ☁️  S3 경로: s3://{S3_BUCKET}/{S3_PREFIX}/")
+    print("S3 직송 완료!")
+    print(f"성공: {success} / 스킵: {skip} / 실패: {fail}")
+    print(f"S3 경로: s3://{S3_BUCKET}/{S3_PREFIX}/")
     print("=" * 50)
 
 if __name__ == "__main__":
