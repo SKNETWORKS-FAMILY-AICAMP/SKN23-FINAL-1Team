@@ -8,73 +8,52 @@ import glob
 import json
 import random
 import boto3
+import threading
+import pygeohash as pgh
 from botocore.exceptions import ClientError
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from typing import List, Dict, Any, Optional, Tuple, Set
+from dotenv import load_dotenv
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# 유저 에이전트 리스트 (사람인 척하기!)
+# ======================================================
+# 환경 변수 및 설정
+# ======================================================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)
+load_dotenv(os.path.join(ROOT_DIR, ".env"))
+
+KST = ZoneInfo("Asia/Seoul")
+
+session = requests.Session()
+retry = Retry(total=5, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+adapter = HTTPAdapter(max_retries=retry)
+session.mount("http://", adapter)
+session.mount("https://", adapter)
+
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
 ]
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from typing import List, Dict, Any, Optional, Tuple, Set
-from dotenv import load_dotenv
-
-# ======================================================
-# 환경 변수 로드 (프로젝트 루트의 .env 읽기)
-# ======================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)
-load_dotenv(os.path.join(ROOT_DIR, ".env"))
-
-# KST 타임존 설정
-KST = ZoneInfo("Asia/Seoul")
-
-# 세션 설정 (재시도 로직 포함)
-session = requests.Session()
-retry = Retry(total=5, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
-adapter = HTTPAdapter(max_retries=retry)
-session.mount("http://", adapter)
-session.mount("https://", adapter)
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
-import pygeohash as pgh
-
-# ======================================================
-# S3 설정 (환경 변수에서 로드)
-# ======================================================
 
 S3_BUCKET = os.getenv("S3_BUCKET")
 S3_PREFIX = os.getenv("S3_PREFIX", "zigbang_data") 
 s3_client = boto3.client("s3")
 
-def upload_to_s3(local_file: str, s3_path: str):
-    """로컬 파일을 S3의 부모 폴더 아래에 업로드"""
-    full_s3_path = f"{S3_PREFIX}/{s3_path}".replace("//", "/")
-    try:
-        s3_client.upload_file(local_file, S3_BUCKET, full_s3_path)
-        print(f"☁️  S3 업로드 성공: {full_s3_path}")
-    except Exception as e:
-        print(f"❌ S3 업로드 실패 ({os.path.basename(local_file)}): {e}")
-
-# ======================================================
-# 설정 (로컬 경로 및 API)
-# ======================================================
-
-BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR   = os.path.join(BASE_DIR, "data")
 ITEM_DIR   = os.path.join(DATA_DIR, "csv", "item")
 IMAGE_DIR  = os.path.join(DATA_DIR, "csv", "image")
 CACHE_DIR  = os.path.join(DATA_DIR, "cache")
-GH_CACHE   = os.path.join(CACHE_DIR, "geohash_list.json")
+GH_CACHE   = os.path.join(CACHE_DIR, "geohash_list_seoul_v2.json")
 
 ITEM_FILE  = ""
 IMAGE_FILE = ""
 
-MAX_WORKERS   = 20 
-ID_WORKERS    = 20 
+MAX_WORKERS   = 15 
+ID_WORKERS    = 15 
 SAVE_INTERVAL = 50
 
 ZIGBANG_API = {
@@ -82,62 +61,72 @@ ZIGBANG_API = {
     "item_detail": "https://apis.zigbang.com/v3/items/{item_id}",
 }
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
-    "Accept":     "application/json",
-    "Referer":    "https://www.zigbang.com/",
-    "Origin":     "https://www.zigbang.com",
-}
-
-# 🔒 멀티 스레딩 안전을 위한 자물쇠 생성!
 lock = threading.Lock()
 
-# ... (상단 설정 부분)
-MAX_WORKERS   = 15 
-ID_WORKERS    = 15 # 초정밀 모드이므로 안전하게 10으로 하향 조정!
-SAVE_INTERVAL = 50
+REGION_BOUNDS = {
+    "서울": {"lat_min": 37.413, "lat_max": 37.715, "lng_min": 126.734, "lng_max": 127.269, "step_lat": 0.04, "step_lng": 0.04},
+}
 
-# ... (중략) ...
+# ======================================================
+# 컬럼 정의 (데이터 일관성 유지)
+# ======================================================
+ITEM_COLUMNS = [
+    "item_id", "status", "url", "address", "address_jibun", "deposit", "rent", "manage_cost", 
+    "service_type", "room_type", "area_m2", "floor", "all_floors", "lat", "lng", 
+    "title", "image_thumbnail", "first_crawled_at", "crawled_at", "is_premium", 
+    "parking_available_text", "parking_count_text", "api_updated_at", "approve_date",
+    "bathroom_count", "residence_type", "elevator", "room_direction", "direction_criterion", "movein_date",
+    "subway_exists", "subway_distance", "pharmacy_exists", "pharmacy_distance", 
+    "convenience_exists", "convenience_distance", "bus_exists", "bus_distance", "mart_exists", "mart_distance",
+    "laundry_exists", "laundry_distance", "cafe_exists", "cafe_distance",
+    "is_coupang", "is_ssg", "is_marketkurly", "is_baemin", "is_yogiyo",
+    "is_subway_area", "is_convenient_area", "is_park_area", "is_school_area",
+    "has_air_conditioner", "has_refrigerator", "has_washing_machine", "has_gas_stove", "has_induction",
+    "has_microwave", "has_desk", "has_bed", "has_closet", "has_shoe_rack",
+    "amenities_raw", "distributions_raw", "options_raw"
+]
+
+# ======================================================
+# 유틸리티 함수
+# ======================================================
+
+def upload_to_s3(local_file: str, s3_path: str):
+    full_s3_path = f"{S3_PREFIX}/{s3_path}".replace("//", "/")
+    try:
+        s3_client.upload_file(local_file, S3_BUCKET, full_s3_path)
+        print(f"☁️  S3 업로드 성공: {full_s3_path}")
+    except Exception as e:
+        print(f"❌ S3 업로드 실패 ({os.path.basename(local_file)}): {e}")
 
 def get_all_geohashes(precision: int = 5) -> List[str]:
-    # 최적화된 서울 지오해시 캐시 파일명
-    SEOUL_GH_CACHE = os.path.join(CACHE_DIR, "geohash_list_seoul_v2.json")
-    
     os.makedirs(CACHE_DIR, exist_ok=True)
-    if os.path.exists(SEOUL_GH_CACHE):
-        with open(SEOUL_GH_CACHE, "r", encoding="utf-8") as f:
+    if os.path.exists(GH_CACHE):
+        with open(GH_CACHE, "r", encoding="utf-8") as f:
             result = json.load(f)
             print(f"💾 캐시된 서울 지오해시 리스트 로딩 완료! (총 {len(result)} 구역)")
             return result
 
-    print(f"🧮 서울 지오해시 리스트 계산 중 (정밀도 {precision}, 광속 간격 적용)...")
+    print(f"🧮 서울 지오해시 리스트 계산 중 (정밀도 {precision})...")
     all_gh = set()
     bounds = REGION_BOUNDS["서울"]
-    lat_step, lng_step = bounds["step_lat"], bounds["step_lng"]
-    
-    lat = bounds["lat_min"]
+    lat, lng_step, lat_step = bounds["lat_min"], bounds["step_lng"], bounds["step_lat"]
     while lat <= bounds["lat_max"]:
         lng = bounds["lng_min"]
         while lng <= bounds["lng_max"]:
             all_gh.add(pgh.encode(lat, lng, precision=precision))
             lng += lng_step
         lat += lat_step
-        
     result = sorted(list(all_gh))
-    with open(SEOUL_GH_CACHE, "w", encoding="utf-8") as f:
+    with open(GH_CACHE, "w", encoding="utf-8") as f:
         json.dump(result, f)
     print(f"✅ 총 {len(result)}개의 서울 광속 지오해시 구역 생성 완료!")
     return result
 
-def setup_files_and_get_states() -> Dict[int, str]:
-    if not os.path.exists(ITEM_DIR):
-        os.makedirs(ITEM_DIR, exist_ok=True)
+def setup_files_and_get_states() -> Dict[int, Dict[str, Any]]:
+    os.makedirs(ITEM_DIR, exist_ok=True)
     os.makedirs(IMAGE_DIR, exist_ok=True)
-    
-    item_states = {}
+    item_history = {}
     date_str = datetime.now(KST).strftime("%Y%m%d")
-    
-    # 🔍 오늘 날짜 파일과 과거 파일들을 모두 분석 (재귀적)
     pattern = os.path.join(ITEM_DIR, "**", "zigbang_items*.csv")
     prev_files = sorted(glob.glob(pattern, recursive=True))
     
@@ -148,175 +137,171 @@ def setup_files_and_get_states() -> Dict[int, str]:
                 with open(f_path, "r", encoding="utf-8-sig") as f:
                     reader = csv.DictReader(f)
                     for row in reader:
-                        iid = int(row["매물번호"])
-                        # 가장 최신 상태를 유지
-                        item_states[iid] = row.get("상태", "ACTIVE")
-            except Exception as e: 
-                print(f"⚠️ {os.path.basename(f_path)} 분석 실패: {e}")
-        print(f"📊 누적 매물: {len(item_states)}개")
-    else: 
-        print("📊 히스토리 없음. 새로운 데이터베이스를 구축합니다.")
+                        def get_val(eng, kor): return row.get(eng) or row.get(kor)
+                        iid_str = get_val("item_id", "매물번호")
+                        if not iid_str: continue
+                        iid = int(iid_str)
+                        if iid not in item_history:
+                            item_history[iid] = {
+                                "status": get_val("status", "상태") or "ACTIVE",
+                                "first_crawled_at": get_val("first_crawled_at", "최초수집일시") or get_val("crawled_at", "수집일시")
+                            }
+                        else:
+                            item_history[iid]["status"] = get_val("status", "상태") or "ACTIVE"
+            except Exception as e: print(f"⚠️ {os.path.basename(f_path)} 분석 실패: {e}")
+        print(f"📊 누적 매물: {len(item_history)}개")
+    else: print("📊 히스토리 없음. 새로운 데이터베이스를 구축합니다.")
     
     global ITEM_FILE, IMAGE_FILE
-    now_str = datetime.now(KST).strftime("%Y%m%d_%H%M") # 시/분 추가!
-    
-    # 🎯 아이템은 날짜별 통합, 이미지는 실행별 분리!
     ITEM_FILE = os.path.join(ITEM_DIR, f"zigbang_items_{date_str}.csv")
-    IMAGE_FILE = os.path.join(IMAGE_DIR, f"zigbang_images_{now_str}.csv")
+    IMAGE_FILE = os.path.join(IMAGE_DIR, f"zigbang_images_{datetime.now(KST).strftime('%Y%m%d_%H%M')}.csv")
     
-    # 파일이 없으면 헤더 생성
-    ITEM_COLUMNS = ["매물번호", "상태", "매물_URL", "전체주소", "지번주소", "보증금", "월세", "관리비", "건물유형", "방타입", "전용면적_m2", "층", "총층", "위도", "경도", "대표이미지", "수집일시"]
-    IMAGE_COLUMNS = ["매물번호", "이미지URL"]
-    
+    IMAGE_COLUMNS = ["item_id", "image_url"]
     if not os.path.exists(ITEM_FILE):
         with open(ITEM_FILE, "w", newline="", encoding="utf-8-sig") as f:
             csv.DictWriter(f, fieldnames=ITEM_COLUMNS).writeheader()
-    
-    # 이미지 파일은 매번 새로 만드니까 무조건 헤더 생성
     with open(IMAGE_FILE, "w", newline="", encoding="utf-8-sig") as f:
         csv.DictWriter(f, fieldnames=IMAGE_COLUMNS).writeheader()
-            
-    return item_states
+    return item_history
 
 def append_item(row):
-    ITEM_COLUMNS = ["매물번호", "상태", "매물_URL", "전체주소", "지번주소", "보증금", "월세", "관리비", "건물유형", "방타입", "전용면적_m2", "층", "총층", "위도", "경도", "대표이미지", "수집일시"]
     with lock:
         try:
             with open(ITEM_FILE, "a", newline="", encoding="utf-8-sig") as f:
-                # 🎯 핵심: 리스트에 없는 키가 들어와도 무시해! (extrasaction='ignore')
                 writer = csv.DictWriter(f, fieldnames=ITEM_COLUMNS, extrasaction='ignore')
                 writer.writerow(row)
-                f.flush()
-                os.fsync(f.fileno())
-        except Exception as e:
-            print(f"❌ CSV 쓰기 에러 (매물번호: {row.get('매물번호')}): {e}")
+                f.flush(); os.fsync(f.fileno())
+        except Exception as e: print(f"❌ CSV 쓰기 에러 (ID: {row.get('item_id')}): {e}")
 
 def append_images(rows):
-    IMAGE_COLUMNS = ["매물번호", "이미지URL"]
+    IMAGE_COLUMNS = ["item_id", "image_url"]
     with lock:
         with open(IMAGE_FILE, "a", newline="", encoding="utf-8-sig") as f:
-            writer = csv.DictWriter(f, fieldnames=IMAGE_COLUMNS)
-            writer.writerows(rows)
-            f.flush() # 버퍼 비우기
-            os.fsync(f.fileno()) # 하드디스크에 즉시 기록 강제!
+            csv.DictWriter(f, fieldnames=IMAGE_COLUMNS).writerows(rows)
+            f.flush(); os.fsync(f.fileno())
 
 def get_item_ids(geohash: str) -> List[int]:
-    # 🕵️ 초정밀 스텔스: 더 길게, 더 불규칙하게 쉬어주기 (차단 방지)
     time.sleep(random.uniform(0.5, 1.2))
-    
-    # 매번 다른 유저 에이전트 사용!
-    headers = {
-        "User-Agent": random.choice(USER_AGENTS),
-        "Accept": "application/json",
-        "Referer": "https://www.zigbang.com/",
-    }
-    
+    headers = {"User-Agent": random.choice(USER_AGENTS), "Accept": "application/json", "Referer": "https://www.zigbang.com/"}
     try:
         res = session.get(ZIGBANG_API["geohash"], params={"geohash": geohash}, headers=headers, timeout=10)
-        if res.status_code == 200: 
-            return [i["itemId"] for i in res.json().get("items", [])]
-        elif res.status_code == 403:
-            print(f"🚫 IP 차단 감지 (403)! ({geohash})")
-            return []
-        else:
-            print(f"⚠️ API Error ({geohash}): Status {res.status_code}")
-    except Exception as e:
-        print(f"❌ Network Error ({geohash}): {e}")
+        if res.status_code == 200: return [i["itemId"] for i in res.json().get("items", [])]
+        elif res.status_code == 403: print(f"🚫 IP 차단 감지 (403)! ({geohash})")
+    except: pass
     return []
 
 def get_detail(item_id: int) -> Optional[Dict]:
-    # 🕵️ 상세 정보 수집도 살금살금 (차단 방지)
     time.sleep(random.uniform(0.5, 1.0))
-    
-    headers = {
-        "User-Agent": random.choice(USER_AGENTS),
-        "Accept": "application/json",
-        "Referer": f"https://www.zigbang.com/home/oneroom/items/{item_id}",
-    }
-    
-    urls = [
-        ZIGBANG_API["item_detail"].format(item_id=item_id),
-        f"https://apis.zigbang.com/v2/items/{item_id}",
-        f"https://apis.zigbang.com/v2/items/villa/{item_id}"
-    ]
-
+    headers = {"User-Agent": random.choice(USER_AGENTS), "Accept": "application/json", "Referer": f"https://www.zigbang.com/home/oneroom/items/{item_id}"}
+    urls = [ZIGBANG_API["item_detail"].format(item_id=item_id), f"https://apis.zigbang.com/v2/items/{item_id}", f"https://apis.zigbang.com/v2/items/villa/{item_id}"]
     for url in urls:
         try:
             res = session.get(url, headers=headers, timeout=10)
             if res.status_code == 200:
                 data = res.json()
                 return data if "item" in data else {"item": data}
-            elif res.status_code == 404:
-                # 🎯 핵심: 404 뜨면 진짜 없는 매물임! 유령 퇴치!
-                return {"status": "DELETED", "itemId": item_id}
+            elif res.status_code == 404: return {"status": "DELETED", "itemId": item_id}
         except: pass
-
     return None
 
 def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[Dict]]:
     item = data.get("item")
-    if not item: 
-        return None, []
-    
+    if not item: return None, []
     item_id = item.get("itemId")
-    addr = item.get("jibunAddress") or item.get("address", "")
-    
+    addr_origin = item.get("addressOrigin") or {}
+    addr = (item.get("jibunAddress") or addr_origin.get("fullText") or item.get("address") or "")
     raw_imgs = item.get("images", [])
     images = [f"{img.strip()}?w=1200" for img in raw_imgs if img]
     
+    neighborhoods = item.get("neighborhoods") or {}
+    
+    # 1. 인프라 POI 정보 추출
+    infra_data = {}
+    target_pois = {
+        "지하철역": "subway", "약국": "pharmacy", "편의점": "convenience", 
+        "버스정류장": "bus", "대형마트": "mart", "세탁소": "laundry", "카페": "cafe"
+    }
+    nearby_pois = neighborhoods.get("nearbyPois", [])
+    for prefix in target_pois.values():
+        infra_data[f"{prefix}_exists"] = False
+        infra_data[f"{prefix}_distance"] = None
+    for poi in nearby_pois:
+        p_type = poi.get("poiType")
+        if p_type in target_pois:
+            prefix = target_pois[p_type]
+            infra_data[f"{prefix}_exists"] = poi.get("exists", False)
+            infra_data[f"{prefix}_distance"] = poi.get("distance")
+
+    # 2. 배송 정보 추출
+    dist_data = {"is_coupang": False, "is_ssg": False, "is_marketkurly": False, "is_baemin": False, "is_yogiyo": False}
+    distributions = neighborhoods.get("distributions", [])
+    dist_map = {"쿠팡": "is_coupang", "SSG": "is_ssg", "마켓컬리": "is_marketkurly", "배달의 민족": "is_baemin", "요기요": "is_yogiyo"}
+    dist_titles = []
+    for dist in distributions:
+        c_name = dist.get("companyName")
+        if c_name: dist_titles.append(c_name)
+        if c_name in dist_map: dist_data[dist_map[c_name]] = True
+
+    # 3. 생활권 정보 추출 (유연한 "~~세권" 매칭)
+    amenity_data = {"is_subway_area": False, "is_convenient_area": False, "is_park_area": False, "is_school_area": False}
+    amenities = neighborhoods.get("amenities", [])
+    amenity_map = {"역세권": "is_subway_area", "슬세권": "is_convenient_area", "공세권": "is_park_area", "학세권": "is_school_area"}
+    amenity_titles = []
+    for amen in amenities:
+        title = amen.get("title")
+        if not title: continue
+        # 정해진 맵핑 확인
+        if title in amenity_map: 
+            amenity_data[amenity_map[title]] = True
+        # "세권"으로 끝나면 무조건 원본 리스트에 추가
+        if title.endswith("세권"):
+            amenity_titles.append(title)
+
+    # 4. 내부 옵션 정보 추출 (12가지 고정 컬럼 대응)
+    option_data = {
+        "has_air_conditioner": False, "has_refrigerator": False, "has_washing_machine": False,
+        "has_gas_stove": False, "has_induction": False, "has_microwave": False,
+        "has_desk": False, "has_bed": False, "has_closet": False, "has_shoe_rack": False
+    }
+    options = item.get("options", [])
+    option_map = {
+        "에어컨": "has_air_conditioner", "냉장고": "has_refrigerator", "세탁기": "has_washing_machine",
+        "가스레인지": "has_gas_stove", "인덕션": "has_induction", "전자레인지": "has_microwave",
+        "책상": "has_desk", "침대": "has_bed", "옷장": "has_closet", "신발장": "has_shoe_rack"
+    }
+    for opt in options:
+        if opt in option_map: option_data[option_map[opt]] = True
+
     try:
-        # 🎯 진짜 안전한 필드 추출 (None 방어막!)
-        price_info = item.get("price") or {}
-        location = item.get("location") or {}
-        floor_info = item.get("floor") or {}
-        area_info = item.get("area") or {}
-        manage_info = item.get("manageCost") or {} # 관리비 필드가 None일 경우 대비
-        
-        # 매매가 혹은 보증금 추출
-        deposit = price_info.get("deposit") or price_info.get("price") 
-        rent = price_info.get("rent", 0)
-        
+        p_info, l_info, f_info, a_info, m_info = item.get("price") or {}, item.get("location") or {}, item.get("floor") or {}, item.get("area") or {}, item.get("manageCost") or {}
         item_row = {
-            "매물번호": item_id, 
-            "상태": status, 
-            "매물_URL": f"https://www.zigbang.com/home/oneroom/items/{item_id}",
-            "전체주소": addr, 
-            "지번주소": addr, 
-            "보증금": deposit,
-            "월세": rent,
-            "관리비": manage_info.get("amount") if isinstance(manage_info, dict) else None, 
-            "건물유형": item.get("serviceType"), 
-            "방타입": item.get("roomType"),
-            "전용면적_m2": area_info.get("전용면적M2") or area_info.get("m2"), 
-            "층": floor_info.get("floor"), 
-            "총층": floor_info.get("allFloors"),
-            "위도": location.get("lat"), 
-            "경도": location.get("lng"), 
-            "대표이미지": images[0] if images else "", 
-            "수집일시": datetime.now(KST).isoformat(),
+            "item_id": item_id, "status": status, "url": f"https://www.zigbang.com/home/oneroom/items/{item_id}",
+            "address": addr, "address_jibun": addr, "deposit": p_info.get("deposit") or p_info.get("price"), "rent": p_info.get("rent", 0),
+            "manage_cost": m_info.get("amount") if isinstance(m_info, dict) else None, "service_type": item.get("serviceType"), "room_type": item.get("roomType"),
+            "area_m2": a_info.get("전용면적M2") or a_info.get("m2"), "floor": f_info.get("floor"), "all_floors": f_info.get("allFloors"),
+            "lat": l_info.get("lat"), "lng": l_info.get("lng"), "title": item.get("title", ""),
+            "image_thumbnail": images[0] if images else "", "first_crawled_at": "", "crawled_at": datetime.now(KST).isoformat(),
+            "is_premium": item.get("isPremium", False), "parking_available_text": item.get("parkingAvailableText", ""), "parking_count_text": item.get("parkingCountText", ""),
+            "api_updated_at": item.get("updatedAt", ""), "approve_date": item.get("approveDate", ""), "bathroom_count": item.get("bathroomCount", ""),
+            "residence_type": item.get("residenceType", ""), "elevator": item.get("elevator"), "room_direction": item.get("roomDirection", ""),
+            "direction_criterion": item.get("directionCriterion", ""), "movein_date": item.get("moveinDate", ""),
+            "amenities_raw": "|".join(amenity_titles), "distributions_raw": "|".join(dist_titles), "options_raw": "|".join(options),
+            **infra_data, **dist_data, **amenity_data, **option_data
         }
-        image_rows = [{"매물번호": item_id, "이미지URL": img} for img in images]
-        return item_row, image_rows
+        return item_row, [{"item_id": item_id, "image_url": img} for img in images]
     except Exception as e:
         print(f"❌ 변환 에러 (ID: {item_id}): {e}")
         return None, []
 
-# ======================================================
-# 메인
-# ======================================================
-
 def crawl():
     print("=" * 60)
-    print("🏠 직방 전국 크롤링 & 상태 추적 시스템 (Turbo v2 + S3)")
+    print("🏙️  직방 서울 전용 초고속 크롤링 시스템 (Turbo v3 + S3)")
     print(f"   실행 일시: {datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60 + "\n")
-
     start_total = time.time()
-    item_states = setup_files_and_get_states()
-    last_active_ids = {iid for iid, status in item_states.items() if status == "ACTIVE"}
+    item_history = setup_files_and_get_states()
+    last_active_ids = {iid for iid, info in item_history.items() if info["status"] == "ACTIVE"}
     geohash_list = get_all_geohashes()
-    print(f"📍 총 {len(geohash_list)}개의 지오해시 구역 분석 시작...")
-
     current_found_ids: Set[int] = set()
     print(f"🚀 ID 수집 중... (병렬 {ID_WORKERS}개)")
     with ThreadPoolExecutor(max_workers=ID_WORKERS) as executor:
@@ -328,85 +313,43 @@ def crawl():
             done_gh += 1
             if done_gh % 200 == 0 or done_gh == len(geohash_list): print(f"   - 진행률: [{done_gh}/{len(geohash_list)}] ({done_gh/len(geohash_list)*100:.1f}%)")
 
-    # 🎯 수집 전략: 한 번이라도 우리 DB에 들어온 놈은 절대 '신규'가 될 수 없음!
-    new_ids = current_found_ids - item_states.keys()
+    # 이번 한 번은 전체 강제 업데이트 모드
+    to_fetch_ids = current_found_ids
+    print(f"\n🔍 분석 결과: 현재 {len(current_found_ids)}개 (전체 강제 업데이트 모드)")
     
-    # 🎯 재활성 로직: 기존 DB에 있지만 현재 활성 상태가 아닌 놈들 중 다시 나타난 놈
-    reactivated_ids = (current_found_ids & item_states.keys()) - last_active_ids
-    
-    # 🎯 삭제 로직: 기존에 활성 상태였는데 이번 목록에서 사라진 놈들
-    deleted_ids = last_active_ids - current_found_ids
-    
-    # ❌ [네 요청대로!] 한 번 INACTIVE 된 놈은 다시는 상세 정보를 긁지 마!
-    to_fetch_ids = new_ids # reactivated_ids는 과감히 버린다!
-
-    print(f"\n🔍 분석 결과: 현재 {len(current_found_ids)}개 (신규 {len(new_ids)}, 재활성 {len(reactivated_ids)}, 삭제 {len(deleted_ids)})")
-    
-    if deleted_ids:
-        to_deactivate = [did for did in deleted_ids if item_states.get(did) == "ACTIVE"]
-        if to_deactivate:
-            print(f"🚫 {len(to_deactivate)}개의 매물을 INACTIVE 상태로 기록 중...")
-            for did in to_deactivate: 
-                append_item({"매물번호": did, "상태": "INACTIVE", "수집일시": datetime.now(KST).isoformat()})
-                with lock: item_states[did] = "INACTIVE"
-        else:
-            print("✨ 새로 삭제된 매물은 없네! (이미 INACTIVE 상태)")
-
     if to_fetch_ids:
         print(f"📋 상세 정보 수집 중... (대상: {len(to_fetch_ids)}개, 병렬 {MAX_WORKERS}개)")
-        start_detail = time.time()
-        done = 0
-        ghost_count = 0 # 👻 유령 매물 카운트용
-        
+        start_detail, done, ghost_count = time.time(), 0, 0
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = {executor.submit(get_detail, iid): iid for iid in to_fetch_ids}
             for future in as_completed(futures):
                 current_iid = futures[future]
                 data = future.result(); done += 1
                 if data:
-                    # 🎯 유령 매물 카운트 및 처리
                     if data.get("status") == "DELETED":
-                        append_item({"매물번호": current_iid, "상태": "INACTIVE", "수집일시": datetime.now(KST).isoformat()})
-                        with lock: item_states[current_iid] = "INACTIVE"
+                        append_item({"item_id": current_iid, "status": "INACTIVE", "first_crawled_at": datetime.now(KST).isoformat(), "crawled_at": datetime.now(KST).isoformat()})
+                        with lock: item_history[current_iid] = {"status": "INACTIVE", "first_crawled_at": datetime.now(KST).isoformat()}
                         ghost_count += 1
                         continue
-
                     item_row, image_rows = transform(data, status="ACTIVE")
                     if item_row: 
+                        first_seen = item_history.get(current_iid, {}).get("first_crawled_at") or datetime.now(KST).isoformat()
+                        item_row["first_crawled_at"] = first_seen
                         append_item(item_row)
-                        with lock: item_states[current_iid] = "ACTIVE"
+                        with lock: item_history[current_iid] = {"status": "ACTIVE", "first_crawled_at": first_seen}
                         if image_rows: append_images(image_rows)
-                else:
-                    # 🎯 차단 혹은 에러인 경우 그냥 넘어가기
-                    pass
-
                 if done % SAVE_INTERVAL == 0 or done == len(to_fetch_ids):
-                    elapsed_detail = time.time() - start_detail
-                    speed = done / elapsed_detail if elapsed_detail > 0 else 0
+                    speed = done / (time.time() - start_detail)
                     print(f"  [{done:5d}/{len(to_fetch_ids)}] 속도: {speed:.1f}/초 (유령 감지: {ghost_count}개)")
+        if ghost_count > 0: print(f"\n👻 오늘 총 {ghost_count}개의 유령 매물(404)을 성불시켰습니다.")
 
-        if ghost_count > 0:
-            print(f"\n👻 오늘 총 {ghost_count}개의 유령 매물(404)을 성불시켰습니다.")
-
-    # 🚀 크롤링 종료 후 CSV 파일을 S3로 전송! (서울 전용 폴더)
     print("\n📦 서울 결과물을 S3로 업로드 중...")
-    upload_to_s3(ITEM_FILE,  f"csv/seoul/item/{os.path.basename(ITEM_FILE)}")
+    upload_to_s3(ITEM_FILE, f"csv/seoul/item/{os.path.basename(ITEM_FILE)}")
     upload_to_s3(IMAGE_FILE, f"csv/seoul/image/{os.path.basename(IMAGE_FILE)}")
-
-    # 🖼️ 서울 이미지 전용 다운로드 및 S3 직송!
     print("\n📸 [서울] 이미지 수집 및 S3 업로드 시작...")
     import download_images_seoul
     download_images_seoul.main(IMAGE_FILE)
-
-    total_elapsed = time.time() - start_total
-    print("\n" + "=" * 60)
-    print("🎉 서울 수집 작업 완료!")
-    print(f"   ⏱️  총 소요시간: {total_elapsed/60:.1f}분")
-    print("=" * 60)
-
-REGION_BOUNDS = {
-    "서울": {"lat_min": 37.413, "lat_max": 37.715, "lng_min": 126.734, "lng_max": 127.269, "step_lat": 0.04, "step_lng": 0.04},
-}
+    print("\n" + "=" * 60 + f"\n🎉 서울 수집 작업 완료! (소요시간: {(time.time()-start_total)/60:.1f}분)\n" + "=" * 60)
 
 if __name__ == "__main__":
     crawl()
