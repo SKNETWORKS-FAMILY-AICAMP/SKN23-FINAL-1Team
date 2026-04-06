@@ -352,7 +352,7 @@ def crawl():
     print("\n서울 결과물을 S3로 업로드 중...")
     upload_to_s3(ITEM_FILE, f"csv/seoul/item/{os.path.basename(ITEM_FILE)}")
     upload_to_s3(IMAGE_FILE, f"csv/seoul/image/{os.path.basename(IMAGE_FILE)}")
-    print("\n📸 [서울] 이미지 수집 및 S3 업로드 시작...")
+    print("\n[서울] 이미지 수집 및 S3 업로드 시작...")
     import download_images_seoul
     download_images_seoul.main(IMAGE_FILE)
     print("\n" + "=" * 60 + f"\n서울 수집 작업 완료! (소요시간: {(time.time()-start_total)/60:.1f}분)\n" + "=" * 60)
