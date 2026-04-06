@@ -94,19 +94,19 @@ def upload_to_s3(local_file: str, s3_path: str):
     full_s3_path = f"{S3_PREFIX}/{s3_path}".replace("//", "/")
     try:
         s3_client.upload_file(local_file, S3_BUCKET, full_s3_path)
-        print(f"☁️  S3 업로드 성공: {full_s3_path}")
+        print(f"S3 업로드 성공: {full_s3_path}")
     except Exception as e:
-        print(f"❌ S3 업로드 실패 ({os.path.basename(local_file)}): {e}")
+        print(f"S3 업로드 실패 ({os.path.basename(local_file)}): {e}")
 
 def get_all_geohashes(precision: int = 5) -> List[str]:
     os.makedirs(CACHE_DIR, exist_ok=True)
     if os.path.exists(GH_CACHE):
         with open(GH_CACHE, "r", encoding="utf-8") as f:
             result = json.load(f)
-            print(f"💾 캐시된 서울 지오해시 리스트 로딩 완료! (총 {len(result)} 구역)")
+            print(f"캐시된 서울 지오해시 리스트 로딩 완료! (총 {len(result)} 구역)")
             return result
 
-    print(f"🧮 서울 지오해시 리스트 계산 중 (정밀도 {precision})...")
+    print(f"서울 지오해시 리스트 계산 중 (정밀도 {precision})...")
     all_gh = set()
     bounds = REGION_BOUNDS["서울"]
     lat, lng_step, lat_step = bounds["lat_min"], bounds["step_lng"], bounds["step_lat"]
@@ -119,7 +119,7 @@ def get_all_geohashes(precision: int = 5) -> List[str]:
     result = sorted(list(all_gh))
     with open(GH_CACHE, "w", encoding="utf-8") as f:
         json.dump(result, f)
-    print(f"✅ 총 {len(result)}개의 서울 광속 지오해시 구역 생성 완료!")
+    print(f"총 {len(result)}개의 서울 광속 지오해시 구역 생성 완료!")
     return result
 
 def setup_files_and_get_states() -> Dict[int, Dict[str, Any]]:
@@ -131,7 +131,7 @@ def setup_files_and_get_states() -> Dict[int, Dict[str, Any]]:
     prev_files = sorted(glob.glob(pattern, recursive=True))
     
     if prev_files:
-        print(f"🔍 히스토리 데이터 파일 {len(prev_files)}개 통합 분석 중...")
+        print(f"히스토리 데이터 파일 {len(prev_files)}개 통합 분석 중...")
         for f_path in prev_files:
             try:
                 with open(f_path, "r", encoding="utf-8-sig") as f:
@@ -148,9 +148,9 @@ def setup_files_and_get_states() -> Dict[int, Dict[str, Any]]:
                             }
                         else:
                             item_history[iid]["status"] = get_val("status", "상태") or "ACTIVE"
-            except Exception as e: print(f"⚠️ {os.path.basename(f_path)} 분석 실패: {e}")
-        print(f"📊 누적 매물: {len(item_history)}개")
-    else: print("📊 히스토리 없음. 새로운 데이터베이스를 구축합니다.")
+            except Exception as e: print(f"{os.path.basename(f_path)} 분석 실패: {e}")
+        print(f"누적 매물: {len(item_history)}개")
+    else: print("히스토리 없음. 새로운 데이터베이스를 구축합니다.")
     
     global ITEM_FILE, IMAGE_FILE
     ITEM_FILE = os.path.join(ITEM_DIR, f"zigbang_items_{date_str}.csv")
@@ -171,7 +171,7 @@ def append_item(row):
                 writer = csv.DictWriter(f, fieldnames=ITEM_COLUMNS, extrasaction='ignore')
                 writer.writerow(row)
                 f.flush(); os.fsync(f.fileno())
-        except Exception as e: print(f"❌ CSV 쓰기 에러 (ID: {row.get('item_id')}): {e}")
+        except Exception as e: print(f"CSV 쓰기 에러 (ID: {row.get('item_id')}): {e}")
 
 def append_images(rows):
     IMAGE_COLUMNS = ["item_id", "image_url"]
@@ -186,7 +186,7 @@ def get_item_ids(geohash: str) -> List[int]:
     try:
         res = session.get(ZIGBANG_API["geohash"], params={"geohash": geohash}, headers=headers, timeout=10)
         if res.status_code == 200: return [i["itemId"] for i in res.json().get("items", [])]
-        elif res.status_code == 403: print(f"🚫 IP 차단 감지 (403)! ({geohash})")
+        elif res.status_code == 403: print(f"IP 차단 감지 (403)! ({geohash})")
     except: pass
     return []
 
@@ -282,12 +282,12 @@ def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[
         }
         return item_row, [{"item_id": item_id, "image_url": img} for img in images]
     except Exception as e:
-        print(f"❌ 변환 에러 (ID: {item_id}): {e}")
+        print(f"변환 에러 (ID: {item_id}): {e}")
         return None, []
 
 def crawl():
     print("=" * 60)
-    print("🏙️  직방 서울 전용 초고속 크롤링 시스템 (Turbo v3 + S3)")
+    print("직방 서울 전용 초고속 크롤링 시스템 (Turbo v3 + S3)")
     print(f"   실행 일시: {datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60 + "\n")
     start_total = time.time()
@@ -295,7 +295,7 @@ def crawl():
     last_active_ids = {iid for iid, info in item_history.items() if info["status"] == "ACTIVE"}
     geohash_list = get_all_geohashes()
     current_found_ids: Set[int] = set()
-    print(f"🚀 ID 수집 중... (병렬 {ID_WORKERS}개)")
+    print(f"ID 수집 중... (병렬 {ID_WORKERS}개)")
     with ThreadPoolExecutor(max_workers=ID_WORKERS) as executor:
         future_to_gh = {executor.submit(get_item_ids, gh): gh for gh in geohash_list}
         done_gh = 0
@@ -309,22 +309,22 @@ def crawl():
     reactivated_ids = (current_found_ids & item_history.keys()) - last_active_ids
     deleted_ids = last_active_ids - current_found_ids
 
-    # 🎯 모드 설정 (강제 업데이트: current_found_ids / 일반: new_ids)
+    # 모드 설정 (강제 업데이트: current_found_ids / 일반: new_ids)
     # 현재는 '일반 모드'로 설정함!
     to_fetch_ids = new_ids
-    print(f"\n🔍 분석 결과: 현재 {len(current_found_ids)}개 (신규 {len(to_fetch_ids)}개 업데이트 모드)")
+    print(f"\n분석 결과: 현재 {len(current_found_ids)}개 (신규 {len(to_fetch_ids)}개 업데이트 모드)")
     
     if deleted_ids:
         to_deactivate = [did for did in deleted_ids if item_history.get(did, {}).get("status") == "ACTIVE"]
         if to_deactivate:
-            print(f"🚫 {len(to_deactivate)}개의 매물을 INACTIVE 상태로 기록 중...")
+            print(f"{len(to_deactivate)}개의 매물을 INACTIVE 상태로 기록 중...")
             for did in to_deactivate: 
                 append_item({"item_id": did, "status": "INACTIVE", "crawled_at": datetime.now(KST).isoformat()})
                 with lock: item_history[did] = {"status": "INACTIVE", "first_crawled_at": item_history.get(did, {}).get("first_crawled_at")}
-        else: print("✨ 새로 삭제된 매물은 없네! (이미 INACTIVE 상태)")
+        else: print("새로 삭제된 매물은 없네! (이미 INACTIVE 상태)")
 
     if to_fetch_ids:
-        print(f"📋 상세 정보 수집 중... (대상: {len(to_fetch_ids)}개, 병렬 {MAX_WORKERS}개)")
+        print(f"상세 정보 수집 중... (대상: {len(to_fetch_ids)}개, 병렬 {MAX_WORKERS}개)")
         start_detail, done, ghost_count = time.time(), 0, 0
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = {executor.submit(get_detail, iid): iid for iid in to_fetch_ids}
@@ -347,15 +347,15 @@ def crawl():
                 if done % SAVE_INTERVAL == 0 or done == len(to_fetch_ids):
                     speed = done / (time.time() - start_detail)
                     print(f"  [{done:5d}/{len(to_fetch_ids)}] 속도: {speed:.1f}/초 (유령 감지: {ghost_count}개)")
-        if ghost_count > 0: print(f"\n👻 오늘 총 {ghost_count}개의 유령 매물(404)을 성불시켰습니다.")
+        if ghost_count > 0: print(f"\n오늘 총 {ghost_count}개의 유령 매물(404)을 성불시켰습니다.")
 
-    print("\n📦 서울 결과물을 S3로 업로드 중...")
+    print("\n서울 결과물을 S3로 업로드 중...")
     upload_to_s3(ITEM_FILE, f"csv/seoul/item/{os.path.basename(ITEM_FILE)}")
     upload_to_s3(IMAGE_FILE, f"csv/seoul/image/{os.path.basename(IMAGE_FILE)}")
     print("\n📸 [서울] 이미지 수집 및 S3 업로드 시작...")
     import download_images_seoul
     download_images_seoul.main(IMAGE_FILE)
-    print("\n" + "=" * 60 + f"\n🎉 서울 수집 작업 완료! (소요시간: {(time.time()-start_total)/60:.1f}분)\n" + "=" * 60)
+    print("\n" + "=" * 60 + f"\n서울 수집 작업 완료! (소요시간: {(time.time()-start_total)/60:.1f}분)\n" + "=" * 60)
 
 if __name__ == "__main__":
     crawl()
