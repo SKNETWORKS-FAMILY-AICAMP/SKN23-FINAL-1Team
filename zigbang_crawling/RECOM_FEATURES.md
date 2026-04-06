@@ -10,29 +10,29 @@
 ---
 
 ## 1. 기본 정보 (Core Metadata)
-| 영문 컬럼명 | 설명 | 비고 |
-| :--- | :--- | :--- |
-| **item_id** | 매물 고유 번호 (itemId) | Primary Key |
-| **status** | 매물 상태 (ACTIVE / INACTIVE) | |
-| **url** | 직방 상세 페이지 URL | |
-| **address** | 전체 주소 (Full Text) | |
-| **address_jibun** | 지번 주소 | |
-| **title** | 매물 홍보 제목 | **NLP/임베딩 활용 추천** |
-| **deposit / rent** | 보증금 / 월세 | 단위: 만원 |
-| **manage_cost** | 관리비 | 단위: 만원 |
-| **service_type** | 건물 유형 (원룸, 오피스텔 등) | |
-| **room_type** | 방 구조 (오픈형, 분리형 등) | |
-| **area_m2** | 전용 면적 (m²) | |
-| **floor / all_floors** | 해당 층 / 전체 층 | |
-| **lat / lng** | 위도 / 경도 | |
-| **image_thumbnail** | 대표 이미지 주소 | |
-| **first_crawled_at** | 시스템 최초 발견 시각 | 히스토리 추적용 |
-| **crawled_at** | 최종 업데이트 시각 | |
+| 영문 컬럼명 | 데이터 타입 | 설명 | 비고 |
+| :--- | :--- | :--- | :--- |
+| **item_id** | **BIGINT** | 매물 고유 번호 (itemId) | **Primary Key** |
+| **status** | **VARCHAR(20)** | 매물 상태 (ACTIVE / INACTIVE) | |
+| **url** | **TEXT** | 직방 상세 페이지 URL | |
+| **address** | **VARCHAR(255)** | 전체 주소 (Full Text) | |
+| **address_jibun** | **VARCHAR(255)** | 지번 주소 | |
+| **title** | **TEXT** | 매물 홍보 제목 | NLP 활용 추천 |
+| **deposit / rent** | **INTEGER** | 보증금 / 월세 | 단위: 만원 |
+| **manage_cost** | **NUMERIC(10,2)** | 관리비 | 단위: 만원 |
+| **service_type** | **VARCHAR(50)** | 건물 유형 (원룸, 오피스텔 등) | |
+| **room_type** | **VARCHAR(50)** | 방 구조 (오픈형, 분리형 등) | |
+| **area_m2** | **NUMERIC(10,2)** | 전용 면적 (m²) | |
+| **floor / all_floors** | **SMALLINT** | 해당 층 / 전체 층 | |
+| **lat / lng** | **DECIMAL(10,7)** | 위도 / 경도 | 고정밀 좌표 |
+| **image_thumbnail** | **TEXT** | 대표 이미지 주소 | |
+| **first_crawled_at** | **TIMESTAMP** | 시스템 최초 발견 시각 | 히스토리 추적용 |
+| **crawled_at** | **TIMESTAMP** | 최종 업데이트 시각 | |
 
 ---
 
 ## 2. ML 전처리용 가공 피처 (Boolean Features)
-이 섹션의 필드들은 모델이 즉시 학습에 사용할 수 있도록 `True/False`로 제공됩니다.
+이 섹션의 필드들은 모델이 즉시 학습에 사용할 수 있도록 `BOOLEAN` (또는 `TINYINT(1)`) 타입으로 제공됩니다.
 
 ### 🚚 배송권 정보 (Delivery)
 *   `is_coupang` (쿠팡 로켓배송/프레시)
@@ -53,7 +53,7 @@
 ---
 
 ## 3. 원문 데이터 보존 (Raw Text Data)
-중개사가 등록한 원문 텍스트입니다. 가공 피처 외의 추가 키워드를 추출할 때 사용합니다. 구분자는 파이프(`|`)를 사용합니다.
+중개사가 등록한 원문 텍스트입니다. 가공 피처 외의 추가 키워드를 추출할 때 사용합니다. 구분자는 파이프(`|`)를 사용하며, 타입은 **TEXT**를 권장합니다.
 
 | 컬럼명 | 설명 | 예시 |
 | :--- | :--- | :--- |
@@ -64,18 +64,20 @@
 ---
 
 ## 4. 인프라 상세 정보 (POI - Infrastructure)
-주요 시설까지의 직선 거리를 담고 있습니다. (`_exists`: 존재 여부, `_distance`: 거리(m))
+주요 시설까지의 직선 거리를 담고 있습니다. (`_exists`: **BOOLEAN**, `_distance`: **INTEGER**(m))
 *   대상 시설: `subway`, `pharmacy`, `convenience`, `bus`, `mart`, `laundry`, `cafe`
 
 ---
 
 ## 5. 상세 건축 정보 (Architecture Details)
-*   `approve_date`: 건물 사용 승인일 (준공 년도 추정 가능)
-*   `bathroom_count`: 욕실 개수
-*   `residence_type`: 건축물 용도 구분 (다세대주택, 단독주택 등)
-*   `elevator`: 엘리베이터 설치 여부
-*   `room_direction`: 방의 향 (남향, 서향 등)
-*   `movein_date`: 입주 가능일 또는 시기
+| 컬럼명 | 데이터 타입 | 설명 | 비고 |
+| :--- | :--- | :--- | :--- |
+| **approve_date** | **DATE** | 건물 사용 승인일 | YYYY-MM-DD |
+| **bathroom_count** | **SMALLINT** | 욕실 개수 | |
+| **residence_type** | **VARCHAR(100)** | 건축물 용도 구분 | 다세대주택 등 |
+| **elevator** | **BOOLEAN** | 엘리베이터 설치 여부 | |
+| **room_direction** | **VARCHAR(50)** | 방의 향 | 남향, 서향 등 |
+| **movein_date** | **VARCHAR(100)** | 입주 가능일 또는 시기 | 텍스트 혼합 가능 |
 
 ---
-*최종 업데이트: 2026-04-06 (Architectural Schema Finalized)*
+*최종 업데이트: 2026-04-06 (Architectural Schema Finalized with Data Types)*
