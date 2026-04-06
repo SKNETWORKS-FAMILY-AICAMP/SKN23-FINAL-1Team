@@ -3,7 +3,11 @@ import KakaoProvider from "next-auth/providers/kakao";
 import NaverProvider from "next-auth/providers/naver";
 import GoogleProvider from "next-auth/providers/google";
 
-const BACKEND_URL = process.env.BACKEND_URL || "http://127.0.0.1:8000";
+const BACKEND_URL = process.env.BACKEND_URL;
+
+if (!BACKEND_URL) {
+  console.warn("⚠️ 경고: BACKEND_URL 환경 변수가 설정되지 않았어! 통신 안 될걸?");
+}
 
 const handler = NextAuth({
   providers: [
