@@ -215,7 +215,6 @@ def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[
     
     neighborhoods = item.get("neighborhoods") or {}
     
-    # 1. 인프라 POI 정보 추출
     infra_data = {}
     target_pois = {
         "지하철역": "subway", "약국": "pharmacy", "편의점": "convenience", 
@@ -232,7 +231,6 @@ def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[
             infra_data[f"{prefix}_exists"] = poi.get("exists", False)
             infra_data[f"{prefix}_distance"] = poi.get("distance")
 
-    # 2. 배송 정보 추출
     dist_data = {"is_coupang": False, "is_ssg": False, "is_marketkurly": False, "is_baemin": False, "is_yogiyo": False}
     distributions = neighborhoods.get("distributions", [])
     dist_map = {"쿠팡": "is_coupang", "SSG": "is_ssg", "마켓컬리": "is_marketkurly", "배달의 민족": "is_baemin", "요기요": "is_yogiyo"}
@@ -242,7 +240,6 @@ def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[
         if c_name: dist_titles.append(c_name)
         if c_name in dist_map: dist_data[dist_map[c_name]] = True
 
-    # 3. 생활권 정보 추출 (유연한 "~~세권" 매칭)
     amenity_data = {"is_subway_area": False, "is_convenient_area": False, "is_park_area": False, "is_school_area": False}
     amenities = neighborhoods.get("amenities", [])
     amenity_map = {"역세권": "is_subway_area", "슬세권": "is_convenient_area", "공세권": "is_park_area", "학세권": "is_school_area"}
@@ -250,14 +247,9 @@ def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[
     for amen in amenities:
         title = amen.get("title")
         if not title: continue
-        # 정해진 맵핑 확인
-        if title in amenity_map: 
-            amenity_data[amenity_map[title]] = True
-        # "세권"으로 끝나면 무조건 원본 리스트에 추가
-        if title.endswith("세권"):
-            amenity_titles.append(title)
+        if title in amenity_map: amenity_data[amenity_map[title]] = True
+        if title.endswith("세권"): amenity_titles.append(title)
 
-    # 4. 내부 옵션 정보 추출 (12가지 고정 컬럼 대응)
     option_data = {
         "has_air_conditioner": False, "has_refrigerator": False, "has_washing_machine": False,
         "has_gas_stove": False, "has_induction": False, "has_microwave": False,
@@ -313,10 +305,24 @@ def crawl():
             done_gh += 1
             if done_gh % 200 == 0 or done_gh == len(geohash_list): print(f"   - 진행률: [{done_gh}/{len(geohash_list)}] ({done_gh/len(geohash_list)*100:.1f}%)")
 
-    # 이번 한 번은 전체 강제 업데이트 모드
-    to_fetch_ids = current_found_ids
-    print(f"\n🔍 분석 결과: 현재 {len(current_found_ids)}개 (전체 강제 업데이트 모드)")
+    new_ids = current_found_ids - item_history.keys()
+    reactivated_ids = (current_found_ids & item_history.keys()) - last_active_ids
+    deleted_ids = last_active_ids - current_found_ids
+
+    # 🎯 모드 설정 (강제 업데이트: current_found_ids / 일반: new_ids)
+    # 현재는 '일반 모드'로 설정함!
+    to_fetch_ids = new_ids
+    print(f"\n🔍 분석 결과: 현재 {len(current_found_ids)}개 (신규 {len(to_fetch_ids)}개 업데이트 모드)")
     
+    if deleted_ids:
+        to_deactivate = [did for did in deleted_ids if item_history.get(did, {}).get("status") == "ACTIVE"]
+        if to_deactivate:
+            print(f"🚫 {len(to_deactivate)}개의 매물을 INACTIVE 상태로 기록 중...")
+            for did in to_deactivate: 
+                append_item({"item_id": did, "status": "INACTIVE", "crawled_at": datetime.now(KST).isoformat()})
+                with lock: item_history[did] = {"status": "INACTIVE", "first_crawled_at": item_history.get(did, {}).get("first_crawled_at")}
+        else: print("✨ 새로 삭제된 매물은 없네! (이미 INACTIVE 상태)")
+
     if to_fetch_ids:
         print(f"📋 상세 정보 수집 중... (대상: {len(to_fetch_ids)}개, 병렬 {MAX_WORKERS}개)")
         start_detail, done, ghost_count = time.time(), 0, 0
