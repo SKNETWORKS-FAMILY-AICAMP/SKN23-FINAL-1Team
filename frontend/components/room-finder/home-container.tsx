@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Header } from "@/components/room-finder/header"
-import { FilterBar, type Filters } from "@/components/room-finder/filter-bar"
-import { MapView, type Listing } from "@/components/room-finder/map-view"
-import { ListingPanel } from "@/components/room-finder/listing-panel"
-import { mockListings } from "@/lib/mock-data"
+import { useState } from "react";
+import { Header } from "@/components/room-finder/header";
+import { FilterBar, type Filters } from "@/components/room-finder/filter-bar";
+import { MapView, type Listing } from "@/components/room-finder/map-view";
+import { ListingPanel } from "@/components/room-finder/listing-panel";
+import { mockListings } from "@/lib/mock-data";
 
 const defaultFilters: Filters = {
   transactionType: "all",
@@ -13,34 +13,36 @@ const defaultFilters: Filters = {
   structure: "all",
   size: "all",
   options: "all",
-}
+};
 
 function filterListings(listings: typeof mockListings, filters: Filters) {
   return listings.filter((listing) => {
     if (filters.transactionType !== "all") {
-      if (filters.transactionType === "monthly" && !listing.monthlyRent) return false
-      if (filters.transactionType === "jeonse" && listing.monthlyRent) return false
+      if (filters.transactionType === "monthly" && !listing.monthlyRent)
+        return false;
+      if (filters.transactionType === "jeonse" && listing.monthlyRent)
+        return false;
     }
     if (filters.structure !== "all") {
       const structureMap: Record<string, string> = {
         open: "오픈형",
         separated: "분리형",
         duplex: "복층",
-      }
-      if (listing.structure !== structureMap[filters.structure]) return false
+      };
+      if (listing.structure !== structureMap[filters.structure]) return false;
     }
-    return true
-  })
+    return true;
+  });
 }
 
 export function HomeContainer() {
-  const [roomType, setRoomType] = useState<"oneroom" | "tworoom">("oneroom")
-  const [filters, setFilters] = useState<Filters>(defaultFilters)
-  const [searchQuery, setSearchQuery] = useState("가산디지털단지역")
-  const [, setSelectedListing] = useState<Listing | null>(null)
-  const [mobileView, setMobileView] = useState<"map" | "list">("map")
+  const [roomType, setRoomType] = useState<"oneroom" | "tworoom">("oneroom");
+  const [filters, setFilters] = useState<Filters>(defaultFilters);
+  const [searchQuery, setSearchQuery] = useState("지역명 혹은 지하철역 입력");
+  const [, setSelectedListing] = useState<Listing | null>(null);
+  const [mobileView, setMobileView] = useState<"map" | "list">("map");
 
-  const filteredListings = filterListings(mockListings, filters)
+  const filteredListings = filterListings(mockListings, filters);
 
   return (
     <div className="flex flex-col h-screen bg-ivory">
@@ -51,7 +53,7 @@ export function HomeContainer() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
       />
-      
+
       {/* Mobile View Toggle */}
       <div className="flex lg:hidden border-b border-border-warm bg-cream">
         <button
@@ -101,8 +103,8 @@ export function HomeContainer() {
               searchQuery={searchQuery}
               listings={filteredListings}
               onMarkerClick={(listing) => {
-                setSelectedListing(listing)
-                setMobileView("list")
+                setSelectedListing(listing);
+                setMobileView("list");
               }}
             />
           </section>
@@ -116,5 +118,5 @@ export function HomeContainer() {
         )}
       </main>
     </div>
-  )
+  );
 }

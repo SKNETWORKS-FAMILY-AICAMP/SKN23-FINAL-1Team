@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import NextAuthProvider from "@/components/common/NextAuthProvider";
+import AuthSessionSync from "@/components/common/AuthSessionSync";
 
 export const metadata: Metadata = {
   title: "방찾기 - AI 기반 원룸/투룸 매물 검색",
@@ -39,7 +40,10 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className="bg-neutral-100 text-black antialiased">
-        <NextAuthProvider>{children}</NextAuthProvider>
+        <NextAuthProvider>
+          <AuthSessionSync />
+          {children}
+        </NextAuthProvider>
       </body>
     </html>
   );
