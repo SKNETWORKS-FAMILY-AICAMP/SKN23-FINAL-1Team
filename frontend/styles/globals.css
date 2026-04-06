@@ -1,48 +1,42 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Custom beige/ivory/cream/linen palette */
-  --beige: #f5f5dc;
-  --ivory: #fffff0;
-  --cream: #fffdd0;
-  --linen: #faf0e6;
-
-  --background: #fffff0; /* ivory */
-  --foreground: #3d3d3d;
-  --card: #faf0e6; /* linen */
-  --card-foreground: #3d3d3d;
-  --popover: #fffff0;
-  --popover-foreground: #3d3d3d;
-  --primary: #8b7355; /* warm brown */
-  --primary-foreground: #fffff0;
-  --secondary: #f5f5dc; /* beige */
-  --secondary-foreground: #3d3d3d;
-  --muted: #faf0e6; /* linen */
-  --muted-foreground: #6b6b6b;
-  --accent: #fffdd0; /* cream */
-  --accent-foreground: #3d3d3d;
-  --destructive: #dc3545;
-  --destructive-foreground: #ffffff;
-  --border: #e8e0d5;
-  --input: #fffff0;
-  --ring: #8b7355;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
-  --sidebar: #faf0e6;
-  --sidebar-foreground: #3d3d3d;
-  --sidebar-primary: #8b7355;
-  --sidebar-primary-foreground: #fffff0;
-  --sidebar-accent: #f5f5dc;
-  --sidebar-accent-foreground: #3d3d3d;
-  --sidebar-border: #e8e0d5;
-  --sidebar-ring: #8b7355;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 }
 
 .dark {
@@ -81,19 +75,8 @@
 }
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback";
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
-  /* Custom color palette */
-  --color-beige: #f5f5dc;
-  --color-ivory: #fffff0;
-  --color-cream: #fffdd0;
-  --color-linen: #faf0e6;
-  --color-warm-brown: #8b7355;
-  --color-warm-brown-dark: #6b5a45;
-  --color-neutral-dark: #3d3d3d;
-  --color-neutral-muted: #6b6b6b;
-  --color-border-warm: #e8e0d5;
-  --color-tab-active: #6b6b6b;
+  --font-sans: 'Geist', 'Geist Fallback';
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
