@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./globals.css";
 import NextAuthProvider from "@/components/common/NextAuthProvider";
 import AuthSessionSync from "@/components/common/AuthSessionSync";
@@ -45,6 +46,11 @@ export default function RootLayout({
           {children}
         </NextAuthProvider>
       </body>
+
+      <Script
+        src={`//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_JS_KEY}&autoload=false&libraries=services,clusterer,drawing`}
+        strategy="afterInteractive"
+      />
     </html>
   );
 }
