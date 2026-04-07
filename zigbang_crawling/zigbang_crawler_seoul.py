@@ -363,6 +363,7 @@ def crawl():
     
     try:
         processor.load_single_csv_to_db(ITEM_FILE)
+        processor.load_images_to_db(IMAGE_FILE)
     except Exception as e:
         print(f"\n[에러] DB 자동 업로드 중 오류 발생: {e}")
 
