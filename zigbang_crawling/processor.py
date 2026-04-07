@@ -151,13 +151,13 @@ def load_images_to_db(csv_path):
                     is_main = True
                     seen_items.add(item_id)
 
-                # items 테이블에 존재하는 경우에만 INSERT
-                # ON CONFLICT DO NOTHING으로 중복 삽입 방지 (s3_url 기준 인덱스 권장)
+                # items 테이블에 존재하고, 동시에 이미 들어간 이미지가 아닐 때만 INSERT
                 cur.execute("""
                     INSERT INTO item_images (item_id, s3_url, is_main)
                     SELECT %s, %s, %s
                     WHERE EXISTS (SELECT 1 FROM items WHERE item_id = %s)
-                """, (item_id, img_url, is_main, item_id))
+                      AND NOT EXISTS (SELECT 1 FROM item_images WHERE s3_url = %s)
+                """, (item_id, img_url, is_main, item_id, img_url))
                 
                 if cur.rowcount > 0:
                     success += 1
