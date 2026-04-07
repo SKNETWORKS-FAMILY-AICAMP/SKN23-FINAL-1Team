@@ -9,7 +9,7 @@ export async function fetchItems(params: {
   transactionType?: string;
   roomType?: string;
 }): Promise<RoomListApiResponse> {
-  const response = await fetch(`${API_BASE_URL}/items/search`, {
+  const response = await fetch(`${API_BASE_URL}/rooms/search`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

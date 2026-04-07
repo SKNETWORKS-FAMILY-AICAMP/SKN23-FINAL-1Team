@@ -55,7 +55,12 @@ export function HomeContainer() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  const prevRequestKeyRef = useRef<string>("");
+
   useEffect(() => {
+    if (prevRequestKeyRef.current === requestKey) return;
+
+    prevRequestKeyRef.current = requestKey;
     setListings([]);
     setOffset(0);
     setHasMore(true);
