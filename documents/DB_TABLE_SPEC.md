@@ -21,28 +21,28 @@
 
 매물의 핵심 정체성과 가격 정보를 저장합니다.
 
-| 컬럼명 (Field)       | 타입 (Type)        | Nullable | Key | 설명                            |
-| :------------------- | :----------------- | :------: | :-: | :------------------------------ |
-| `item_id`          | `INT`            |    No    | PK | 직방 매물 고유 ID               |
-| `status`           | `VARCHAR(20)`    |    No    |  -  | 상태 (`ACTIVE`, `INACTIVE`) |
-| `title`            | `VARCHAR(255)`   |   Yes   |  -  | 매물 제목                       |
-| `url`              | `TEXT`           |   Yes   |  -  | 직방 상세 페이지 URL            |
-| `address`          | `VARCHAR(255)`   |    No    |  -  | 상세 주소 (지번/도로명 통합)    |
-| `deposit`          | `INT`            |    No    |  -  | 보증금 또는 매매가              |
-| `rent`             | `INT`            |    No    |  -  | 월세 (전세/매매 시 0)           |
-| `manage_cost`      | `INT`            |   Yes   |  -  | 월 관리비                       |
-| `service_type`     | `VARCHAR(50)`    |   Yes   |  -  | 서비스 타입 (원룸, 빌라 등)     |
-| `room_type`        | `VARCHAR(50)`    |   Yes   |  -  | 방 구조 (원룸, 투룸 등)         |
-| `floor`            | `VARCHAR(20)`    |   Yes   |  -  | 해당 층                         |
-| `all_floors`       | `VARCHAR(20)`    |   Yes   |  -  | 전체 층                         |
-| `area_m2`          | `DECIMAL(10, 2)` |   Yes   |  -  | 전용 면적 (m²)                 |
-| `lat`              | `DECIMAL(10, 8)` |    No    |  -  | 위도                            |
-| `lng`              | `DECIMAL(11, 8)` |    No    |  -  | 경도                            |
-| `geom`             | `GEOGRAPHY(POINT, 4326)` | No | - | **PostGIS 공간 정보 컬럼**      |
-| `geohash`          | `VARCHAR(20)`    |   Yes   |  -  | 검색 최적화용 지오해시          |
-| `image_thumbnail`  | `TEXT`           |   Yes   |  -  | 대표 썸네일 URL                 |
-| `first_crawled_at` | `TIMESTAMP`      |    No    |  -  | 최초 수집 일시                  |
-| `updated_at`       | `TIMESTAMP`      |    No    |  -  | 최종 업데이트 일시              |
+| 컬럼명 (Field)       | 타입 (Type)                | Nullable | Key | 설명                             |
+| :------------------- | :------------------------- | :------: | :-: | :------------------------------- |
+| `item_id`          | `INT`                    |    No    | PK | 직방 매물 고유 ID                |
+| `status`           | `VARCHAR(20)`            |    No    |  -  | 상태 (`ACTIVE`, `INACTIVE`)  |
+| `title`            | `VARCHAR(255)`           |   Yes   |  -  | 매물 제목                        |
+| `url`              | `TEXT`                   |   Yes   |  -  | 직방 상세 페이지 URL             |
+| `address`          | `VARCHAR(255)`           |    No    |  -  | 상세 주소 (지번/도로명 통합)     |
+| `deposit`          | `INT`                    |    No    |  -  | 보증금 또는 매매가               |
+| `rent`             | `INT`                    |    No    |  -  | 월세 (전세/매매 시 0)            |
+| `manage_cost`      | `INT`                    |   Yes   |  -  | 월 관리비                        |
+| `service_type`     | `VARCHAR(50)`            |   Yes   |  -  | 서비스 타입 (원룸, 빌라 등)      |
+| `room_type`        | `VARCHAR(50)`            |   Yes   |  -  | 방 구조 (원룸, 투룸 등)          |
+| `floor`            | `VARCHAR(20)`            |   Yes   |  -  | 해당 층                          |
+| `all_floors`       | `VARCHAR(20)`            |   Yes   |  -  | 전체 층                          |
+| `area_m2`          | `DECIMAL(10, 2)`         |   Yes   |  -  | 전용 면적 (m²)                  |
+| `lat`              | `DECIMAL(10, 8)`         |    No    |  -  | 위도                             |
+| `lng`              | `DECIMAL(11, 8)`         |    No    |  -  | 경도                             |
+| `geom`             | `GEOGRAPHY(POINT, 4326)` |    No    |  -  | **PostGIS 공간 정보 컬럼** |
+| `geohash`          | `VARCHAR(20)`            |   Yes   |  -  | 검색 최적화용 지오해시           |
+| `image_thumbnail`  | `TEXT`                   |   Yes   |  -  | 대표 썸네일 URL                  |
+| `first_crawled_at` | `TIMESTAMP`              |    No    |  -  | 최초 수집 일시                   |
+| `updated_at`       | `TIMESTAMP`              |    No    |  -  | 최종 업데이트 일시               |
 
 ---
 
@@ -112,12 +112,12 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- 2. items (매물 기본 정보)
 CREATE TABLE items (
-    item_id INT PRIMARY KEY,
+    item_id BIGINT PRIMARY KEY,
     status VARCHAR(20) NOT NULL,
     title VARCHAR(255),
     url TEXT,
     address VARCHAR(255) NOT NULL,
-    deposit INT NOT NULL DEFAULT 0,
+    deposit BIGINT NOT NULL DEFAULT 0,
     rent INT NOT NULL DEFAULT 0,
     manage_cost INT,
     service_type VARCHAR(50),
@@ -136,7 +136,7 @@ CREATE TABLE items (
 
 -- 3. item_features (상세 옵션 및 분석 데이터)
 CREATE TABLE item_features (
-    item_id INT PRIMARY KEY REFERENCES items(item_id) ON DELETE CASCADE,
+    item_id BIGINT PRIMARY KEY REFERENCES items(item_id) ON DELETE CASCADE,
     has_parking BOOLEAN DEFAULT FALSE,
     parking_count DECIMAL(4, 2) DEFAULT 0.0,
     has_elevator BOOLEAN DEFAULT FALSE,
