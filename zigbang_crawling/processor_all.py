@@ -121,12 +121,13 @@ def load_csv_to_db(csv_path):
     
     success_count = 0
     fail_count = 0
+    first_error_logged = False
     
     try:
         for index, row in df.iterrows():
             try:
                 # item_id가 NaN이면 스킵
-                if pd.isna(row['item_id']):
+                if pd.isna(row.get('item_id')):
                     fail_count += 1
                     continue
                 
@@ -135,6 +136,7 @@ def load_csv_to_db(csv_path):
                 if pd.isna(crawled_at):
                     crawled_at = datetime.now().isoformat()
                 
+                # DB 작업 시작 (각 행을 독립적인 단위로 처리)
                 items_sql = """
                 INSERT INTO items (
                     item_id, status, title, url, address, deposit, rent, manage_cost, 
@@ -153,12 +155,12 @@ def load_csv_to_db(csv_path):
                 lng = float(row.get('lng', 0)) if not pd.isna(row.get('lng')) else 0.0
                 
                 cur.execute(items_sql, (
-                    item_id, row.get('status', 'ACTIVE'), row.get('title'), row.get('url'), row.get('address'),
+                    item_id, row.get('status', 'ACTIVE'), row.get('title', '제목 없음'), row.get('url', ''), row.get('address', ''),
                     to_int(row.get('deposit')), to_int(row.get('rent')), row.get('manage_cost'),
                     row.get('service_type'), row.get('room_type'), row.get('floor'), row.get('all_floors'),
                     row.get('area_m2'), lat, lng,
                     lng, lat,
-                    row.get('geohash'), row.get('image_thumbnail'), 
+                    row.get('geohash', ''), row.get('image_thumbnail', ''), 
                     row.get('first_crawled_at') if not pd.isna(row.get('first_crawled_at')) else crawled_at, 
                     crawled_at
                 ))
@@ -197,13 +199,18 @@ def load_csv_to_db(csv_path):
                     to_bool(row.get('is_subway_area')), to_bool(row.get('is_convenient_area')), to_bool(row.get('is_park_area')), to_bool(row.get('is_school_area')),
                     row.get('options_raw'), row.get('amenities_raw')
                 ))
+                
+                conn.commit() # 성공하면 즉시 저장 및 트랜잭션 종료
                 success_count += 1
+                
             except Exception as row_e:
-                print(f"행 처리 에러 (Index: {index}): {row_e}")
+                conn.rollback() # 실패하면 즉시 롤백해서 트랜잭션 오염 제거
+                if not first_error_logged:
+                    print(f"!!! 첫 번째 에러 발생 (Index: {index}): {row_e}")
+                    first_error_logged = True
                 fail_count += 1
                 continue
 
-        conn.commit()
         print(f"완료: 성공 {success_count}개, 실패 {fail_count}개")
     except Exception as e:
         conn.rollback()
