@@ -8,6 +8,7 @@ class RoomListRequest(BaseModel):
     search: str = ""
     transaction_type: str = "all"
     room_type: str = "all"
+    structure: str = "all"
 
 
 class RoomResponse(BaseModel):

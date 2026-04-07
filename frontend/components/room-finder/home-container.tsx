@@ -82,12 +82,13 @@ export function HomeContainer() {
           search: debouncedSearchQuery,
           transactionType: filters.transactionType,
           roomType: roomType === "oneroom" ? "원룸" : "투룸",
+          structure: filters.structure,
         });
 
         if (cancelled) return;
 
         const mapped = data.items.map(mapItemToListing);
-
+        console.log(data);
         setListings((prev) => (offset === 0 ? mapped : [...prev, ...mapped]));
         setHasMore(data.has_more);
       } catch (error) {

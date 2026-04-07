@@ -8,6 +8,7 @@ export async function fetchItems(params: {
   search?: string;
   transactionType?: string;
   roomType?: string;
+  structure?: string;
 }): Promise<RoomListApiResponse> {
   const response = await fetch(`${API_BASE_URL}/rooms/search`, {
     method: "POST",
@@ -20,6 +21,7 @@ export async function fetchItems(params: {
       search: params.search ?? "",
       transaction_type: params.transactionType ?? "all",
       room_type: params.roomType ?? "all",
+      structure: params.structure ?? "all",
     }),
     cache: "no-store",
   });
