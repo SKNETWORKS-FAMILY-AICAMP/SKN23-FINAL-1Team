@@ -1,15 +1,11 @@
 import pandas as pd
 import psycopg2
-from psycopg2.extras import execute_values
 import re
 import os
 from datetime import datetime
 from dotenv import load_dotenv
-import numpy as np
 
-# ======================================================
-# 1. 환경 설정 및 DB 연결
-# ======================================================
+# .env 파일 로드
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 load_dotenv(os.path.join(ROOT_DIR, ".env"))
@@ -23,21 +19,25 @@ def get_db_connection():
         port=os.getenv("DB_PORT")
     )
 
-# ======================================================
-# 2. 전처리 유틸리티 함수
-# ======================================================
-
 def parse_generic_date(text):
     if pd.isna(text) or not str(text).strip(): return None
     text_str = str(text).strip()
     if re.match(r"^\d{4}-\d{2}-\d{2}$", text_str): return text_str
-    match = re.search(r"(\d{2,4})[\.\-\/](\d{1,2})[\.\-\/](\d{1,2})", text_str)
-    if match:
-        y, m, d = match.groups()
-        year = int(y) + 2000 if len(y) == 2 else int(y)
-        try: return f"{year:04d}-{int(m):02d}-{int(d):02d}"
-        except: return None
-    return None
+    
+    # 숫자만 8자리인 경우 (예: 19940811)
+    if len(text_str) == 8 and text_str.isdigit():
+        y, m, d = text_str[:4], text_str[4:6], text_str[6:]
+    else:
+        match = re.search(r"(\d{2,4})[\.\-\/](\d{1,2})[\.\-\/](\d{1,2})", text_str)
+        if match: y, m, d = match.groups()
+        else: return None
+            
+    year = int(y) + 2000 if len(y) == 2 else int(y)
+    try:
+        # 월/일이 0이면 1로 교정
+        valid_date = datetime(year, max(1, int(m)), max(1, int(d))).date()
+        return valid_date.isoformat()
+    except: return None
 
 def to_int(val, default=0):
     try:
@@ -57,10 +57,7 @@ def to_bool(val):
     val_str = str(val).lower().strip()
     return val_str in ('true', '1', 't', 'y', 'yes', '가능')
 
-# ======================================================
-# 3. 메인 로더 함수 (CSV -> DB)
-# ======================================================
-
+# 한글 -> 영어 컬럼 맵핑
 COLUMN_MAP = {
     '매물번호': 'item_id', '상태': 'status', '매물_URL': 'url', '전체주소': 'address',
     '보증금': 'deposit', '월세': 'rent', '관리비': 'manage_cost', '건물유형': 'service_type',
@@ -68,28 +65,37 @@ COLUMN_MAP = {
     '위도': 'lat', '경도': 'lng', '대표이미지': 'image_thumbnail', '최초수집일시': 'first_crawled_at', '수집일시': 'crawled_at'
 }
 
-def load_csv_to_db(csv_path):
-    print(f"\n{os.path.basename(csv_path)} 데이터를 DB로 쏘아 올리는 중...")
+def load_single_csv_to_db(csv_path):
+    """지정된 하나의 CSV 파일을 DB로 업로드하는 핵심 함수"""
+    if not os.path.exists(csv_path):
+        print(f"에러: 파일이 없어! {csv_path}")
+        return
+
+    print(f"\n[자동 업로드] {os.path.basename(csv_path)} 데이터를 DB로 쏘아 올리는 중...")
     try:
-        df = pd.read_csv(csv_path)
+        df = pd.read_csv(csv_path, low_memory=False)
     except Exception as e:
         print(f"CSV 로드 실패: {e}"); return
 
+    # INACTIVE 행 제거 (전처리 자동화)
+    status_col = 'status' if 'status' in df.columns else ('상태' if '상태' in df.columns else None)
+    if status_col:
+        df = df[df[status_col].astype(str).str.upper() != 'INACTIVE']
+    
     df = df.rename(columns=COLUMN_MAP)
     conn = get_db_connection()
     cur = conn.cursor()
     success_count, fail_count = 0, 0
-    first_error_logged = False
     
-    for index, row in df.iterrows():
+    for _, row in df.iterrows():
         try:
             item_id = to_int(row.get('item_id'), -1)
-            if item_id == -1: fail_count += 1; continue
+            if item_id == -1: continue
             
             crawled_at = row.get('crawled_at')
             if pd.isna(crawled_at): crawled_at = datetime.now().isoformat()
             
-            # 1. items 테이블 (INSERT ON CONFLICT)
+            # 1. items 테이블
             items_sql = """
             INSERT INTO items (
                 item_id, status, title, url, address, deposit, rent, manage_cost, 
@@ -102,7 +108,6 @@ def load_csv_to_db(csv_path):
                 rent = EXCLUDED.rent, updated_at = EXCLUDED.updated_at;
             """
             lat, lng = to_float(row.get('lat')), to_float(row.get('lng'))
-            
             cur.execute(items_sql, (
                 item_id, str(row.get('status', 'ACTIVE')), str(row.get('title', '제목 없음')), 
                 str(row.get('url', '')), str(row.get('address', '')),
@@ -114,7 +119,7 @@ def load_csv_to_db(csv_path):
                 parse_generic_date(row.get('first_crawled_at')) or crawled_at, crawled_at
             ))
 
-            # 2. item_features 테이블 (INSERT ON CONFLICT)
+            # 2. item_features 테이블
             features_sql = """
             INSERT INTO item_features (
                 item_id, has_parking, parking_count, has_elevator, bathroom_count,
@@ -127,8 +132,7 @@ def load_csv_to_db(csv_path):
                 options_raw, amenities_raw
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (item_id) DO UPDATE SET
-                movein_date = EXCLUDED.movein_date,
-                parking_count = EXCLUDED.parking_count;
+                movein_date = EXCLUDED.movein_date, parking_count = EXCLUDED.parking_count;
             """
             cur.execute(features_sql, (
                 item_id, to_bool(row.get('parking_available_text')), to_float(row.get('parking_count_text')), 
@@ -147,24 +151,9 @@ def load_csv_to_db(csv_path):
             ))
             conn.commit()
             success_count += 1
-        except Exception as row_e:
+        except Exception:
             conn.rollback()
-            if not first_error_logged:
-                print(f"!!! 첫 번째 에러 (Index: {index}): {row_e}")
-                first_error_logged = True
             fail_count += 1
 
-    print(f"완료: 성공 {success_count}개, 실패 {fail_count}개")
+    print(f"   ㄴ 업로드 완료: 성공 {success_count}개, 실패 {fail_count}개")
     cur.close(); conn.close()
-
-if __name__ == "__main__":
-    import glob
-    # 가장 최신 파일 하나만 딱 골라내기!
-    csv_files = glob.glob("data/csv/item/zigbang_items_*.csv")
-    
-    if csv_files:
-        latest_csv = max(csv_files) # 파일 이름이 날짜순이므로 max가 가장 최신!
-        print(f"가장 최신 파일을 발견했어: {os.path.basename(latest_csv)}")
-        load_csv_to_db(latest_csv)
-    else:
-        print("업로드할 CSV 파일이 하나도 안 보여! 'data/csv/item/' 폴더 확인해봐!")

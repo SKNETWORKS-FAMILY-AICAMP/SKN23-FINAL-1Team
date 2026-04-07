@@ -355,6 +355,17 @@ def crawl():
     print("\n[서울] 이미지 수집 및 S3 업로드 시작...")
     import download_images_seoul
     download_images_seoul.main(IMAGE_FILE)
+
+    # --------------------------------------------------
+    # [추가] DB 자동 업로드 실행
+    # --------------------------------------------------
+    import processor
+    
+    try:
+        processor.load_single_csv_to_db(ITEM_FILE)
+    except Exception as e:
+        print(f"\n[에러] DB 자동 업로드 중 오류 발생: {e}")
+
     print("\n" + "=" * 60 + f"\n서울 수집 작업 완료! (소요시간: {(time.time()-start_total)/60:.1f}분)\n" + "=" * 60)
 
 if __name__ == "__main__":
