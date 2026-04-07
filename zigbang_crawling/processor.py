@@ -172,6 +172,6 @@ def load_images_to_db(csv_path):
                 # print(f"이미지 행 에러: {e}")
         
         conn.commit()
-        print(f"   ㄴ 완료: {success}개 업로드 (부모 없음으로 {skipped}개 스킵)")
+        print(f"   ㄴ 완료: {success}개 업로드 ({skipped}개 스킵)")
         cur.close(); conn.close()
     except Exception as e: print(f"이미지 업로드 에러: {e}")
