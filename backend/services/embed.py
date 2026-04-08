@@ -12,7 +12,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 
 # --- [1. 환경 변수 및 날짜 설정] ---
-load_dotenv(override=True)
+# 프로젝트 루트 디렉토리의 .env 파일을 로드합니다.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+load_dotenv(os.path.join(BASE_DIR, ".env"), override=True)
 
 def get_env(key, default=None):
     value = os.getenv(key, default)
