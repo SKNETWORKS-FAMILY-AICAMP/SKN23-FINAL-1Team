@@ -5,7 +5,7 @@ import { Header } from "@/components/room-finder/header";
 import { FilterBar, type Filters } from "@/components/room-finder/filter-bar";
 import { MapView, type Listing } from "@/components/room-finder/map-view";
 import { ListingPanel } from "@/components/room-finder/listing-panel";
-import { fetchItems } from "app/api/rooms/rooms";
+import { fetchItems } from "@/app/api/rooms/route";
 import { mapItemToListing } from "@/utils/roomMappers";
 
 const PAGE_SIZE = 20;
@@ -46,7 +46,7 @@ export function HomeContainer() {
     filters.structure,
     roomType,
   ]);
-
+  console.log(filters.structure, "tttttt");
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);

@@ -18,6 +18,7 @@ TWO_ROOM_DB_VALUES = [
 ]
 
 def get_rooms(db, req):
+    print("[get_rooms] request payload:", req.model_dump())
     stmt = select(Room)
     count_stmt = select(func.count()).select_from(Room)
 
@@ -41,14 +42,14 @@ def get_rooms(db, req):
     if req.room_type == "원룸":
         if req.structure == "all":
             stmt = stmt.where(Room.room_type.in_([
-                "오픈형 원룸",
-                "분리형 원룸",
-                "복층형 원룸",
+                "오픈형원룸",
+                "분리형원룸",
+                "복층형원룸",
             ]))
             count_stmt = count_stmt.where(Room.room_type.in_([
-                "오픈형 원룸",
-                "분리형 원룸",
-                "복층형 원룸",
+                "오픈형원룸",
+                "분리형원룸",
+                "복층형원룸",
             ]))
         else:
             db_room_type = STRUCTURE_TO_ROOM_TYPE.get(req.structure)
@@ -63,7 +64,9 @@ def get_rooms(db, req):
         else:
             # 필요하면 투룸 구조도 별도 매핑
             pass
-
+    
+    
+    
     stmt = stmt.order_by(Room.updated_at.desc(), Room.item_id.desc()).offset(req.offset).limit(req.limit)
     rooms = db.execute(stmt).scalars().all()
     total = db.execute(count_stmt).scalar() or 0
