@@ -45,4 +45,4 @@ python-multipart
 passlib[bcrypt]
 python-jose[cryptography]
 tqdm
-
+pillow
