@@ -46,7 +46,7 @@ export function HomeContainer() {
     filters.structure,
     roomType,
   ]);
-  console.log(filters.structure, "tttttt");
+  console.log(filters, "tttttt");
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);

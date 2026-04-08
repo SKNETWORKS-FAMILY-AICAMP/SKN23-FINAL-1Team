@@ -1,8 +1,8 @@
 from sqlalchemy import select, func, or_
-from sqlalchemy.orm import Session
+# from sqlalchemy.orm import Session
 
 from models.room import Room
-from schemas.room_schema import RoomListRequest
+# from schemas.room_schema import RoomListRequest
 
 STRUCTURE_TO_ROOM_TYPE = {
     "open": "오픈형원룸",
@@ -16,14 +16,13 @@ TWO_ROOM_DB_VALUES = [
 
 def get_rooms(db, req):
     print("[get_rooms] request payload:", req.model_dump())
-    stmt = select(Room)
-    count_stmt = select(func.count()).select_from(Room)
+    stmt = select(Room).where(Room.status == "ACTIVE")
+    count_stmt = select(func.count()).select_from(Room).where(Room.status == "ACTIVE")
 
     if req.search.strip():
         keyword = f"%{req.search.strip()}%"
         condition = or_(
             Room.address.ilike(keyword),
-            Room.title.ilike(keyword),
         )
         stmt = stmt.where(condition)
         count_stmt = count_stmt.where(condition)
