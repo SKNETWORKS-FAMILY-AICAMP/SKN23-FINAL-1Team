@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "@/components/room-finder/header";
 import { FilterBar, type Filters } from "@/components/room-finder/filter-bar";
 import { MapView, type Listing } from "@/components/room-finder/map-view";
 import { ListingPanel } from "@/components/room-finder/listing-panel";
-import { mockListings } from "@/lib/mock-data";
+import { fetchItems } from "@/app/api/rooms/route";
+import { mapItemToListing } from "@/utils/roomMappers";
+
+const PAGE_SIZE = 20;
 
 const defaultFilters: Filters = {
   transactionType: "all",
@@ -15,34 +18,100 @@ const defaultFilters: Filters = {
   options: "all",
 };
 
-function filterListings(listings: typeof mockListings, filters: Filters) {
-  return listings.filter((listing) => {
-    if (filters.transactionType !== "all") {
-      if (filters.transactionType === "monthly" && !listing.monthlyRent)
-        return false;
-      if (filters.transactionType === "jeonse" && listing.monthlyRent)
-        return false;
-    }
-    if (filters.structure !== "all") {
-      const structureMap: Record<string, string> = {
-        open: "오픈형",
-        separated: "분리형",
-        duplex: "복층",
-      };
-      if (listing.structure !== structureMap[filters.structure]) return false;
-    }
-    return true;
-  });
-}
-
 export function HomeContainer() {
   const [roomType, setRoomType] = useState<"oneroom" | "tworoom">("oneroom");
   const [filters, setFilters] = useState<Filters>(defaultFilters);
-  const [searchQuery, setSearchQuery] = useState("지역명 혹은 지하철역 입력");
-  const [, setSelectedListing] = useState<Listing | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
+  const [isPanelOpen, setIsPanelOpen] = useState(true);
 
-  const filteredListings = filterListings(mockListings, filters);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  const requestKey = useMemo(() => {
+    return JSON.stringify({
+      search: debouncedSearchQuery,
+      transactionType: filters.transactionType,
+      structure: filters.structure,
+      roomType,
+    });
+  }, [
+    debouncedSearchQuery,
+    filters.transactionType,
+    filters.structure,
+    roomType,
+  ]);
+  console.log(filters, "tttttt");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const prevRequestKeyRef = useRef<string>("");
+
+  useEffect(() => {
+    if (prevRequestKeyRef.current === requestKey) return;
+
+    prevRequestKeyRef.current = requestKey;
+    setListings([]);
+    setOffset(0);
+    setHasMore(true);
+    setIsInitialLoading(true);
+  }, [requestKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadItems = async () => {
+      if (isLoading || !hasMore) return;
+
+      setIsLoading(true);
+
+      try {
+        const data = await fetchItems({
+          offset,
+          limit: PAGE_SIZE,
+          search: debouncedSearchQuery,
+          transactionType: filters.transactionType,
+          roomType: roomType === "oneroom" ? "원룸" : "투룸",
+          structure: filters.structure,
+        });
+
+        if (cancelled) return;
+
+        const mapped = data.items.map(mapItemToListing);
+        console.log(data);
+        setListings((prev) => (offset === 0 ? mapped : [...prev, ...mapped]));
+        setHasMore(data.has_more);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+          setIsInitialLoading(false);
+        }
+      }
+    };
+
+    loadItems();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [offset, requestKey]);
+
+  const loadMore = () => {
+    if (isLoading || !hasMore) return;
+    setOffset((prev) => prev + PAGE_SIZE);
+  };
 
   return (
     <div className="flex flex-col h-screen bg-ivory">
@@ -54,7 +123,6 @@ export function HomeContainer() {
         onSearchChange={setSearchQuery}
       />
 
-      {/* Mobile View Toggle */}
       <div className="flex lg:hidden border-b border-border-warm bg-cream">
         <button
           onClick={() => setMobileView("map")}
@@ -78,30 +146,56 @@ export function HomeContainer() {
         </button>
       </div>
 
-      {/* Desktop Layout */}
-      <main className="hidden lg:flex flex-1 overflow-hidden">
-        <section className="flex-1 relative">
+      <main className="relative hidden lg:block flex-1 overflow-hidden">
+        <section className="absolute inset-0">
           <MapView
-            searchQuery={searchQuery}
-            listings={filteredListings}
+            searchQuery={debouncedSearchQuery}
+            listings={listings}
             onMarkerClick={setSelectedListing}
           />
         </section>
-        <aside className="w-[400px] xl:w-[450px] border-l border-border-warm">
-          <ListingPanel
-            listings={filteredListings}
-            onListingClick={setSelectedListing}
-          />
+
+        <aside
+          className={`absolute top-0 right-0 h-full bg-ivory/95 backdrop-blur-sm border-l border-border-warm shadow-xl overflow-hidden transition-transform duration-500 ease-in-out z-20 ${
+            isPanelOpen
+              ? "translate-x-0 w-[400px] xl:w-[450px]"
+              : "translate-x-[calc(100%-56px)] w-[400px] xl:w-[450px]"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setIsPanelOpen((prev) => !prev)}
+            className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-border-warm bg-white shadow-lg hover:bg-neutral-50 transition-colors"
+            aria-label={isPanelOpen ? "매물 패널 닫기" : "매물 패널 열기"}
+          >
+            <span className="text-xl leading-none">
+              {isPanelOpen ? "›" : "‹"}
+            </span>
+          </button>
+
+          <div
+            className={`h-full transition-opacity duration-500 ${
+              isPanelOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+            }`}
+          >
+            <ListingPanel
+              listings={listings}
+              selectedListing={selectedListing}
+              isLoading={isLoading}
+              hasMore={hasMore}
+              onLoadMore={loadMore}
+              onListingClick={setSelectedListing}
+            />
+          </div>
         </aside>
       </main>
 
-      {/* Mobile Layout */}
       <main className="flex lg:hidden flex-1 overflow-hidden">
         {mobileView === "map" ? (
           <section className="flex-1 relative">
             <MapView
-              searchQuery={searchQuery}
-              listings={filteredListings}
+              searchQuery={debouncedSearchQuery}
+              listings={listings}
               onMarkerClick={(listing) => {
                 setSelectedListing(listing);
                 setMobileView("list");
@@ -111,12 +205,24 @@ export function HomeContainer() {
         ) : (
           <aside className="flex-1">
             <ListingPanel
-              listings={filteredListings}
+              listings={listings}
+              selectedListing={selectedListing}
+              isLoading={isLoading}
+              hasMore={hasMore}
+              onLoadMore={loadMore}
               onListingClick={setSelectedListing}
             />
           </aside>
         )}
       </main>
+
+      {isInitialLoading && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/10">
+          <div className="rounded-lg bg-white px-4 py-3 shadow-md">
+            매물 불러오는 중...
+          </div>
+        </div>
+      )}
     </div>
   );
 }
