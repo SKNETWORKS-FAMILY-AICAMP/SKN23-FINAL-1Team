@@ -147,7 +147,7 @@ export function HomeContainer() {
       </div>
 
       <main className="relative hidden lg:block flex-1 overflow-hidden">
-        <section className="absolute inset-0">
+        <section className="absolute inset-0 z-0">
           <MapView
             searchQuery={debouncedSearchQuery}
             listings={listings}
