@@ -5,16 +5,13 @@ from models.room import Room
 from schemas.room_schema import RoomListRequest
 
 STRUCTURE_TO_ROOM_TYPE = {
-    "open": "오픈형 원룸",
-    "separated": "분리형 원룸",
-    "duplex": "복층형 원룸",
+    "open": "오픈형원룸",
+    "separated": "분리형원룸",
+    "duplex": "복층형원룸",
 }
 
 TWO_ROOM_DB_VALUES = [
     "투룸",
-    "분리형 투룸",
-    "복층형 투룸",
-    "오픈형 투룸",
 ]
 
 def get_rooms(db, req):

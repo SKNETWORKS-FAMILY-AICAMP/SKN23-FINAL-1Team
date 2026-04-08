@@ -25,7 +25,14 @@ export async function fetchItems(params: {
     }),
     cache: "no-store",
   });
-
+  console.log("api", {
+    offset: params.offset,
+    limit: params.limit,
+    search: params.search ?? "",
+    transaction_type: params.transactionType ?? "all",
+    room_type: params.roomType ?? "all",
+    structure: params.structure ?? "all",
+  });
   if (!response.ok) {
     throw new Error("매물 데이터를 불러오지 못했습니다.");
   }
