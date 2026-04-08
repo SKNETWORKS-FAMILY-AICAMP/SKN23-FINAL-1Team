@@ -1,60 +1,79 @@
 import os
 import concurrent.futures
-from ai_image_service import generate_image
+from ai_image_service import generate_image, evaluate_image_quality, GEN_GPT_MODEL, GEN_DALLE_MODEL
 import time
+import csv
+from datetime import datetime
 
-def parallel_generate_images(prompts):
+def save_to_csv(results):
     """
-    여러 개의 프롬프트를 병렬로 실행하여 로컬 저장 경로를 리스트로 반환합니다.
+    실험 결과를 CSV 파일에 저장합니다. (메타데이터 완벽 포함)
     """
-    # 결과가 들어갈 자리를 미리 만들어둡니다.
-    results = [None] * len(prompts)
+    csv_file = "evaluation_results.csv"
+    file_exists = os.path.isfile(csv_file)
     
-    # ThreadPoolExecutor를 사용하여 병렬 작업 수행 (4개 스레드 사용)
+    with open(csv_file, mode="a", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        # 헤더 업데이트 (Judge_Model 추가!)
+        if not file_exists:
+            writer.writerow(["Timestamp", "Prompt", "GPT_Model", "DALL-E_Model", "Judge_Model", "Image_Path", "Score", "Reason"])
+        
+        for res in results:
+            if res:
+                writer.writerow([
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    res.get("prompt", "Unknown"),
+                    GEN_GPT_MODEL,
+                    GEN_DALLE_MODEL,
+                    res["evaluation"].get("model", "unknown"), # 채점한 모델
+                    res.get("path", "N/A"),
+                    res["evaluation"].get("score", 0),
+                    res["evaluation"].get("reason", "").replace("\n", " ")
+                ])
+    print(f"\n[기록 완료] 실험 결과(채점 모델 포함)가 {csv_file}에 저장되었습니다.")
+
+def parallel_generate_and_evaluate(prompts):
+    results = [None] * len(prompts)
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(prompts)) as executor:
-        # 각 프롬프트에 대해 generate_image 함수를 비동기적으로 실행
-        # 인자(prompt, size)를 submit에 함께 넘겨줍니다.
         future_to_prompt = {
             executor.submit(generate_image, prompt, size="1024x1024"): i 
             for i, prompt in enumerate(prompts)
         }
-        
-        # 완료된 작업부터 순서대로 결과 처리
         for future in concurrent.futures.as_completed(future_to_prompt):
             index = future_to_prompt[future]
+            prompt = prompts[index]
             try:
                 path_list = future.result()
-                if path_list:
-                    # 결과값(로컬 경로)을 results 리스트의 제자리에 채워넣습니다.
-                    results[index] = path_list[0]
-                    print(f"[성공] 이미지 {index + 1} 병렬 생성 및 저장 완료")
+                if path_list and path_list[0]:
+                    image_path = path_list[0]
+                    print(f"[성공] 이미지 {index + 1} 생성 완료. 평가 중...")
+                    evaluation = evaluate_image_quality(prompt, image_path)
+                    results[index] = {
+                        "prompt": prompt,
+                        "path": image_path,
+                        "evaluation": evaluation
+                    }
             except Exception as e:
-                print(f"[실패] 이미지 {index + 1} 생성 중 오류 발생: {e}")
-                
+                print(f"[실패] 이미지 {index + 1} 작업 중 오류: {e}")
     return results
 
 if __name__ == "__main__":
-    # 1. 4가지 서로 다른 스타일의 한글 프롬프트 정의
     user_preference_prompts = [
         "화이트 톤의 깔끔하고 세련된 모던 원룸 인테리어",
         "원목 가구와 화분이 있는 포근한 내추럴 거실",
         "노출 콘크리트와 철제 가구가 있는 빈티지한 방",
         "대리석 바닥과 화려한 조명이 있는 고급스러운 빌라 내부"
     ]
-
-    print("--- 4장 병렬 생성 및 로컬 저장 시작 (속도 단축 중...) ---")
-    
-    # 2. 병렬 실행
+    print(f"--- 이미지 생성 및 다중 AI 평가 파이프라인 시작 ---")
     start_time = time.time()
-    final_paths = parallel_generate_images(user_preference_prompts)
+    final_results = parallel_generate_and_evaluate(user_preference_prompts)
     end_time = time.time()
     
-    # 3. 결과 출력
-    print(f"\n--- 전체 생성 완료 (소요 시간: {end_time - start_time:.2f}초) ---")
-    print("--- 결과 확인: backend/create_image 폴더 ---")
+    print(f"\n--- 공정 완료 ({end_time - start_time:.2f}초) ---\n")
     
-    for i, path in enumerate(final_paths):
-        if path:
-            print(f"스타일 {i+1} 저장 경로: {path}")
-        else:
-            print(f"스타일 {i+1}: 생성 실패")
+    for i, res in enumerate(final_results):
+        if res:
+            print(f"[{i+1}] {res['evaluation'].get('score')}점 ({res['evaluation'].get('model')})")
+            print(f" - 이유: {res['evaluation'].get('reason')[:100]}...")
+    
+    save_to_csv(final_results)
