@@ -53,7 +53,7 @@ def get_rooms(db, req):
             if db_room_type:
                 stmt = stmt.where(Room.room_type == db_room_type)
                 count_stmt = count_stmt.where(Room.room_type == db_room_type)
-
+                print(count_stmt, 'count_stmt')
     elif req.room_type == "투룸":
         if req.structure == "all":
             stmt = stmt.where(Room.room_type.in_(TWO_ROOM_DB_VALUES))
