@@ -195,3 +195,61 @@ def load_images_to_db(csv_path):
         print(f"   ㄴ 완료: {success}개 업로드 ({skipped}개 스킵)")
         cur.close(); conn.close()
     except Exception as e: print(f"이미지 업로드 에러: {e}")
+
+def fix_existing_images_to_s3(csv_path):
+    """기존 DB에 잘못 들어간 zigbang URL을 S3 경로로 UPDATE"""
+    if not os.path.exists(csv_path): return
+    print(f"\n[데이터 복구] {os.path.basename(csv_path)} -> DB (s3_url 업데이트)")
+    
+    # 날짜 추출 로직
+    date_match = re.search(r"(\d{4}-\d{2}-\d{2})", csv_path)
+    if date_match:
+        date_str = date_match.group(1)
+    else:
+        date_match = re.search(r"(\d{8})", csv_path)
+        if date_match:
+            d = date_match.group(1)
+            date_str = f"{d[:4]}-{d[4:6]}-{d[6:]}"
+        else:
+            date_str = datetime.now().strftime("%Y-%m-%d")
+            
+    bucket_name = os.getenv("S3_BUCKET")
+    
+    try:
+        df = pd.read_csv(csv_path)
+        conn = get_db_connection()
+        cur = conn.cursor()
+        success = 0
+        
+        item_image_counts = {}
+
+        for _, row in df.iterrows():
+            try:
+                item_id = to_int(row.get('item_id'))
+                old_url = str(row.get('s3_url') or row.get('image_url', ''))
+                if item_id <= 0 or not old_url: continue
+
+                item_image_counts[item_id] = item_image_counts.get(item_id, 0) + 1
+                img_idx = item_image_counts[item_id]
+                
+                new_s3_url = f"{bucket_name}/zigbang_data/images/seoul/{date_str}/{item_id}/{item_id}_{img_idx}.jpg"
+
+                # UPDATE 실행
+                cur.execute("""
+                    UPDATE item_images 
+                    SET s3_url = %s 
+                    WHERE item_id = %s AND s3_url = %s
+                """, (new_s3_url, item_id, old_url))
+                
+                if cur.rowcount > 0:
+                    success += 1
+                
+                if success % 100 == 0:
+                    conn.commit()
+            except Exception:
+                conn.rollback()
+        
+        conn.commit()
+        print(f"   ㄴ 복구 완료: {success}개 업데이트")
+        cur.close(); conn.close()
+    except Exception as e: print(f"복구 에러: {e}")
