@@ -82,8 +82,8 @@ ITEM_COLUMNS = [
     "is_coupang", "is_ssg", "is_marketkurly", "is_baemin", "is_yogiyo",
     "is_subway_area", "is_convenient_area", "is_park_area", "is_school_area",
     "has_air_conditioner", "has_refrigerator", "has_washing_machine", "has_gas_stove", "has_induction",
-    "has_microwave", "has_desk", "has_bed", "has_closet", "has_shoe_rack", "has_bookcase", "has_sink",
-    "amenities_raw", "distributions_raw", "options_raw"
+    "has_microwave", "has_desk", "has_bed", "has_closet", "has_shoe_rack",
+    "amenities_raw", "distributions_raw", "options_raw", "has_bookcase", "has_sink"
 ]
 
 # ======================================================

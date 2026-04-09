@@ -97,7 +97,8 @@ def load_single_csv_to_db(csv_path):
                     parse_generic_date(row.get('first_crawled_at')) or crawled_at, crawled_at))
 
                 cur.execute("""
-                    INSERT INTO item_features (item_id, has_parking, parking_count, has_elevator, bathroom_count,
+                    INSERT INTO item_features (
+                        item_id, has_parking, parking_count, has_elevator, bathroom_count,
                         residence_type, room_direction, movein_date, approve_date,
                         has_air_con, has_fridge, has_washer, has_gas_stove, has_induction,
                         has_microwave, has_desk, has_bed, has_closet, has_shoe_rack,
@@ -106,22 +107,29 @@ def load_single_csv_to_db(csv_path):
                         is_coupang, is_ssg, is_marketkurly, is_baemin, is_yogiyo,
                         is_subway_area, is_convenient_area, is_park_area, is_school_area,
                         options_raw, amenities_raw
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (item_id) DO UPDATE SET movein_date = EXCLUDED.movein_date, parking_count = EXCLUDED.parking_count;
-                """, (item_id, to_bool(row.get('parking_available_text')), to_float(row.get('parking_count_text')), 
-                    to_bool(row.get('elevator')), to_int(row.get('bathroom_count')),
-                    str(row.get('residence_type', '')), str(row.get('room_direction', '')), 
-                    parse_generic_date(row.get('movein_date')), parse_generic_date(row.get('approve_date')),
-                    to_bool(row.get('has_air_conditioner')), to_bool(row.get('has_refrigerator')), to_bool(row.get('has_washing_machine')),
-                    to_bool(row.get('has_gas_stove')), to_bool(row.get('has_induction')), to_bool(row.get('has_microwave')),
-                    to_bool(row.get('has_desk')), to_bool(row.get('has_bed')), to_bool(row.get('has_closet')), to_bool(row.get('has_shoe_rack')),
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, 
+                        %s, %s, %s, %s, 
+                        %s, %s, %s, %s, %s, 
+                        %s, %s, %s, %s, %s, 
+                        %s, %s, 
+                        %s, %s, %s, %s, %s, %s, %s, 
+                        %s, %s, %s, %s, %s, 
+                        %s, %s, %s, %s, 
+                        %s, %s
+                    )
+                    ON CONFLICT (item_id) DO NOTHING;
+                """, (
+                    item_id, to_bool(row.get('parking_available_text')), to_float(row.get('parking_count_text')), to_bool(row.get('elevator')), to_int(row.get('bathroom_count')),
+                    str(row.get('residence_type', '')), str(row.get('room_direction', '')), parse_generic_date(row.get('movein_date')), parse_generic_date(row.get('approve_date')),
+                    to_bool(row.get('has_air_conditioner')), to_bool(row.get('has_refrigerator')), to_bool(row.get('has_washing_machine')), to_bool(row.get('has_gas_stove')), to_bool(row.get('has_induction')),
+                    to_bool(row.get('has_microwave')), to_bool(row.get('has_desk')), to_bool(row.get('has_bed')), to_bool(row.get('has_closet')), to_bool(row.get('has_shoe_rack')),
                     to_bool(row.get('has_bookcase')), to_bool(row.get('has_sink')),
-                    to_int(row.get('subway_distance')), to_int(row.get('pharmacy_distance')), to_int(row.get('convenience_distance')),
-                    to_int(row.get('bus_distance')), to_int(row.get('mart_distance')), to_int(row.get('laundry_distance')), to_int(row.get('cafe_distance')),
-                    to_bool(row.get('is_coupang')), to_bool(row.get('is_ssg')), to_bool(row.get('is_marketkurly')),
-                    to_bool(row.get('is_baemin')), to_bool(row.get('is_yogiyo')),
+                    to_int(row.get('subway_distance')), to_int(row.get('pharmacy_distance')), to_int(row.get('convenience_distance')), to_int(row.get('bus_distance')), to_int(row.get('mart_distance')), to_int(row.get('laundry_distance')), to_int(row.get('cafe_distance')),
+                    to_bool(row.get('is_coupang')), to_bool(row.get('is_ssg')), to_bool(row.get('is_marketkurly')), to_bool(row.get('is_baemin')), to_bool(row.get('is_yogiyo')),
                     to_bool(row.get('is_subway_area')), to_bool(row.get('is_convenient_area')), to_bool(row.get('is_park_area')), to_bool(row.get('is_school_area')),
-                    str(row.get('options_raw', '')), str(row.get('amenities_raw', ''))))
+                    str(row.get('options_raw', '')), str(row.get('amenities_raw', ''))
+                ))
                 conn.commit()
                 success += 1
             except Exception: conn.rollback()
