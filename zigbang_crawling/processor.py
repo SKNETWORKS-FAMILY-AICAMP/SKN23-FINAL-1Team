@@ -128,48 +128,58 @@ def load_single_csv_to_db(csv_path):
     except Exception as e: print(f"에러: {e}")
 
 def load_images_to_db(csv_path):
-    """이미지 정보 CSV 업로드 (부모 매물 존재 여부 체크)"""
+    """이미지 정보 CSV 업로드 (S3 경로 규칙 적용)"""
     if not os.path.exists(csv_path): return
     print(f"\n[자동 업로드] {os.path.basename(csv_path)} -> DB (item_images)")
+    
+    # 파일명에서 날짜 추출 (예: zigbang_images_seoul_2026-04-09.csv)
+    date_match = re.search(r"(\d{4}-\d{2}-\d{2})", csv_path)
+    date_str = date_match.group(1) if date_match else datetime.now().strftime("%Y-%m-%d")
+    
+    bucket_name = "skn23-final-1team-355904321127-ap-northeast-2-an"
+    
     try:
         df = pd.read_csv(csv_path)
         conn = get_db_connection()
         cur = conn.cursor()
         success, skipped = 0, 0
-        seen_items = set()
+        
+        # item_id별 이미지 순번 관리를 위한 딕셔너리
+        item_image_counts = {}
 
         for _, row in df.iterrows():
             try:
                 item_id = to_int(row.get('item_id'))
-                # S3 URL이 있으면 그거 쓰고, 없으면 원본 URL 씀
-                img_url = str(row.get('s3_url') or row.get('image_url', ''))
-                if not img_url or item_id == 0: continue
+                if item_id <= 0: continue
 
-                # 해당 item_id에 대해 첫 번째 이미지만 is_main=True
-                is_main = False
-                if item_id not in seen_items:
-                    is_main = True
-                    seen_items.add(item_id)
+                # 이미지 순번 증가
+                item_image_counts[item_id] = item_image_counts.get(item_id, 0) + 1
+                img_idx = item_image_counts[item_id]
+                
+                # S3 경로 생성 규칙: 버킷명/zigbang_data/images/seoul/{날짜}/{방번호}/{방번호_이미지번호}.jpg
+                s3_url = f"{bucket_name}/zigbang_data/images/seoul/{date_str}/{item_id}/{item_id}_{img_idx}.jpg"
+                
+                # 첫 번째 이미지만 대표 이미지(is_main)로 설정
+                is_main = (img_idx == 1)
 
-                # items 테이블에 존재하고, 동시에 이미 들어간 이미지가 아닐 때만 INSERT
+                # items 테이블에 존재할 때만 INSERT (s3_url 중복 체크 포함)
                 cur.execute("""
                     INSERT INTO item_images (item_id, s3_url, is_main)
                     SELECT %s, %s, %s
                     WHERE EXISTS (SELECT 1 FROM items WHERE item_id = %s)
                       AND NOT EXISTS (SELECT 1 FROM item_images WHERE s3_url = %s)
-                """, (item_id, img_url, is_main, item_id, img_url))
+                """, (item_id, s3_url, is_main, item_id, s3_url))
                 
                 if cur.rowcount > 0:
                     success += 1
                 else:
                     skipped += 1
                 
-                # 잦은 커밋은 느리니 100개 단위로 커밋 (이미지는 데이터가 많음)
+                # 잦은 커밋은 느리니 100개 단위로 커밋
                 if (success + skipped) % 100 == 0:
                     conn.commit()
             except Exception as e:
                 conn.rollback()
-                # print(f"이미지 행 에러: {e}")
         
         conn.commit()
         print(f"   ㄴ 완료: {success}개 업로드 ({skipped}개 스킵)")
