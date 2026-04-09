@@ -101,11 +101,12 @@ def load_single_csv_to_db(csv_path):
                         residence_type, room_direction, movein_date, approve_date,
                         has_air_con, has_fridge, has_washer, has_gas_stove, has_induction,
                         has_microwave, has_desk, has_bed, has_closet, has_shoe_rack,
+                        has_bookcase, has_sink,
                         dist_subway, dist_pharmacy, dist_conv, dist_bus, dist_mart, dist_laundry, dist_cafe,
                         is_coupang, is_ssg, is_marketkurly, is_baemin, is_yogiyo,
                         is_subway_area, is_convenient_area, is_park_area, is_school_area,
                         options_raw, amenities_raw
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (item_id) DO UPDATE SET movein_date = EXCLUDED.movein_date, parking_count = EXCLUDED.parking_count;
                 """, (item_id, to_bool(row.get('parking_available_text')), to_float(row.get('parking_count_text')), 
                     to_bool(row.get('elevator')), to_int(row.get('bathroom_count')),
@@ -114,6 +115,7 @@ def load_single_csv_to_db(csv_path):
                     to_bool(row.get('has_air_conditioner')), to_bool(row.get('has_refrigerator')), to_bool(row.get('has_washing_machine')),
                     to_bool(row.get('has_gas_stove')), to_bool(row.get('has_induction')), to_bool(row.get('has_microwave')),
                     to_bool(row.get('has_desk')), to_bool(row.get('has_bed')), to_bool(row.get('has_closet')), to_bool(row.get('has_shoe_rack')),
+                    to_bool(row.get('has_bookcase')), to_bool(row.get('has_sink')),
                     to_int(row.get('subway_distance')), to_int(row.get('pharmacy_distance')), to_int(row.get('convenience_distance')),
                     to_int(row.get('bus_distance')), to_int(row.get('mart_distance')), to_int(row.get('laundry_distance')), to_int(row.get('cafe_distance')),
                     to_bool(row.get('is_coupang')), to_bool(row.get('is_ssg')), to_bool(row.get('is_marketkurly')),
@@ -128,132 +130,50 @@ def load_single_csv_to_db(csv_path):
     except Exception as e: print(f"에러: {e}")
 
 def load_images_to_db(csv_path):
-    """이미지 정보 CSV 업로드 (S3 경로 규칙 적용)"""
+    """이미지 정보 CSV 업로드 (부모 매물 존재 여부 체크)"""
     if not os.path.exists(csv_path): return
     print(f"\n[자동 업로드] {os.path.basename(csv_path)} -> DB (item_images)")
-    
-    # 날짜 추출 로직 (YYYY-MM-DD 또는 YYYYMMDD 지원)
-    date_match = re.search(r"(\d{4}-\d{2}-\d{2})", csv_path)
-    if date_match:
-        date_str = date_match.group(1)
-    else:
-        date_match = re.search(r"(\d{8})", csv_path)
-        if date_match:
-            d = date_match.group(1)
-            date_str = f"{d[:4]}-{d[4:6]}-{d[6:]}"
-        else:
-            date_str = datetime.now().strftime("%Y-%m-%d")
-    
-    bucket_name = os.getenv("S3_BUCKET")
-    if not bucket_name:
-        print("에러: .env 파일에 S3_BUCKET 설정이 없습니다.")
-        return
-    
     try:
         df = pd.read_csv(csv_path)
         conn = get_db_connection()
         cur = conn.cursor()
         success, skipped = 0, 0
-        
-        # item_id별 이미지 순번 관리를 위한 딕셔너리
-        item_image_counts = {}
+        seen_items = set()
 
         for _, row in df.iterrows():
             try:
                 item_id = to_int(row.get('item_id'))
-                if item_id <= 0: continue
+                # S3 URL이 있으면 그거 쓰고, 없으면 원본 URL 씀
+                img_url = str(row.get('s3_url') or row.get('image_url', ''))
+                if not img_url or item_id == 0: continue
 
-                # 이미지 순번 증가
-                item_image_counts[item_id] = item_image_counts.get(item_id, 0) + 1
-                img_idx = item_image_counts[item_id]
-                
-                # S3 URI 형식으로 저장 (s3://버킷명/경로)
-                s3_url = f"s3://{bucket_name}/zigbang_data/images/seoul/{date_str}/{item_id}/{item_id}_{img_idx}.jpg"
-                
-                # 첫 번째 이미지만 대표 이미지(is_main)로 설정
-                is_main = (img_idx == 1)
+                # 해당 item_id에 대해 첫 번째 이미지만 is_main=True
+                is_main = False
+                if item_id not in seen_items:
+                    is_main = True
+                    seen_items.add(item_id)
 
-                # items 테이블에 존재할 때만 INSERT (s3_url 중복 체크 포함)
+                # items 테이블에 존재하고, 동시에 이미 들어간 이미지가 아닐 때만 INSERT
                 cur.execute("""
                     INSERT INTO item_images (item_id, s3_url, is_main)
                     SELECT %s, %s, %s
                     WHERE EXISTS (SELECT 1 FROM items WHERE item_id = %s)
                       AND NOT EXISTS (SELECT 1 FROM item_images WHERE s3_url = %s)
-                """, (item_id, s3_url, is_main, item_id, s3_url))
+                """, (item_id, img_url, is_main, item_id, img_url))
                 
                 if cur.rowcount > 0:
                     success += 1
                 else:
                     skipped += 1
                 
+                # 잦은 커밋은 느리니 100개 단위로 커밋 (이미지는 데이터가 많음)
                 if (success + skipped) % 100 == 0:
                     conn.commit()
             except Exception as e:
                 conn.rollback()
+                # print(f"이미지 행 에러: {e}")
         
         conn.commit()
         print(f"   ㄴ 완료: {success}개 업로드 ({skipped}개 스킵)")
         cur.close(); conn.close()
     except Exception as e: print(f"이미지 업로드 에러: {e}")
-
-def fix_existing_images_to_s3(csv_path):
-    """기존 DB에 잘못 들어간 zigbang URL을 S3 경로로 UPDATE"""
-    if not os.path.exists(csv_path): return
-    print(f"\n[데이터 복구] {os.path.basename(csv_path)} -> DB (s3_url 업데이트)")
-    
-    # 날짜 추출 로직
-    date_match = re.search(r"(\d{4}-\d{2}-\d{2})", csv_path)
-    if date_match:
-        date_str = date_match.group(1)
-    else:
-        date_match = re.search(r"(\d{8})", csv_path)
-        if date_match:
-            d = date_match.group(1)
-            date_str = f"{d[:4]}-{d[4:6]}-{d[6:]}"
-        else:
-            date_str = datetime.now().strftime("%Y-%m-%d")
-            
-    bucket_name = os.getenv("S3_BUCKET")
-    if not bucket_name:
-        print("에러: .env 파일에 S3_BUCKET 설정이 없습니다.")
-        return
-    
-    try:
-        df = pd.read_csv(csv_path)
-        conn = get_db_connection()
-        cur = conn.cursor()
-        success = 0
-        
-        item_image_counts = {}
-
-        for _, row in df.iterrows():
-            try:
-                item_id = to_int(row.get('item_id'))
-                old_url = str(row.get('s3_url') or row.get('image_url', ''))
-                if item_id <= 0 or not old_url: continue
-
-                item_image_counts[item_id] = item_image_counts.get(item_id, 0) + 1
-                img_idx = item_image_counts[item_id]
-                
-                # S3 URI 형식으로 저장 (s3://버킷명/경로)
-                new_s3_url = f"s3://{bucket_name}/zigbang_data/images/seoul/{date_str}/{item_id}/{item_id}_{img_idx}.jpg"
-
-                # UPDATE 실행
-                cur.execute("""
-                    UPDATE item_images 
-                    SET s3_url = %s 
-                    WHERE item_id = %s AND s3_url = %s
-                """, (new_s3_url, item_id, old_url))
-                
-                if cur.rowcount > 0:
-                    success += 1
-                
-                if success % 100 == 0:
-                    conn.commit()
-            except Exception:
-                conn.rollback()
-        
-        conn.commit()
-        print(f"   ㄴ 복구 완료: {success}개 업데이트")
-        cur.close(); conn.close()
-    except Exception as e: print(f"복구 에러: {e}")
