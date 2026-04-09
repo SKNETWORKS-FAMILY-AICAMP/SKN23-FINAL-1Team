@@ -82,7 +82,7 @@ ITEM_COLUMNS = [
     "is_coupang", "is_ssg", "is_marketkurly", "is_baemin", "is_yogiyo",
     "is_subway_area", "is_convenient_area", "is_park_area", "is_school_area",
     "has_air_conditioner", "has_refrigerator", "has_washing_machine", "has_gas_stove", "has_induction",
-    "has_microwave", "has_desk", "has_bed", "has_closet", "has_shoe_rack",
+    "has_microwave", "has_desk", "has_bed", "has_closet", "has_shoe_rack", "has_bookcase", "has_sink",
     "amenities_raw", "distributions_raw", "options_raw"
 ]
 
@@ -253,13 +253,15 @@ def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[
     option_data = {
         "has_air_conditioner": False, "has_refrigerator": False, "has_washing_machine": False,
         "has_gas_stove": False, "has_induction": False, "has_microwave": False,
-        "has_desk": False, "has_bed": False, "has_closet": False, "has_shoe_rack": False
+        "has_desk": False, "has_bed": False, "has_closet": False, "has_shoe_rack": False,
+        "has_bookcase": False, "has_sink": False
     }
     options = item.get("options", [])
     option_map = {
         "에어컨": "has_air_conditioner", "냉장고": "has_refrigerator", "세탁기": "has_washing_machine",
         "가스레인지": "has_gas_stove", "인덕션": "has_induction", "전자레인지": "has_microwave",
-        "책상": "has_desk", "침대": "has_bed", "옷장": "has_closet", "신발장": "has_shoe_rack"
+        "책상": "has_desk", "침대": "has_bed", "옷장": "has_closet", "신발장": "has_shoe_rack",
+        "책장": "has_bookcase", "싱크대": "has_sink"
     }
     for opt in options:
         if opt in option_map: option_data[option_map[opt]] = True
