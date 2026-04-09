@@ -1,6 +1,6 @@
 from sqlalchemy import select, func, or_
 # from sqlalchemy.orm import Session
-from models.item_feature import ItemFeature
+from models.item_features import ItemFeature
 from models.room import Room
 # from schemas.room_schema import RoomListRequest
 
