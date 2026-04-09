@@ -311,10 +311,10 @@ def crawl():
     reactivated_ids = (current_found_ids & item_history.keys()) - last_active_ids
     deleted_ids = last_active_ids - current_found_ids
 
-    # 모드 설정 (강제 업데이트: current_found_ids / 일반: new_ids)
-    # 현재는 '일반 모드'로 설정함!
-    to_fetch_ids = new_ids
-    print(f"\n분석 결과: 현재 {len(current_found_ids)}개 (신규 {len(to_fetch_ids)}개 업데이트 모드)")
+    # 모드 설정 (강제 업데이트: current_found_ids / 일반: new_ids | reactivated_ids)
+    # 현재는 '일반 모드'로 설정함! (신규 + 다시 나타난 매물)
+    to_fetch_ids = new_ids | reactivated_ids
+    print(f"\n분석 결과: 현재 {len(current_found_ids)}개 (신규 {len(new_ids)}개, 재활성화 {len(reactivated_ids)}개 -> 총 {len(to_fetch_ids)}개 수집 대상)")
     
     if deleted_ids:
         to_deactivate = [did for did in deleted_ids if item_history.get(did, {}).get("status") == "ACTIVE"]
