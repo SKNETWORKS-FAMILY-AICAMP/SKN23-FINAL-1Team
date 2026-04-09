@@ -4,7 +4,7 @@ from processor import fix_existing_images_to_s3
 
 # 과거 이미지 CSV 파일들이 들어있는 폴더 경로
 # 실제 데이터가 저장된 경로로 수정하세요.
-IMAGE_CSV_DIR = "data" 
+IMAGE_CSV_DIR = "data/csv/image" 
 
 # 해당 폴더 내의 모든 csv 파일을 찾아서 복구 진행
 csv_files = glob.glob(os.path.join(IMAGE_CSV_DIR, "zigbang_images_*.csv"))
