@@ -1,6 +1,6 @@
 from sqlalchemy import select, func, or_
 # from sqlalchemy.orm import Session
-from models.item_features import ItemFeature
+from models.item_features import ItemFeatures
 from models.room import Room
 # from schemas.room_schema import RoomListRequest
 
@@ -35,14 +35,14 @@ def get_rooms(db, req):
 
     stmt = (
         select(Room)
-        .outerjoin(ItemFeature, ItemFeature.item_id == Room.item_id)
+        .outerjoin(ItemFeatures, ItemFeatures.item_id == Room.item_id)
         .where(Room.status == "ACTIVE")
     )
 
     count_stmt = (
         select(func.count(func.distinct(Room.item_id)))
         .select_from(Room)
-        .outerjoin(ItemFeature, ItemFeature.item_id == Room.item_id)
+        .outerjoin(ItemFeatures, ItemFeatures.item_id == Room.item_id)
         .where(Room.status == "ACTIVE")
     )
 
@@ -110,7 +110,7 @@ def get_rooms(db, req):
             if not column_name:
                 continue
 
-            option_column = getattr(ItemFeature, column_name, None)
+            option_column = getattr(ItemFeatures, column_name, None)
             if option_column is not None:
                 option_conditions.append(option_column.is_(True))
 
