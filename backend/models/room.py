@@ -1,7 +1,6 @@
 from sqlalchemy import BigInteger, Integer, String, Text, Numeric, TIMESTAMP, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db.base import Base
-from __future__ import annotations
 
 
 class Room(Base):
