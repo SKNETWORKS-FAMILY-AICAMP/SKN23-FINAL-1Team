@@ -15,7 +15,8 @@ const defaultFilters: Filters = {
   price: "all",
   structure: "all",
   size: "all",
-  options: "all",
+  sizeUnit: "m2",
+  options: [],
 };
 
 export function HomeContainer() {
@@ -32,25 +33,36 @@ export function HomeContainer() {
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasRequestFailed, setHasRequestFailed] = useState(false);
 
   const requestKey = useMemo(() => {
     return JSON.stringify({
       search: debouncedSearchQuery,
       transactionType: filters.transactionType,
       structure: filters.structure,
+      price: filters.price,
+      size: filters.size,
+      sizeUnit: filters.sizeUnit,
+      options: filters.options,
       roomType,
     });
   }, [
     debouncedSearchQuery,
     filters.transactionType,
     filters.structure,
+    filters.price,
+    filters.size,
+    filters.sizeUnit,
+    filters.options,
     roomType,
   ]);
+
   console.log(filters, "tttttt");
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
     }, 500);
+    setHasRequestFailed(false);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
@@ -65,13 +77,14 @@ export function HomeContainer() {
     setOffset(0);
     setHasMore(true);
     setIsInitialLoading(true);
+    setHasRequestFailed(false);
   }, [requestKey]);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadItems = async () => {
-      if (isLoading || !hasMore) return;
+      if (isLoading || !hasMore || hasRequestFailed) return;
 
       setIsLoading(true);
 
@@ -83,6 +96,10 @@ export function HomeContainer() {
           transactionType: filters.transactionType,
           roomType: roomType === "oneroom" ? "원룸" : "투룸",
           structure: filters.structure,
+          price: filters.price,
+          size: filters.size,
+          sizeUnit: filters.sizeUnit,
+          options: filters.options,
         });
 
         if (cancelled) return;
@@ -93,6 +110,10 @@ export function HomeContainer() {
         setHasMore(data.has_more);
       } catch (error) {
         console.error(error);
+        if (!cancelled) {
+          setHasRequestFailed(true);
+          setHasMore(false);
+        }
       } finally {
         if (!cancelled) {
           setIsLoading(false);

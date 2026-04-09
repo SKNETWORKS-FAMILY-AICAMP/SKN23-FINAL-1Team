@@ -9,7 +9,10 @@ class RoomListRequest(BaseModel):
     transaction_type: str = "all"
     room_type: str = "all"
     structure: str = "all"
-
+    price: int | str = "all"
+    size: float | str = "all"
+    size_unit: str = "m2"
+    options: list[str] = []
 
 class RoomResponse(BaseModel):
     item_id: int
