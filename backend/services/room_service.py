@@ -1,4 +1,4 @@
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, and_
 # from sqlalchemy.orm import Session
 from models.item_features import ItemFeatures
 from models.room import Room
@@ -119,8 +119,7 @@ def get_rooms(db, req):
             count_stmt = count_stmt.where(and_(*option_conditions))
 
     stmt = (
-        stmt.distinct(Room.item_id)
-        .order_by(Room.updated_at.desc(), Room.item_id.desc())
+        stmt.order_by(Room.updated_at.desc(), Room.item_id.desc())
         .offset(req.offset)
         .limit(req.limit)
     )
