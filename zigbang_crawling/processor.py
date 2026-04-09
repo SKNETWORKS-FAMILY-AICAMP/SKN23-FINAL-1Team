@@ -132,7 +132,7 @@ def load_images_to_db(csv_path):
     if not os.path.exists(csv_path): return
     print(f"\n[자동 업로드] {os.path.basename(csv_path)} -> DB (item_images)")
     
-    # 파일명에서 날짜 추출 (YYYY-MM-DD 또는 YYYYMMDD 지원)
+    # 날짜 추출 로직 (YYYY-MM-DD 또는 YYYYMMDD 지원)
     date_match = re.search(r"(\d{4}-\d{2}-\d{2})", csv_path)
     if date_match:
         date_str = date_match.group(1)
@@ -167,8 +167,8 @@ def load_images_to_db(csv_path):
                 item_image_counts[item_id] = item_image_counts.get(item_id, 0) + 1
                 img_idx = item_image_counts[item_id]
                 
-                # S3 경로 생성 규칙: {bucket}/zigbang_data/images/seoul/{date}/{item_id}/{item_id}_{idx}.jpg
-                s3_url = f"{bucket_name}/zigbang_data/images/seoul/{date_str}/{item_id}/{item_id}_{img_idx}.jpg"
+                # S3 URI 형식으로 저장 (s3://버킷명/경로)
+                s3_url = f"s3://{bucket_name}/zigbang_data/images/seoul/{date_str}/{item_id}/{item_id}_{img_idx}.jpg"
                 
                 # 첫 번째 이미지만 대표 이미지(is_main)로 설정
                 is_main = (img_idx == 1)
@@ -214,6 +214,9 @@ def fix_existing_images_to_s3(csv_path):
             date_str = datetime.now().strftime("%Y-%m-%d")
             
     bucket_name = os.getenv("S3_BUCKET")
+    if not bucket_name:
+        print("에러: .env 파일에 S3_BUCKET 설정이 없습니다.")
+        return
     
     try:
         df = pd.read_csv(csv_path)
@@ -232,7 +235,8 @@ def fix_existing_images_to_s3(csv_path):
                 item_image_counts[item_id] = item_image_counts.get(item_id, 0) + 1
                 img_idx = item_image_counts[item_id]
                 
-                new_s3_url = f"{bucket_name}/zigbang_data/images/seoul/{date_str}/{item_id}/{item_id}_{img_idx}.jpg"
+                # S3 URI 형식으로 저장 (s3://버킷명/경로)
+                new_s3_url = f"s3://{bucket_name}/zigbang_data/images/seoul/{date_str}/{item_id}/{item_id}_{img_idx}.jpg"
 
                 # UPDATE 실행
                 cur.execute("""
