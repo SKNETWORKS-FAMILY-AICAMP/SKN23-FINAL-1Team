@@ -20,7 +20,8 @@ def get_db_connection():
     )
 
 def parse_generic_date(text):
-    if pd.isna(text) or not str(text).strip(): return None
+    if pd.isna(text) or not str(text).strip() or str(text).strip().lower() in ('false', 'none', 'nan'): 
+        return None
     text_str = str(text).strip()
     if re.match(r"^\d{4}-\d{2}-\d{2}$", text_str): return text_str
     if len(text_str) == 8 and text_str.isdigit():
@@ -37,13 +38,15 @@ def parse_generic_date(text):
 
 def to_int(val, default=0):
     try:
-        if pd.isna(val) or str(val).strip() == "": return default
+        if pd.isna(val) or str(val).strip() == "" or str(val).strip().lower() in ('false', 'none', 'nan'): 
+            return default
         return int(float(val))
     except: return default
 
 def to_float(val, default=0.0):
     try:
-        if pd.isna(val) or str(val).strip() == "": return default
+        if pd.isna(val) or str(val).strip() == "" or str(val).strip().lower() in ('false', 'none', 'nan'): 
+            return default
         return float(val)
     except: return default
 
@@ -66,7 +69,6 @@ def load_single_csv_to_db(csv_path):
     print(f"\n[자동 업로드] {os.path.basename(csv_path)} -> DB (items)")
     try:
         df = pd.read_csv(csv_path, low_memory=False)
-        # 모든 상태의 데이터를 읽어옴 (상태별 분기 처리를 위해)
         df = df.rename(columns=COLUMN_MAP)
         conn = get_db_connection()
         cur = conn.cursor()
@@ -77,9 +79,15 @@ def load_single_csv_to_db(csv_path):
                 if item_id == -1: continue
                 
                 status = str(row.get('status', 'ACTIVE')).upper()
-                crawled_at = row.get('crawled_at') or datetime.now().isoformat()
                 
-                # 1. items 테이블 (상태, 가격, 업데이트 시간만 갱신)
+                # 수집 일시가 'False'면 현재 시간으로 대체
+                raw_crawled_at = row.get('crawled_at')
+                if not raw_crawled_at or str(raw_crawled_at).strip().lower() in ('false', 'none', 'nan'):
+                    crawled_at = datetime.now().isoformat()
+                else:
+                    crawled_at = str(raw_crawled_at)
+                
+                # 1. items 테이블
                 cur.execute("""
                     INSERT INTO items (item_id, status, title, url, address, deposit, rent, manage_cost, 
                         service_type, room_type, floor, all_floors, area_m2, lat, lng, geom, 
@@ -101,9 +109,8 @@ def load_single_csv_to_db(csv_path):
                     str(row.get('geohash', '')), str(row.get('image_thumbnail', '')), 
                     parse_generic_date(row.get('first_crawled_at')) or crawled_at, crawled_at))
 
-                # 2. item_features 테이블 (상태에 따른 전략적 갱신)
+                # 2. item_features 테이블
                 if status == 'ACTIVE':
-                    # ACTIVE인 경우: 모든 정보를 덮어씌워서 잘못된 순서 수정 및 신규 옵션(싱크대/책장) 반영
                     cur.execute("""
                         INSERT INTO item_features (
                             item_id, has_parking, parking_count, has_elevator, bathroom_count,
@@ -142,7 +149,6 @@ def load_single_csv_to_db(csv_path):
                         to_bool(row.get('has_bookcase')), to_bool(row.get('has_sink'))
                     ))
                 else:
-                    # INACTIVE인 경우: 신규면 추가하되, 이미 있으면 건드리지 않음 (기존 데이터 보존)
                     cur.execute("""
                         INSERT INTO item_features (
                             item_id, has_parking, parking_count, has_elevator, bathroom_count,
