@@ -66,8 +66,7 @@ def load_single_csv_to_db(csv_path):
     print(f"\n[자동 업로드] {os.path.basename(csv_path)} -> DB (items)")
     try:
         df = pd.read_csv(csv_path, low_memory=False)
-        # 복구 작업을 위해 INACTIVE 필터링 해제 (필요시 다시 켜도 됨)
-        # df = df[df.get('status', df.get('상태', '')).astype(str).str.upper() != 'INACTIVE']
+        # 모든 상태의 데이터를 읽어옴 (상태별 분기 처리를 위해)
         df = df.rename(columns=COLUMN_MAP)
         conn = get_db_connection()
         cur = conn.cursor()
@@ -76,9 +75,11 @@ def load_single_csv_to_db(csv_path):
             try:
                 item_id = to_int(row.get('item_id'), -1)
                 if item_id == -1: continue
+                
+                status = str(row.get('status', 'ACTIVE')).upper()
                 crawled_at = row.get('crawled_at') or datetime.now().isoformat()
                 
-                # 1. items 테이블 (Insert or Update)
+                # 1. items 테이블 (상태, 가격, 업데이트 시간만 갱신)
                 cur.execute("""
                     INSERT INTO items (item_id, status, title, url, address, deposit, rent, manage_cost, 
                         service_type, room_type, floor, all_floors, area_m2, lat, lng, geom, 
@@ -86,9 +87,11 @@ def load_single_csv_to_db(csv_path):
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
                         ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography, %s, %s, %s, %s)
                     ON CONFLICT (item_id) DO UPDATE SET
-                        status = EXCLUDED.status, deposit = EXCLUDED.deposit,
-                        rent = EXCLUDED.rent, updated_at = EXCLUDED.updated_at;
-                """, (item_id, str(row.get('status', 'ACTIVE')), str(row.get('title', '제목 없음')), 
+                        status = EXCLUDED.status, 
+                        deposit = EXCLUDED.deposit,
+                        rent = EXCLUDED.rent, 
+                        updated_at = EXCLUDED.updated_at;
+                """, (item_id, status, str(row.get('title', '제목 없음')), 
                     str(row.get('url', '')), str(row.get('address', '')),
                     to_int(row.get('deposit')), to_int(row.get('rent')), to_int(row.get('manage_cost')),
                     str(row.get('service_type', '')), str(row.get('room_type', '')), 
@@ -98,77 +101,72 @@ def load_single_csv_to_db(csv_path):
                     str(row.get('geohash', '')), str(row.get('image_thumbnail', '')), 
                     parse_generic_date(row.get('first_crawled_at')) or crawled_at, crawled_at))
 
-                # 2. item_features 테이블 (Insert or Repair Update)
-                cur.execute("""
-                    INSERT INTO item_features (
-                        item_id, has_parking, parking_count, has_elevator, bathroom_count,
-                        residence_type, room_direction, movein_date, approve_date,
-                        has_air_con, has_fridge, has_washer, has_gas_stove, has_induction,
-                        has_microwave, has_desk, has_bed, has_closet, has_shoe_rack,
-                        dist_subway, dist_pharmacy, dist_conv, dist_bus, dist_mart, dist_laundry, dist_cafe,
-                        is_coupang, is_ssg, is_marketkurly, is_baemin, is_yogiyo,
-                        is_subway_area, is_convenient_area, is_park_area, is_school_area,
-                        options_raw, amenities_raw, has_bookcase, has_sink
-                    ) VALUES (
-                        %s, %s, %s, %s, %s, 
-                        %s, %s, %s, %s, 
-                        %s, %s, %s, %s, %s, 
-                        %s, %s, %s, %s, %s, 
-                        %s, %s, %s, %s, %s, %s, %s, 
-                        %s, %s, %s, %s, %s, 
-                        %s, %s, %s, %s, 
-                        %s, %s, %s, %s
-                    )
-                    ON CONFLICT (item_id) DO UPDATE SET 
-                        has_parking = EXCLUDED.has_parking,
-                        parking_count = EXCLUDED.parking_count,
-                        has_elevator = EXCLUDED.has_elevator,
-                        bathroom_count = EXCLUDED.bathroom_count,
-                        residence_type = EXCLUDED.residence_type,
-                        room_direction = EXCLUDED.room_direction,
-                        movein_date = EXCLUDED.movein_date,
-                        approve_date = EXCLUDED.approve_date,
-                        has_air_con = EXCLUDED.has_air_con,
-                        has_fridge = EXCLUDED.has_fridge,
-                        has_washer = EXCLUDED.has_washer,
-                        has_gas_stove = EXCLUDED.has_gas_stove,
-                        has_induction = EXCLUDED.has_induction,
-                        has_microwave = EXCLUDED.has_microwave,
-                        has_desk = EXCLUDED.has_desk,
-                        has_bed = EXCLUDED.has_bed,
-                        has_closet = EXCLUDED.has_closet,
-                        has_shoe_rack = EXCLUDED.has_shoe_rack,
-                        dist_subway = EXCLUDED.dist_subway,
-                        dist_pharmacy = EXCLUDED.dist_pharmacy,
-                        dist_conv = EXCLUDED.dist_conv,
-                        dist_bus = EXCLUDED.dist_bus,
-                        dist_mart = EXCLUDED.dist_mart,
-                        dist_laundry = EXCLUDED.dist_laundry,
-                        dist_cafe = EXCLUDED.dist_cafe,
-                        is_coupang = EXCLUDED.is_coupang,
-                        is_ssg = EXCLUDED.is_ssg,
-                        is_marketkurly = EXCLUDED.is_marketkurly,
-                        is_baemin = EXCLUDED.is_baemin,
-                        is_yogiyo = EXCLUDED.is_yogiyo,
-                        is_subway_area = EXCLUDED.is_subway_area,
-                        is_convenient_area = EXCLUDED.is_convenient_area,
-                        is_park_area = EXCLUDED.is_park_area,
-                        is_school_area = EXCLUDED.is_school_area,
-                        options_raw = EXCLUDED.options_raw,
-                        amenities_raw = EXCLUDED.amenities_raw,
-                        has_bookcase = EXCLUDED.has_bookcase,
-                        has_sink = EXCLUDED.has_sink;
-                """, (
-                    item_id, to_bool(row.get('parking_available_text')), to_float(row.get('parking_count_text')), to_bool(row.get('elevator')), to_int(row.get('bathroom_count')),
-                    str(row.get('residence_type', '')), str(row.get('room_direction', '')), parse_generic_date(row.get('movein_date')), parse_generic_date(row.get('approve_date')),
-                    to_bool(row.get('has_air_conditioner')), to_bool(row.get('has_refrigerator')), to_bool(row.get('has_washing_machine')), to_bool(row.get('has_gas_stove')), to_bool(row.get('has_induction')),
-                    to_bool(row.get('has_microwave')), to_bool(row.get('has_desk')), to_bool(row.get('has_bed')), to_bool(row.get('has_closet')), to_bool(row.get('has_shoe_rack')),
-                    to_int(row.get('subway_distance')), to_int(row.get('pharmacy_distance')), to_int(row.get('convenience_distance')), to_int(row.get('bus_distance')), to_int(row.get('mart_distance')), to_int(row.get('laundry_distance')), to_int(row.get('cafe_distance')),
-                    to_bool(row.get('is_coupang')), to_bool(row.get('is_ssg')), to_bool(row.get('is_marketkurly')), to_bool(row.get('is_baemin')), to_bool(row.get('is_yogiyo')),
-                    to_bool(row.get('is_subway_area')), to_bool(row.get('is_convenient_area')), to_bool(row.get('is_park_area')), to_bool(row.get('is_school_area')),
-                    str(row.get('options_raw', '')), str(row.get('amenities_raw', '')), 
-                    to_bool(row.get('has_bookcase')), to_bool(row.get('has_sink'))
-                ))
+                # 2. item_features 테이블 (상태에 따른 전략적 갱신)
+                if status == 'ACTIVE':
+                    # ACTIVE인 경우: 모든 정보를 덮어씌워서 잘못된 순서 수정 및 신규 옵션(싱크대/책장) 반영
+                    cur.execute("""
+                        INSERT INTO item_features (
+                            item_id, has_parking, parking_count, has_elevator, bathroom_count,
+                            residence_type, room_direction, movein_date, approve_date,
+                            has_air_con, has_fridge, has_washer, has_gas_stove, has_induction,
+                            has_microwave, has_desk, has_bed, has_closet, has_shoe_rack,
+                            dist_subway, dist_pharmacy, dist_conv, dist_bus, dist_mart, dist_laundry, dist_cafe,
+                            is_coupang, is_ssg, is_marketkurly, is_baemin, is_yogiyo,
+                            is_subway_area, is_convenient_area, is_park_area, is_school_area,
+                            options_raw, amenities_raw, has_bookcase, has_sink
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (item_id) DO UPDATE SET 
+                            has_parking = EXCLUDED.has_parking, parking_count = EXCLUDED.parking_count, has_elevator = EXCLUDED.has_elevator,
+                            bathroom_count = EXCLUDED.bathroom_count, residence_type = EXCLUDED.residence_type, room_direction = EXCLUDED.room_direction,
+                            movein_date = EXCLUDED.movein_date, approve_date = EXCLUDED.approve_date, has_air_con = EXCLUDED.has_air_con,
+                            has_fridge = EXCLUDED.has_fridge, has_washer = EXCLUDED.has_washer, has_gas_stove = EXCLUDED.has_gas_stove,
+                            has_induction = EXCLUDED.has_induction, has_microwave = EXCLUDED.has_microwave, has_desk = EXCLUDED.has_desk,
+                            has_bed = EXCLUDED.has_bed, has_closet = EXCLUDED.has_closet, has_shoe_rack = EXCLUDED.has_shoe_rack,
+                            dist_subway = EXCLUDED.dist_subway, dist_pharmacy = EXCLUDED.dist_pharmacy, dist_conv = EXCLUDED.dist_conv,
+                            dist_bus = EXCLUDED.dist_bus, dist_mart = EXCLUDED.dist_mart, dist_laundry = EXCLUDED.dist_laundry,
+                            dist_cafe = EXCLUDED.dist_cafe, is_coupang = EXCLUDED.is_coupang, is_ssg = EXCLUDED.is_ssg,
+                            is_marketkurly = EXCLUDED.is_marketkurly, is_baemin = EXCLUDED.is_baemin, is_yogiyo = EXCLUDED.is_yogiyo,
+                            is_subway_area = EXCLUDED.is_subway_area, is_convenient_area = EXCLUDED.is_convenient_area,
+                            is_park_area = EXCLUDED.is_park_area, is_school_area = EXCLUDED.is_school_area,
+                            options_raw = EXCLUDED.options_raw, amenities_raw = EXCLUDED.amenities_raw,
+                            has_bookcase = EXCLUDED.has_bookcase, has_sink = EXCLUDED.has_sink;
+                    """, (
+                        item_id, to_bool(row.get('parking_available_text')), to_float(row.get('parking_count_text')), to_bool(row.get('elevator')), to_int(row.get('bathroom_count')),
+                        str(row.get('residence_type', '')), str(row.get('room_direction', '')), parse_generic_date(row.get('movein_date')), parse_generic_date(row.get('approve_date')),
+                        to_bool(row.get('has_air_conditioner')), to_bool(row.get('has_refrigerator')), to_bool(row.get('has_washing_machine')), to_bool(row.get('has_gas_stove')), to_bool(row.get('has_induction')),
+                        to_bool(row.get('has_microwave')), to_bool(row.get('has_desk')), to_bool(row.get('has_bed')), to_bool(row.get('has_closet')), to_bool(row.get('has_shoe_rack')),
+                        to_int(row.get('subway_distance')), to_int(row.get('pharmacy_distance')), to_int(row.get('convenience_distance')), to_int(row.get('bus_distance')), to_int(row.get('mart_distance')), to_int(row.get('laundry_distance')), to_int(row.get('cafe_distance')),
+                        to_bool(row.get('is_coupang')), to_bool(row.get('is_ssg')), to_bool(row.get('is_marketkurly')), to_bool(row.get('is_baemin')), to_bool(row.get('is_yogiyo')),
+                        to_bool(row.get('is_subway_area')), to_bool(row.get('is_convenient_area')), to_bool(row.get('is_park_area')), to_bool(row.get('is_school_area')),
+                        str(row.get('options_raw', '')), str(row.get('amenities_raw', '')), 
+                        to_bool(row.get('has_bookcase')), to_bool(row.get('has_sink'))
+                    ))
+                else:
+                    # INACTIVE인 경우: 신규면 추가하되, 이미 있으면 건드리지 않음 (기존 데이터 보존)
+                    cur.execute("""
+                        INSERT INTO item_features (
+                            item_id, has_parking, parking_count, has_elevator, bathroom_count,
+                            residence_type, room_direction, movein_date, approve_date,
+                            has_air_con, has_fridge, has_washer, has_gas_stove, has_induction,
+                            has_microwave, has_desk, has_bed, has_closet, has_shoe_rack,
+                            dist_subway, dist_pharmacy, dist_conv, dist_bus, dist_mart, dist_laundry, dist_cafe,
+                            is_coupang, is_ssg, is_marketkurly, is_baemin, is_yogiyo,
+                            is_subway_area, is_convenient_area, is_park_area, is_school_area,
+                            options_raw, amenities_raw, has_bookcase, has_sink
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (item_id) DO NOTHING;
+                    """, (
+                        item_id, to_bool(row.get('parking_available_text')), to_float(row.get('parking_count_text')), to_bool(row.get('elevator')), to_int(row.get('bathroom_count')),
+                        str(row.get('residence_type', '')), str(row.get('room_direction', '')), parse_generic_date(row.get('movein_date')), parse_generic_date(row.get('approve_date')),
+                        to_bool(row.get('has_air_conditioner')), to_bool(row.get('has_refrigerator')), to_bool(row.get('has_washing_machine')), to_bool(row.get('has_gas_stove')), to_bool(row.get('has_induction')),
+                        to_bool(row.get('has_microwave')), to_bool(row.get('has_desk')), to_bool(row.get('has_bed')), to_bool(row.get('has_closet')), to_bool(row.get('has_shoe_rack')),
+                        to_int(row.get('subway_distance')), to_int(row.get('pharmacy_distance')), to_int(row.get('convenience_distance')), to_int(row.get('bus_distance')), to_int(row.get('mart_distance')), to_int(row.get('laundry_distance')), to_int(row.get('cafe_distance')),
+                        to_bool(row.get('is_coupang')), to_bool(row.get('is_ssg')), to_bool(row.get('is_marketkurly')), to_bool(row.get('is_baemin')), to_bool(row.get('is_yogiyo')),
+                        to_bool(row.get('is_subway_area')), to_bool(row.get('is_convenient_area')), to_bool(row.get('is_park_area')), to_bool(row.get('is_school_area')),
+                        str(row.get('options_raw', '')), str(row.get('amenities_raw', '')), 
+                        to_bool(row.get('has_bookcase')), to_bool(row.get('has_sink'))
+                    ))
+                
                 conn.commit()
                 success += 1
             except Exception as e: 
