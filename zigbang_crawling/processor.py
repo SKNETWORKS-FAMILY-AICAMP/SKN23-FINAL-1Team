@@ -66,7 +66,8 @@ def load_single_csv_to_db(csv_path):
     print(f"\n[자동 업로드] {os.path.basename(csv_path)} -> DB (items)")
     try:
         df = pd.read_csv(csv_path, low_memory=False)
-        df = df[df.get('status', df.get('상태', '')).astype(str).str.upper() != 'INACTIVE']
+        # 복구 작업을 위해 INACTIVE 필터링 해제 (필요시 다시 켜도 됨)
+        # df = df[df.get('status', df.get('상태', '')).astype(str).str.upper() != 'INACTIVE']
         df = df.rename(columns=COLUMN_MAP)
         conn = get_db_connection()
         cur = conn.cursor()
@@ -77,6 +78,7 @@ def load_single_csv_to_db(csv_path):
                 if item_id == -1: continue
                 crawled_at = row.get('crawled_at') or datetime.now().isoformat()
                 
+                # 1. items 테이블 (Insert or Update)
                 cur.execute("""
                     INSERT INTO items (item_id, status, title, url, address, deposit, rent, manage_cost, 
                         service_type, room_type, floor, all_floors, area_m2, lat, lng, geom, 
@@ -96,6 +98,7 @@ def load_single_csv_to_db(csv_path):
                     str(row.get('geohash', '')), str(row.get('image_thumbnail', '')), 
                     parse_generic_date(row.get('first_crawled_at')) or crawled_at, crawled_at))
 
+                # 2. item_features 테이블 (Insert or Repair Update)
                 cur.execute("""
                     INSERT INTO item_features (
                         item_id, has_parking, parking_count, has_elevator, bathroom_count,
@@ -114,48 +117,48 @@ def load_single_csv_to_db(csv_path):
                         %s, %s, %s, %s, %s, %s, %s, 
                         %s, %s, %s, %s, %s, 
                         %s, %s, %s, %s, 
-                        %s, %s
-                        )
-                        ON CONFLICT (item_id) DO UPDATE SET 
-                            has_parking = EXCLUDED.has_parking,
-                            parking_count = EXCLUDED.parking_count,
-                            has_elevator = EXCLUDED.has_elevator,
-                            bathroom_count = EXCLUDED.bathroom_count,
-                            residence_type = EXCLUDED.residence_type,
-                            room_direction = EXCLUDED.room_direction,
-                            movein_date = EXCLUDED.movein_date,
-                            approve_date = EXCLUDED.approve_date,
-                            has_air_con = EXCLUDED.has_air_con,
-                            has_fridge = EXCLUDED.has_fridge,
-                            has_washer = EXCLUDED.has_washer,
-                            has_gas_stove = EXCLUDED.has_gas_stove,
-                            has_induction = EXCLUDED.has_induction,
-                            has_microwave = EXCLUDED.has_microwave,
-                            has_desk = EXCLUDED.has_desk,
-                            has_bed = EXCLUDED.has_bed,
-                            has_closet = EXCLUDED.has_closet,
-                            has_shoe_rack = EXCLUDED.has_shoe_rack,
-                            dist_subway = EXCLUDED.dist_subway,
-                            dist_pharmacy = EXCLUDED.dist_pharmacy,
-                            dist_conv = EXCLUDED.dist_conv,
-                            dist_bus = EXCLUDED.dist_bus,
-                            dist_mart = EXCLUDED.dist_mart,
-                            dist_laundry = EXCLUDED.dist_laundry,
-                            dist_cafe = EXCLUDED.dist_cafe,
-                            is_coupang = EXCLUDED.is_coupang,
-                            is_ssg = EXCLUDED.is_ssg,
-                            is_marketkurly = EXCLUDED.is_marketkurly,
-                            is_baemin = EXCLUDED.is_baemin,
-                            is_yogiyo = EXCLUDED.is_yogiyo,
-                            is_subway_area = EXCLUDED.is_subway_area,
-                            is_convenient_area = EXCLUDED.is_convenient_area,
-                            is_park_area = EXCLUDED.is_park_area,
-                            is_school_area = EXCLUDED.is_school_area,
-                            options_raw = EXCLUDED.options_raw,
-                            amenities_raw = EXCLUDED.amenities_raw,
-                            has_bookcase = EXCLUDED.has_bookcase,
-                            has_sink = EXCLUDED.has_sink;
-                        """,(
+                        %s, %s, %s, %s
+                    )
+                    ON CONFLICT (item_id) DO UPDATE SET 
+                        has_parking = EXCLUDED.has_parking,
+                        parking_count = EXCLUDED.parking_count,
+                        has_elevator = EXCLUDED.has_elevator,
+                        bathroom_count = EXCLUDED.bathroom_count,
+                        residence_type = EXCLUDED.residence_type,
+                        room_direction = EXCLUDED.room_direction,
+                        movein_date = EXCLUDED.movein_date,
+                        approve_date = EXCLUDED.approve_date,
+                        has_air_con = EXCLUDED.has_air_con,
+                        has_fridge = EXCLUDED.has_fridge,
+                        has_washer = EXCLUDED.has_washer,
+                        has_gas_stove = EXCLUDED.has_gas_stove,
+                        has_induction = EXCLUDED.has_induction,
+                        has_microwave = EXCLUDED.has_microwave,
+                        has_desk = EXCLUDED.has_desk,
+                        has_bed = EXCLUDED.has_bed,
+                        has_closet = EXCLUDED.has_closet,
+                        has_shoe_rack = EXCLUDED.has_shoe_rack,
+                        dist_subway = EXCLUDED.dist_subway,
+                        dist_pharmacy = EXCLUDED.dist_pharmacy,
+                        dist_conv = EXCLUDED.dist_conv,
+                        dist_bus = EXCLUDED.dist_bus,
+                        dist_mart = EXCLUDED.dist_mart,
+                        dist_laundry = EXCLUDED.dist_laundry,
+                        dist_cafe = EXCLUDED.dist_cafe,
+                        is_coupang = EXCLUDED.is_coupang,
+                        is_ssg = EXCLUDED.is_ssg,
+                        is_marketkurly = EXCLUDED.is_marketkurly,
+                        is_baemin = EXCLUDED.is_baemin,
+                        is_yogiyo = EXCLUDED.is_yogiyo,
+                        is_subway_area = EXCLUDED.is_subway_area,
+                        is_convenient_area = EXCLUDED.is_convenient_area,
+                        is_park_area = EXCLUDED.is_park_area,
+                        is_school_area = EXCLUDED.is_school_area,
+                        options_raw = EXCLUDED.options_raw,
+                        amenities_raw = EXCLUDED.amenities_raw,
+                        has_bookcase = EXCLUDED.has_bookcase,
+                        has_sink = EXCLUDED.has_sink;
+                """, (
                     item_id, to_bool(row.get('parking_available_text')), to_float(row.get('parking_count_text')), to_bool(row.get('elevator')), to_int(row.get('bathroom_count')),
                     str(row.get('residence_type', '')), str(row.get('room_direction', '')), parse_generic_date(row.get('movein_date')), parse_generic_date(row.get('approve_date')),
                     to_bool(row.get('has_air_conditioner')), to_bool(row.get('has_refrigerator')), to_bool(row.get('has_washing_machine')), to_bool(row.get('has_gas_stove')), to_bool(row.get('has_induction')),
@@ -168,7 +171,9 @@ def load_single_csv_to_db(csv_path):
                 ))
                 conn.commit()
                 success += 1
-            except Exception: conn.rollback()
+            except Exception as e: 
+                print(f"   ㄴ [행 에러] ID {item_id}: {e}")
+                conn.rollback()
         print(f"   ㄴ 완료: {success}개")
         cur.close(); conn.close()
     except Exception as e: print(f"에러: {e}")
@@ -187,17 +192,14 @@ def load_images_to_db(csv_path):
         for _, row in df.iterrows():
             try:
                 item_id = to_int(row.get('item_id'))
-                # S3 URL이 있으면 그거 쓰고, 없으면 원본 URL 씀
                 img_url = str(row.get('s3_url') or row.get('image_url', ''))
                 if not img_url or item_id == 0: continue
 
-                # 해당 item_id에 대해 첫 번째 이미지만 is_main=True
                 is_main = False
                 if item_id not in seen_items:
                     is_main = True
                     seen_items.add(item_id)
 
-                # items 테이블에 존재하고, 동시에 이미 들어간 이미지가 아닐 때만 INSERT
                 cur.execute("""
                     INSERT INTO item_images (item_id, s3_url, is_main)
                     SELECT %s, %s, %s
@@ -210,12 +212,10 @@ def load_images_to_db(csv_path):
                 else:
                     skipped += 1
                 
-                # 잦은 커밋은 느리니 100개 단위로 커밋 (이미지는 데이터가 많음)
                 if (success + skipped) % 100 == 0:
                     conn.commit()
             except Exception as e:
                 conn.rollback()
-                # print(f"이미지 행 에러: {e}")
         
         conn.commit()
         print(f"   ㄴ 완료: {success}개 업로드 ({skipped}개 스킵)")
