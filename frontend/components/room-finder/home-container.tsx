@@ -29,11 +29,17 @@ export function HomeContainer() {
   const [isPanelOpen, setIsPanelOpen] = useState(true);
 
   const [listings, setListings] = useState<Listing[]>([]);
+  const [recommendedListings, setRecommendedListings] = useState<
+    Listing[] | null
+  >(null);
+
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasRequestFailed, setHasRequestFailed] = useState(false);
+
+  const displayListings = recommendedListings ?? listings;
 
   const requestKey = useMemo(() => {
     return JSON.stringify({
@@ -57,7 +63,6 @@ export function HomeContainer() {
     roomType,
   ]);
 
-  console.log(filters, "tttttt");
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
@@ -74,6 +79,8 @@ export function HomeContainer() {
 
     prevRequestKeyRef.current = requestKey;
     setListings([]);
+    setRecommendedListings(null);
+    setSelectedListing(null);
     setOffset(0);
     setHasMore(true);
     setIsInitialLoading(true);
@@ -105,7 +112,7 @@ export function HomeContainer() {
         if (cancelled) return;
 
         const mapped = data.items.map(mapItemToListing);
-        console.log(data);
+
         setListings((prev) => (offset === 0 ? mapped : [...prev, ...mapped]));
         setHasMore(data.has_more);
       } catch (error) {
@@ -130,7 +137,7 @@ export function HomeContainer() {
   }, [offset, requestKey]);
 
   const loadMore = () => {
-    if (isLoading || !hasMore) return;
+    if (isLoading || !hasMore || recommendedListings) return;
     setOffset((prev) => prev + PAGE_SIZE);
   };
 
@@ -171,7 +178,7 @@ export function HomeContainer() {
         <section className="absolute inset-0 z-0">
           <MapView
             searchQuery={debouncedSearchQuery}
-            listings={listings}
+            listings={displayListings}
             onMarkerClick={setSelectedListing}
           />
         </section>
@@ -186,10 +193,10 @@ export function HomeContainer() {
           <button
             type="button"
             onClick={() => setIsPanelOpen((prev) => !prev)}
-            className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-border-warm bg-white shadow-lg hover:bg-neutral-50 transition-colors"
+            className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-border-warm bg-white shadow-lg hover:bg-orange-300 transition-colors"
             aria-label={isPanelOpen ? "매물 패널 닫기" : "매물 패널 열기"}
           >
-            <span className="text-xl leading-none">
+            <span className="text-xl leading-none ">
               {isPanelOpen ? "›" : "‹"}
             </span>
           </button>
@@ -200,12 +207,16 @@ export function HomeContainer() {
             }`}
           >
             <ListingPanel
-              listings={listings}
+              listings={displayListings}
               selectedListing={selectedListing}
               isLoading={isLoading}
-              hasMore={hasMore}
+              hasMore={recommendedListings ? false : hasMore}
               onLoadMore={loadMore}
               onListingClick={setSelectedListing}
+              onSimilarListingsFound={(similar) => {
+                setRecommendedListings(similar);
+                setSelectedListing(similar[0] ?? null);
+              }}
             />
           </div>
         </aside>
@@ -216,7 +227,7 @@ export function HomeContainer() {
           <section className="flex-1 relative">
             <MapView
               searchQuery={debouncedSearchQuery}
-              listings={listings}
+              listings={displayListings}
               onMarkerClick={(listing) => {
                 setSelectedListing(listing);
                 setMobileView("list");
@@ -226,12 +237,16 @@ export function HomeContainer() {
         ) : (
           <aside className="flex-1">
             <ListingPanel
-              listings={listings}
+              listings={displayListings}
               selectedListing={selectedListing}
               isLoading={isLoading}
-              hasMore={hasMore}
+              hasMore={recommendedListings ? false : hasMore}
               onLoadMore={loadMore}
               onListingClick={setSelectedListing}
+              onSimilarListingsFound={(similar) => {
+                setRecommendedListings(similar);
+                setSelectedListing(similar[0] ?? null);
+              }}
             />
           </aside>
         )}
