@@ -83,7 +83,7 @@ ITEM_COLUMNS = [
     "is_subway_area", "is_convenient_area", "is_park_area", "is_school_area",
     "has_air_conditioner", "has_refrigerator", "has_washing_machine", "has_gas_stove", "has_induction",
     "has_microwave", "has_desk", "has_bed", "has_closet", "has_shoe_rack",
-    "amenities_raw", "distributions_raw", "options_raw"
+    "amenities_raw", "distributions_raw", "options_raw", "has_bookcase", "has_sink"
 ]
 
 # ======================================================
@@ -253,13 +253,15 @@ def transform(data: Dict, status: str = "ACTIVE") -> Tuple[Optional[Dict], List[
     option_data = {
         "has_air_conditioner": False, "has_refrigerator": False, "has_washing_machine": False,
         "has_gas_stove": False, "has_induction": False, "has_microwave": False,
-        "has_desk": False, "has_bed": False, "has_closet": False, "has_shoe_rack": False
+        "has_desk": False, "has_bed": False, "has_closet": False, "has_shoe_rack": False,
+        "has_bookcase": False, "has_sink": False
     }
     options = item.get("options", [])
     option_map = {
         "에어컨": "has_air_conditioner", "냉장고": "has_refrigerator", "세탁기": "has_washing_machine",
         "가스레인지": "has_gas_stove", "인덕션": "has_induction", "전자레인지": "has_microwave",
-        "책상": "has_desk", "침대": "has_bed", "옷장": "has_closet", "신발장": "has_shoe_rack"
+        "책상": "has_desk", "침대": "has_bed", "옷장": "has_closet", "신발장": "has_shoe_rack",
+        "책장": "has_bookcase", "싱크대": "has_sink"
     }
     for opt in options:
         if opt in option_map: option_data[option_map[opt]] = True
@@ -309,10 +311,10 @@ def crawl():
     reactivated_ids = (current_found_ids & item_history.keys()) - last_active_ids
     deleted_ids = last_active_ids - current_found_ids
 
-    # 모드 설정 (강제 업데이트: current_found_ids / 일반: new_ids)
-    # 현재는 '일반 모드'로 설정함!
-    to_fetch_ids = new_ids
-    print(f"\n분석 결과: 현재 {len(current_found_ids)}개 (신규 {len(to_fetch_ids)}개 업데이트 모드)")
+    # 모드 설정 (강제 업데이트: current_found_ids / 일반: new_ids | reactivated_ids)
+    # 현재는 '일반 모드'로 설정함! (신규 + 다시 나타난 매물)
+    to_fetch_ids = new_ids | reactivated_ids
+    print(f"\n분석 결과: 현재 {len(current_found_ids)}개 (신규 {len(new_ids)}개, 재활성화 {len(reactivated_ids)}개 -> 총 {len(to_fetch_ids)}개 수집 대상)")
     
     if deleted_ids:
         to_deactivate = [did for did in deleted_ids if item_history.get(did, {}).get("status") == "ACTIVE"]
