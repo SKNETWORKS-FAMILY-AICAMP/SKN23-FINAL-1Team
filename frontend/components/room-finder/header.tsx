@@ -40,6 +40,17 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
         >
           투룸
         </button>
+        <button
+          onClick={() => router.push("/mypage")}
+          className={cn(
+            "text-base md:text-lg font-medium transition-colors",
+            roomType === "tworoom"
+              ? "text-neutral-dark"
+              : "text-neutral-muted hover:text-neutral-dark",
+          )}
+        >
+          마이페이지
+        </button>
       </nav>
       {isLoggedIn && user ? (
         <>
