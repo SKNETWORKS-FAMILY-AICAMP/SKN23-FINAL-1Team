@@ -1,5 +1,7 @@
 from sqlalchemy import BigInteger, Integer, String, Text, Numeric, TIMESTAMP, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from models.item_features import ItemFeatures
+from models.item_image import ItemImage
 from db.base import Base
 
 
@@ -26,3 +28,16 @@ class Room(Base):
     image_thumbnail: Mapped[str | None] = mapped_column(Text, nullable=True)
     first_crawled_at: Mapped[str | None] = mapped_column(TIMESTAMP, nullable=True)
     updated_at: Mapped[str | None] = mapped_column(TIMESTAMP, nullable=True)
+
+    features: Mapped["ItemFeatures | None"] = relationship(
+        "ItemFeatures",
+        back_populates="room",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    images: Mapped[list["ItemImage"]] = relationship(
+        "ItemImage",
+        back_populates="room",
+        cascade="all, delete-orphan",
+    )

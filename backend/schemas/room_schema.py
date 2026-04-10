@@ -1,38 +1,49 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Literal
 
 
 class RoomListRequest(BaseModel):
-    offset: int = 0
-    limit: int = 20
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=20, ge=1, le=100)
+
     search: str = ""
-    transaction_type: str = "all"
-    room_type: str = "all"
-    structure: str = "all"
+    transaction_type: Literal["all", "monthly", "jeonse"] = "all"
+    room_type: Literal["all", "원룸", "투룸"] = "all"
+    structure: Literal["all", "open", "separated", "duplex"] = "all"
+
+    deposit: int | Literal["all"] = "all"
+    monthly_rent: int | Literal["all"] = "all"
+
+    size: float | Literal["all"] = "all"
+    size_unit: Literal["m2", "pyeong"] = "m2"
+
+    options: list[str] = []
 
 
-class RoomResponse(BaseModel):
+class RoomItemResponse(BaseModel):
     item_id: int
-    title: Optional[str] = None
+    status: str
+    title: str | None = None
+    url: str | None = None
     address: str
     deposit: int
     rent: int
-    manage_cost: Optional[int] = None
-    service_type: Optional[str] = None
-    room_type: Optional[str] = None
-    floor: Optional[str] = None
-    all_floors: Optional[str] = None
-    area_m2: Optional[float] = None
+    manage_cost: int | None = None
+    service_type: str | None = None
+    room_type: str | None = None
+    floor: str | None = None
+    all_floors: str | None = None
+    area_m2: float | None = None
     lat: float
     lng: float
-    image_thumbnail: Optional[str] = None
-    url: Optional[str] = None
+    geohash: str | None = None
+    image_thumbnail: str | None = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}
 
 
 class RoomListResponse(BaseModel):
-    items: list[RoomResponse]
+    items: list[RoomItemResponse]
     total: int
     offset: int
     limit: int
