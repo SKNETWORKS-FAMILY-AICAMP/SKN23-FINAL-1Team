@@ -7,6 +7,7 @@ import { MapView, type Listing } from "@/components/room-finder/map-view";
 import { ListingPanel } from "@/components/room-finder/listing-panel";
 import { fetchItems } from "@/app/api/rooms/route";
 import { mapItemToListing } from "@/utils/roomMappers";
+import { ListingDetailPanel } from "@/components/room-finder/listing-detail-panel";
 
 const PAGE_SIZE = 20;
 
@@ -142,8 +143,9 @@ export function HomeContainer() {
     requestKey,
     debouncedSearchQuery,
     filters.transactionType,
+    filters.deposit,
+    filters.monthlyRent,
     filters.structure,
-    filters.price,
     filters.size,
     filters.sizeUnit,
     filters.options,
@@ -158,7 +160,7 @@ export function HomeContainer() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-ivory">
+    <div className="flex h-screen flex-col bg-ivory">
       <Header roomType={roomType} onRoomTypeChange={setRoomType} />
       <FilterBar
         filters={filters}
@@ -167,12 +169,12 @@ export function HomeContainer() {
         onSearchChange={setSearchQuery}
       />
 
-      <div className="flex lg:hidden border-b border-border-warm bg-cream">
+      <div className="flex border-b border-border-warm bg-cream lg:hidden">
         <button
           onClick={() => setMobileView("map")}
           className={`flex-1 py-3 text-sm font-medium transition-colors ${
             mobileView === "map"
-              ? "text-neutral-dark border-b-2 border-warm-brown"
+              ? "border-b-2 border-warm-brown text-neutral-dark"
               : "text-neutral-muted"
           }`}
         >
@@ -182,7 +184,7 @@ export function HomeContainer() {
           onClick={() => setMobileView("list")}
           className={`flex-1 py-3 text-sm font-medium transition-colors ${
             mobileView === "list"
-              ? "text-neutral-dark border-b-2 border-warm-brown"
+              ? "border-b-2 border-warm-brown text-neutral-dark"
               : "text-neutral-muted"
           }`}
         >
@@ -190,7 +192,7 @@ export function HomeContainer() {
         </button>
       </div>
 
-      <main className="relative hidden lg:block flex-1 overflow-hidden">
+      <main className="relative hidden flex-1 overflow-hidden lg:block">
         <section className="absolute inset-0 z-0">
           <MapView
             searchQuery={debouncedSearchQuery}
@@ -199,8 +201,15 @@ export function HomeContainer() {
           />
         </section>
 
+        <ListingDetailPanel
+          listing={selectedListing}
+          isOpen={!!selectedListing}
+          onClose={() => setSelectedListing(null)}
+          listPanelOpen={isPanelOpen}
+        />
+
         <aside
-          className={`absolute top-0 right-0 h-full bg-ivory/95 backdrop-blur-sm border-l border-border-warm shadow-xl overflow-hidden transition-transform duration-500 ease-in-out z-20 ${
+          className={`absolute top-0 right-0 z-20 h-full overflow-hidden border-l border-border-warm bg-ivory/95 shadow-xl backdrop-blur-sm transition-transform duration-500 ease-in-out ${
             isPanelOpen
               ? "translate-x-0 w-[400px] xl:w-[450px]"
               : "translate-x-[calc(100%-56px)] w-[400px] xl:w-[450px]"
@@ -209,17 +218,17 @@ export function HomeContainer() {
           <button
             type="button"
             onClick={() => setIsPanelOpen((prev) => !prev)}
-            className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-border-warm bg-white shadow-lg hover:bg-orange-300 transition-colors"
+            className="absolute top-1/2 left-0 z-30 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-border-warm bg-white shadow-lg transition-colors hover:bg-orange-300"
             aria-label={isPanelOpen ? "매물 패널 닫기" : "매물 패널 열기"}
           >
-            <span className="text-xl leading-none ">
+            <span className="text-xl leading-none">
               {isPanelOpen ? "›" : "‹"}
             </span>
           </button>
 
           <div
             className={`h-full transition-opacity duration-500 ${
-              isPanelOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+              isPanelOpen ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
           >
             <ListingPanel
@@ -238,9 +247,9 @@ export function HomeContainer() {
         </aside>
       </main>
 
-      <main className="flex lg:hidden flex-1 overflow-hidden">
+      <main className="flex flex-1 overflow-hidden lg:hidden">
         {mobileView === "map" ? (
-          <section className="flex-1 relative">
+          <section className="relative flex-1">
             <MapView
               searchQuery={debouncedSearchQuery}
               listings={displayListings}

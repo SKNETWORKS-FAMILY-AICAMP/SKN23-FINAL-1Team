@@ -33,8 +33,8 @@ interface FilterBarProps {
   onSearchChange: (query: string) => void;
 }
 
-const MAX_DEPOSIT = 50000; // 만원 단위: 5억
-const MAX_MONTHLY_RENT = 200; // 만원 단위
+const MAX_DEPOSIT = 20000;
+const MAX_MONTHLY_RENT = 200;
 const MAX_SIZE_M2 = 66;
 const MAX_SIZE_PYEONG = 20;
 const SLIDER_DEBOUNCE_MS = 300;
@@ -58,6 +58,17 @@ export function FilterBar({
   const [sizeDraft, setSizeDraft] = useState<number>(
     filters.size === "all" ? 0 : Number(filters.size),
   );
+
+  const formatDeposit = (value: number) => {
+    if (value >= 10000) {
+      const eok = Math.floor(value / 10000);
+      const rest = value % 10000;
+
+      return rest === 0 ? `${eok}억` : `${eok}억 ${rest}만`;
+    }
+
+    return `${value}만`;
+  };
 
   useEffect(() => {
     setDepositDraft(filters.deposit === "all" ? 0 : filters.deposit);
@@ -176,28 +187,28 @@ export function FilterBar({
     if (filters.transactionType === "jeonse") {
       return filters.deposit === "all"
         ? "보증금"
-        : `전세 ~ ${filters.deposit}만원`;
+        : `전세 ~ ${formatDeposit(filters.deposit)}`;
     }
 
     if (filters.transactionType === "monthly") {
       const depositText =
         filters.deposit === "all"
-          ? "보증금 전체"
-          : `보증금 ~ ${filters.deposit}만원`;
+          ? "보증금"
+          : `보증금 ~ ${formatDeposit(filters.deposit)}`;
       const rentText =
         filters.monthlyRent === "all"
-          ? "월세 전체"
+          ? "월세"
           : `월세 ~ ${filters.monthlyRent}만원`;
       return `${depositText} / ${rentText}`;
     }
 
     const depositText =
       filters.deposit === "all"
-        ? "보증금 전체"
-        : `보증금 ~ ${filters.deposit}만원`;
+        ? "보증금"
+        : `보증금 ~ ${formatDeposit(filters.deposit)}`;
     const rentText =
       filters.monthlyRent === "all"
-        ? "월세 전체"
+        ? "월세"
         : `월세 ~ ${filters.monthlyRent}만원`;
     return `${depositText} / ${rentText}`;
   })();
@@ -241,7 +252,7 @@ export function FilterBar({
                     보증금
                   </span>
                   <span className="text-sm text-neutral-muted">
-                    {depositDraft === 0 ? "전체" : `${depositDraft}만원`}
+                    {depositDraft === 0 ? "전체" : formatDeposit(depositDraft)}
                   </span>
                 </div>
 
@@ -249,16 +260,16 @@ export function FilterBar({
                   value={[depositDraft]}
                   min={0}
                   max={MAX_DEPOSIT}
-                  step={500}
+                  step={100}
                   onValueChange={(value) => setDepositDraft(value[0])}
                 />
 
                 <div className="flex justify-between text-xs text-neutral-muted">
                   <span>전체</span>
+                  <span>5000만</span>
                   <span>1억</span>
-                  <span>2억</span>
-                  <span>3억</span>
-                  <span>5억+</span>
+                  <span>1억 5000만</span>
+                  <span>2억+</span>
                 </div>
               </div>
 
