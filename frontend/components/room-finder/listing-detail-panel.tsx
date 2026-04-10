@@ -2,24 +2,19 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import {
-  ExternalLink,
-  MapPin,
-  Building2,
-  CreditCard,
-  Ruler,
-  X,
-  Car,
-  Refrigerator,
-  BedDouble,
-  WashingMachine,
-  Microwave,
-} from "lucide-react";
+import { MapPin, Building2, CreditCard, Ruler, X, Car } from "lucide-react";
 import type { Listing } from "@/components/room-finder/map-view";
 import {
   fetchRoomDetail,
   type ListingDetailResponse,
 } from "@/app/api/rooms/route";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 
 interface ListingDetailPanelProps {
   listing: Listing | null;
@@ -48,6 +43,23 @@ const formatPrice = (deposit?: number | null, rent?: number | null) => {
   return `${formatKoreanMoney(safeDeposit)} / ${safeRent}만`;
 };
 
+const formatAreaValue = (
+  areaM2?: number | null,
+  unit: "m2" | "pyeong" = "m2",
+) => {
+  if (areaM2 === undefined || areaM2 === null) return null;
+
+  const safeArea = Number(areaM2);
+
+  if (Number.isNaN(safeArea)) return null;
+
+  if (unit === "m2") {
+    return `${safeArea.toFixed(1)}m²`;
+  }
+
+  return `${(safeArea / 3.3058).toFixed(1)}평`;
+};
+
 const DetailRow = ({
   label,
   value,
@@ -58,9 +70,11 @@ const DetailRow = ({
   if (value === undefined || value === null || value === "") return null;
 
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-border-warm/60 py-3">
-      <span className="shrink-0 text-sm text-neutral-muted">{label}</span>
-      <span className="break-words text-right text-sm font-medium text-neutral-dark">
+    <div className="flex items-start justify-between gap-4 border-b border-stone-200/80 py-4 last:border-b-0">
+      <span className="shrink-0 text-[13px] font-medium tracking-tight text-stone-500">
+        {label}
+      </span>
+      <span className="max-w-[65%] break-words text-right text-sm font-semibold leading-6 text-stone-800">
         {value}
       </span>
     </div>
@@ -68,7 +82,7 @@ const DetailRow = ({
 };
 
 const AmenityBadge = ({ children }: { children: React.ReactNode }) => (
-  <div className="rounded-full border border-border-warm bg-white px-3 py-1.5 text-xs font-medium text-neutral-dark">
+  <div className="inline-flex items-center rounded-full border border-stone-200 bg-gradient-to-b from-white to-stone-50 px-3.5 py-2 text-xs font-semibold tracking-tight text-stone-700 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-transform duration-200 hover:-translate-y-[1px]">
     {children}
   </div>
 );
@@ -81,6 +95,7 @@ export function ListingDetailPanel({
 }: ListingDetailPanelProps) {
   const [detail, setDetail] = useState<ListingDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [areaUnit, setAreaUnit] = useState<"m2" | "pyeong">("m2");
 
   useEffect(() => {
     if (!listing?.id || !isOpen) return;
@@ -125,12 +140,25 @@ export function ListingDetailPanel({
 
   const currentItem = detail?.item;
   const features = detail?.features;
-  console.log(currentItem, features);
+
   if (!listing) return null;
+
+  const directionMap: Record<string, string> = {
+    S: "남향",
+    W: "서향",
+    E: "동향",
+    N: "북향",
+    SE: "남동향",
+    SW: "남서향",
+    NE: "북동향",
+    NW: "북서향",
+  };
+
+  const areaText = formatAreaValue(currentItem?.area_m2, areaUnit);
 
   return (
     <aside
-      className={`absolute top-0 z-[15] h-full w-[360px] border-l border-border-warm bg-ivory/95 shadow-2xl backdrop-blur-sm transition-all duration-300 ease-out xl:w-[400px] ${
+      className={`absolute top-0 z-[15] h-full w-[380px] border-l border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(248,246,241,0.96)_100%)] shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-all duration-300 ease-out xl:w-[440px] ${
         listPanelOpen ? "right-[400px] xl:right-[450px]" : "right-[56px]"
       } ${
         isOpen
@@ -139,122 +167,125 @@ export function ListingDetailPanel({
       }`}
     >
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-border-warm px-5 py-4">
-          <div>
-            <p className="text-lg font-semibold text-neutral-dark">
-              매물 상세정보
-            </p>
-            <p className="mt-1 text-xs text-neutral-muted">
-              선택한 매물의 세부 내용을 확인할 수 있습니다.
-            </p>
-          </div>
+        <div className="border-b border-stone-200/80 bg-white/70 px-6 py-5 backdrop-blur-md">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[22px] font-bold tracking-tight text-stone-900">
+                매물 상세정보
+              </p>
+              <p className="mt-1 text-xs leading-5 text-stone-500">
+                선택한 매물의 세부 내용을 확인할 수 있습니다.
+              </p>
+            </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-border-warm bg-white p-2 text-neutral-dark transition-colors hover:bg-neutral-50"
-            aria-label="상세 패널 닫기"
-          >
-            <X className="h-4 w-4" />
-          </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="group rounded-full border border-stone-200 bg-white/90 p-2.5 text-stone-700 shadow-sm transition-all duration-200 hover:scale-105 hover:bg-stone-100 hover:shadow-md"
+              aria-label="상세 패널 닫기"
+            >
+              <X className="h-4 w-4 transition-transform duration-200 group-hover:rotate-90" />
+            </button>
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="relative aspect-[4/3] w-full overflow-hidden border-b border-border-warm bg-cream">
-            {imageUrls[0] ? (
-              <Image
-                src={imageUrls[0]}
-                alt={currentItem?.title ?? listing.title ?? "매물 이미지"}
-                fill
-                className="object-cover"
-              />
+          <div className="border-b border-stone-200 bg-stone-100">
+            {imageUrls.length > 0 ? (
+              <Carousel opts={{ loop: true }} className="relative w-full">
+                <CarouselContent className="ml-0">
+                  {imageUrls.map((url, index) => (
+                    <CarouselItem key={`${url}-${index}`} className="pl-0">
+                      <div className="relative aspect-[4/3] w-full overflow-hidden">
+                        <Image
+                          src={url}
+                          alt={`${
+                            currentItem?.title ?? listing.title ?? "매물 이미지"
+                          } ${index + 1}`}
+                          fill
+                          className="object-cover transition-transform duration-700 hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+
+                {imageUrls.length > 1 && (
+                  <>
+                    <CarouselPrevious className="left-4 top-1/2 z-10 -translate-y-1/2 border-stone-200 bg-white/90 text-stone-700 shadow-md hover:bg-white" />
+                    <CarouselNext className="right-4 top-1/2 z-10 -translate-y-1/2 border-stone-200 bg-white/90 text-stone-700 shadow-md hover:bg-white" />
+                  </>
+                )}
+              </Carousel>
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-neutral-muted">
+              <div className="flex aspect-[4/3] w-full items-center justify-center text-sm font-medium text-stone-500">
                 이미지가 없습니다.
               </div>
             )}
           </div>
 
           {isLoading ? (
-            <div className="p-6 text-sm text-neutral-muted">
+            <div className="p-6 text-sm font-medium text-stone-500">
               상세 정보를 불러오는 중...
             </div>
           ) : (
-            <div className="space-y-6 p-5">
-              <section>
-                <h2 className="text-xl font-semibold text-neutral-dark">
+            <div className="space-y-7 px-5 py-6">
+              <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+                <h2 className="text-[24px] font-bold leading-8 tracking-tight text-stone-900">
                   {currentItem?.title || listing.title || "제목 없는 매물"}
                 </h2>
 
-                <div className="mt-2 flex items-center gap-2 text-sm text-neutral-muted">
-                  <MapPin className="h-4 w-4 shrink-0" />
-                  <span>
+                <div className="mt-3 flex items-start gap-2.5 text-sm text-stone-500">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span className="leading-6">
                     {currentItem?.address ||
                       listing.address ||
                       "주소 정보 없음"}
                   </span>
                 </div>
 
-                <div className="mt-4 rounded-2xl border border-border-warm bg-white p-4 shadow-sm">
-                  <div className="flex items-center gap-2 text-sm text-neutral-muted">
+                <div className="mt-5 overflow-hidden rounded-[24px] border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_24px_rgba(245,158,11,0.08)]">
+                  <div className="flex items-center gap-2 text-sm font-medium text-stone-500">
                     <CreditCard className="h-4 w-4" />
                     <span>가격 정보</span>
                   </div>
-                  <p className="mt-2 text-2xl font-bold text-neutral-dark">
+                  <p className="mt-2 text-[30px] font-extrabold tracking-tight text-stone-900">
                     {formatPrice(currentItem?.deposit, currentItem?.rent)}
                   </p>
                   {currentItem?.manage_cost !== undefined &&
                     currentItem?.manage_cost !== null && (
-                      <p className="mt-1 text-sm text-neutral-muted">
+                      <p className="mt-2 text-sm font-medium text-stone-500">
                         관리비 {currentItem.manage_cost}만
                       </p>
                     )}
                 </div>
               </section>
 
-              {imageUrls.length > 1 && (
-                <section>
-                  <h3 className="mb-3 text-base font-semibold text-neutral-dark">
-                    추가 이미지
-                  </h3>
-                  <div className="grid grid-cols-3 gap-2">
-                    {imageUrls.slice(1, 7).map((url, index) => (
-                      <div
-                        key={`${url}-${index}`}
-                        className="relative aspect-square overflow-hidden rounded-xl border border-border-warm bg-white"
-                      >
-                        <Image
-                          src={url}
-                          alt={`매물 이미지 ${index + 2}`}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    ))}
+              <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
+                    <Building2 className="h-4 w-4" />
                   </div>
-                </section>
-              )}
-
-              <section>
-                <div className="mb-2 flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-neutral-muted" />
-                  <h3 className="text-base font-semibold text-neutral-dark">
+                  <h3 className="text-base font-bold tracking-tight text-stone-900">
                     기본 정보
                   </h3>
                 </div>
 
-                <div className="rounded-2xl border border-border-warm bg-white px-4">
-                  <DetailRow
-                    label="거래 유형"
-                    value={currentItem?.service_type}
-                  />
+                <div className="rounded-2xl border border-stone-100 bg-white px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                   <DetailRow label="방 유형" value={currentItem?.room_type} />
-                  <DetailRow label="층수" value={currentItem?.floor} />
+                  <DetailRow
+                    label="층수"
+                    value={currentItem?.floor ? `${currentItem.floor}층` : null}
+                  />
                   <DetailRow
                     label="전체 층수"
-                    value={currentItem?.all_floors}
+                    value={
+                      currentItem?.all_floors
+                        ? `${Number(currentItem.all_floors)}층`
+                        : null
+                    }
                   />
-                  <DetailRow label="상태" value={currentItem?.status} />
                   <DetailRow
                     label="입주 가능일"
                     value={features?.movein_date}
@@ -267,28 +298,69 @@ export function ListingDetailPanel({
                     label="주거 형태"
                     value={features?.residence_type}
                   />
-                  <DetailRow label="방향" value={features?.room_direction} />
+                  <DetailRow
+                    label="방향"
+                    value={
+                      features?.room_direction
+                        ? (directionMap[features.room_direction] ??
+                          features.room_direction)
+                        : null
+                    }
+                  />
                   <DetailRow label="욕실 수" value={features?.bathroom_count} />
                 </div>
               </section>
 
-              <section>
-                <div className="mb-2 flex items-center gap-2">
-                  <Ruler className="h-4 w-4 text-neutral-muted" />
-                  <h3 className="text-base font-semibold text-neutral-dark">
+              <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
+                    <Ruler className="h-4 w-4" />
+                  </div>
+                  <h3 className="text-base font-bold tracking-tight text-stone-900">
                     면적/위치
                   </h3>
                 </div>
 
-                <div className="rounded-2xl border border-border-warm bg-white px-4">
-                  <DetailRow
-                    label="면적"
-                    value={
-                      currentItem?.area_m2 ? `${currentItem.area_m2}m²` : null
-                    }
-                  />
-                  <DetailRow label="위도" value={currentItem?.lat} />
-                  <DetailRow label="경도" value={currentItem?.lng} />
+                <div className="rounded-2xl border border-stone-100 bg-white px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  {areaText && (
+                    <div className="flex items-center justify-between gap-4 border-b border-stone-200/80 py-4">
+                      <span className="shrink-0 text-[13px] font-medium tracking-tight text-stone-500">
+                        면적
+                      </span>
+
+                      <div className="flex items-center gap-3">
+                        <div className="inline-flex overflow-hidden rounded-xl border border-stone-200 bg-stone-50 p-1 shadow-inner">
+                          <button
+                            type="button"
+                            onClick={() => setAreaUnit("m2")}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                              areaUnit === "m2"
+                                ? "bg-stone-900 text-white shadow-sm"
+                                : "bg-transparent text-stone-600 hover:bg-white"
+                            }`}
+                          >
+                            m²
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAreaUnit("pyeong")}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                              areaUnit === "pyeong"
+                                ? "bg-stone-900 text-white shadow-sm"
+                                : "bg-transparent text-stone-600 hover:bg-white"
+                            }`}
+                          >
+                            평
+                          </button>
+                        </div>
+
+                        <span className="break-words text-right text-sm font-bold text-stone-800">
+                          {areaText}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <DetailRow
                     label="지하철 거리"
                     value={
@@ -328,11 +400,11 @@ export function ListingDetailPanel({
                 </div>
               </section>
 
-              <section>
-                <h3 className="mb-3 text-base font-semibold text-neutral-dark">
+              <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+                <h3 className="mb-4 text-base font-bold tracking-tight text-stone-900">
                   옵션
                 </h3>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2.5">
                   {features?.has_air_con && <AmenityBadge>에어컨</AmenityBadge>}
                   {features?.has_fridge && <AmenityBadge>냉장고</AmenityBadge>}
                   {features?.has_washer && <AmenityBadge>세탁기</AmenityBadge>}
@@ -355,8 +427,8 @@ export function ListingDetailPanel({
                   {features?.has_sink && <AmenityBadge>싱크대</AmenityBadge>}
                   {features?.has_parking && (
                     <AmenityBadge>
-                      <span className="inline-flex items-center gap-1">
-                        <Car className="h-3 w-3" />
+                      <span className="inline-flex items-center gap-1.5">
+                        <Car className="h-3.5 w-3.5" />
                         주차
                       </span>
                     </AmenityBadge>
@@ -367,11 +439,11 @@ export function ListingDetailPanel({
                 </div>
               </section>
 
-              <section>
-                <h3 className="mb-3 text-base font-semibold text-neutral-dark">
+              <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+                <h3 className="mb-4 text-base font-bold tracking-tight text-stone-900">
                   생활권
                 </h3>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2.5">
                   {features?.is_subway_area && (
                     <AmenityBadge>역세권</AmenityBadge>
                   )}
@@ -399,50 +471,6 @@ export function ListingDetailPanel({
                   )}
                 </div>
               </section>
-
-              {(features?.options_raw || features?.amenities_raw) && (
-                <section>
-                  <h3 className="mb-3 text-base font-semibold text-neutral-dark">
-                    원본 부가 정보
-                  </h3>
-                  <div className="space-y-3 rounded-2xl border border-border-warm bg-white p-4">
-                    {features?.options_raw && (
-                      <div>
-                        <p className="mb-1 text-xs text-neutral-muted">
-                          options_raw
-                        </p>
-                        <p className="text-sm text-neutral-dark">
-                          {features.options_raw}
-                        </p>
-                      </div>
-                    )}
-                    {features?.amenities_raw && (
-                      <div>
-                        <p className="mb-1 text-xs text-neutral-muted">
-                          amenities_raw
-                        </p>
-                        <p className="text-sm text-neutral-dark">
-                          {features.amenities_raw}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </section>
-              )}
-
-              {(currentItem?.url || listing.url) && (
-                <section>
-                  <a
-                    href={currentItem?.url || listing.url || "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-warm-brown px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-warm-brown-dark"
-                  >
-                    원본 매물 보러가기
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                </section>
-              )}
             </div>
           )}
         </div>

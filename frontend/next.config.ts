@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const s3Hostname = process.env.NEXT_IMAGE_S3_HOSTNAME;
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
@@ -9,8 +11,8 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname:
-          "skn23-final-1team-355904321127-ap-northeast-2-an.s3.ap-northeast-2.amazonaws.com",
+        hostname: s3Hostname || "",
+        pathname: "/zigbang_data/images/**",
       },
     ],
   },
