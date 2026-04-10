@@ -1,6 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload, joinedload
-from utils.s3_utils import create_presigned_get_url
+from utils.s3 import create_presigned_get_url
 
 from models.room import Room
 from schemas.room_detail_schema import (
