@@ -1,5 +1,7 @@
 from sqlalchemy import BigInteger, Integer, String, Text, Numeric, TIMESTAMP, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from item_features import ItemFeatures
+from item_image import ItemImage
 from db.base import Base
 
 
