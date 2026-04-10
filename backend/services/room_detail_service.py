@@ -9,6 +9,17 @@ from schemas.room_detail_schema import (
     RoomImageResponse,
 )
 
+def s3_to_https_url(s3_uri: str) -> str:
+    if not s3_uri:
+        return s3_uri
+
+    if not s3_uri.startswith("s3://"):
+        return s3_uri
+
+    without_scheme = s3_uri.replace("s3://", "", 1)
+    bucket, key = without_scheme.split("/", 1)
+    return f"https://{bucket}.s3.ap-northeast-2.amazonaws.com/{key}"
+
 
 def get_room_detail(db, item_id: int):
     stmt = (
@@ -77,7 +88,7 @@ def get_room_detail(db, item_id: int):
     image_payload = [
         RoomImageResponse(
             id=image.id,
-            url=image.s3_url,
+            url=s3_to_https_url(image.s3_url),
             is_main=image.is_main,
         )
         for image in sorted(
