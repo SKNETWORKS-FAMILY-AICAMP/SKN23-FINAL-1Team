@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload, joinedload
+from utils.s3_utils import create_presigned_get_url
 
 from models.room import Room
 from schemas.room_detail_schema import (
@@ -88,7 +89,7 @@ def get_room_detail(db, item_id: int):
     image_payload = [
         RoomImageResponse(
             id=image.id,
-            url=s3_to_https_url(image.s3_url),
+            url=create_presigned_get_url(image.s3_url, expires_in=3600),
             is_main=image.is_main,
         )
         for image in sorted(
