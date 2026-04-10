@@ -11,11 +11,8 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 load_dotenv(os.path.join(ROOT_DIR, ".env"))
 DATA_GO_KR_API_KEY = os.getenv("DATA_GO_KR_API_KEY")
 
-def get_real_estate_data(lawd_cd, deal_ymd, DATA_GO_KR_API_KEY, num_rows, page):
-    
-    DATA_GO_KR_API_KEY = DATA_GO_KR_API_KEY
-    
-    url = f"https://apis.data.go.kr/1613000/RTMSDataSvcRHRent/getRTMSDataSvcRHRent?LAWD_CD={lawd_cd}&DEAL_YMD={deal_ymd}&serviceKey={DATA_GO_KR_API_KEY}&numOfRows={num_rows}&_type=json&pageNo={page}"
+def get_real_estate_data(lawd_cd, deal_ymd, DATA_GO_KR_API_KEY, num_rows, page, api_path):
+    url = f"https://apis.data.go.kr/1613000/{api_path}?LAWD_CD={lawd_cd}&DEAL_YMD={deal_ymd}&serviceKey={DATA_GO_KR_API_KEY}&numOfRows={num_rows}&_type=json&pageNo={page}"
     try:
         response = requests.get(url, timeout = 10)
 
@@ -31,16 +28,20 @@ def get_real_estate_data(lawd_cd, deal_ymd, DATA_GO_KR_API_KEY, num_rows, page):
 
     return None
 
-def get_total_data(district_name, deal_ymd, DATA_GO_KR_API_KEY, num_rows):
-    file_path = f"data/rowhouse_seoul_real_estate_data.csv"
-
+def get_total_data(district_name, deal_ymd, DATA_GO_KR_API_KEY, num_rows, api_path, type_name):
+    file_path = f"data/seoul_oneroom_data.csv"
     lawd_cd = district[district_name]
     page = 1
     rows = []
+    count = 0
     while True:
-        data = get_real_estate_data(lawd_cd, deal_ymd, DATA_GO_KR_API_KEY, num_rows, page)
+        data = get_real_estate_data(lawd_cd, deal_ymd, DATA_GO_KR_API_KEY, num_rows, page, api_path)
 
-        if not data:
+        if not data or 'response' not in data or 'body' not in data['response']:
+            break
+        
+        body = data["response"]["body"]
+        if "items" not in body or "item" not in body["items"]:
             break
         
         for item in data["response"]["body"]["items"]["item"]:
@@ -48,19 +49,24 @@ def get_total_data(district_name, deal_ymd, DATA_GO_KR_API_KEY, num_rows):
             for column in item_columns:
                 if column == "deposit":
                     row.append(int(str(item.get(column, "")).replace(",", "")))
+                elif column == "excluUseAr":
+                    area = int(item.get(column, 0))
+                    if area < 12 or area > 33:
+                        break
+                    row.append(area)
                 else:
                     row.append(item.get(column, ""))
-           
-            if row[5] == -1:
-                row.append(True)
             else:
-                row.append(False)
-            if row[6] != 0:
-                row.append(True)
-            else:
-                row.append(False)
-            
-            rows.append(row)
+                if row[5] == -1:
+                    row.append(True)
+                else:
+                    row.append(False)
+                if row[6] != 0:
+                    row.append(True)
+                else:
+                    row.append(False)
+                count += 1
+                rows.append(row)
         
         total_count = data["response"]["body"]["totalCount"]
         
@@ -77,7 +83,7 @@ def get_total_data(district_name, deal_ymd, DATA_GO_KR_API_KEY, num_rows):
             writer.writerow(item_columns + ["semi_basement", "wolse"])
         writer.writerows(rows)
     
-    print(f"{district_name} {deal_ymd} 데이터 수집 완료")
+    print(f"{district_name}의 {deal_ymd} 시기의 {type_name} 유형 데이터 {count}개 수집 성공")
 
 def make_deal_ymds(last_n_years):
     today = str(datetime.today())
@@ -105,15 +111,24 @@ item_columns = [
     "umdNm",
 ]
 
+api_configs = [
+    ("연립다세대", "RTMSDataSvcRHRent/getRTMSDataSvcRHRent"),
+    ("오피스텔", "RTMSDataSvcOffiRent/getRTMSDataSvcOffiRent"),
+    ("단독다가구", "RTMSDataSvcSHRent/getRTMSDataSvcSHRent"),
+]
+
 if __name__ == "__main__":
     os.makedirs("data", exist_ok=True)
-    deal_ymds = make_deal_ymds(1)
+    deal_ymds = make_deal_ymds(5)
     for district_name in district.keys():
         for deal_ymd in deal_ymds:
-            get_total_data(
-                district_name = district_name, 
-                deal_ymd = deal_ymd, 
-                DATA_GO_KR_API_KEY = DATA_GO_KR_API_KEY, 
-                num_rows = 500,
-            )
+            for type_name, api_path in api_configs:
+                get_total_data(
+                    district_name = district_name, 
+                    deal_ymd = deal_ymd, 
+                    DATA_GO_KR_API_KEY = DATA_GO_KR_API_KEY, 
+                    num_rows = 500,
+                    api_path = api_path,
+                    type_name = type_name,
+                )
 
