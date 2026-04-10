@@ -12,7 +12,8 @@ const PAGE_SIZE = 20;
 
 const defaultFilters: Filters = {
   transactionType: "all",
-  price: "all",
+  deposit: "all",
+  monthlyRent: "all",
   structure: "all",
   size: "all",
   sizeUnit: "m2",
@@ -45,8 +46,9 @@ export function HomeContainer() {
     return JSON.stringify({
       search: debouncedSearchQuery,
       transactionType: filters.transactionType,
+      deposit: filters.deposit,
+      monthlyRent: filters.monthlyRent,
       structure: filters.structure,
-      price: filters.price,
       size: filters.size,
       sizeUnit: filters.sizeUnit,
       options: filters.options,
@@ -55,8 +57,9 @@ export function HomeContainer() {
   }, [
     debouncedSearchQuery,
     filters.transactionType,
+    filters.deposit,
+    filters.monthlyRent,
     filters.structure,
-    filters.price,
     filters.size,
     filters.sizeUnit,
     filters.options,
@@ -67,7 +70,6 @@ export function HomeContainer() {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
     }, 500);
-    setHasRequestFailed(false);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
@@ -83,15 +85,15 @@ export function HomeContainer() {
     setSelectedListing(null);
     setOffset(0);
     setHasMore(true);
-    setIsInitialLoading(true);
     setHasRequestFailed(false);
+    setIsInitialLoading(true);
   }, [requestKey]);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
 
     const loadItems = async () => {
-      if (isLoading || !hasMore || hasRequestFailed) return;
+      if (!hasMore || hasRequestFailed) return;
 
       setIsLoading(true);
 
@@ -103,38 +105,52 @@ export function HomeContainer() {
           transactionType: filters.transactionType,
           roomType: roomType === "oneroom" ? "원룸" : "투룸",
           structure: filters.structure,
-          price: filters.price,
+          deposit: filters.deposit,
+          monthlyRent: filters.monthlyRent,
           size: filters.size,
           sizeUnit: filters.sizeUnit,
           options: filters.options,
+          signal: controller.signal,
         });
-
-        if (cancelled) return;
 
         const mapped = data.items.map(mapItemToListing);
 
         setListings((prev) => (offset === 0 ? mapped : [...prev, ...mapped]));
         setHasMore(data.has_more);
+        setHasRequestFailed(false);
       } catch (error) {
+        if (controller.signal.aborted) return;
+
         console.error(error);
-        if (!cancelled) {
-          setHasRequestFailed(true);
-          setHasMore(false);
-        }
+        setHasRequestFailed(true);
+        setHasMore(false);
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-          setIsInitialLoading(false);
-        }
+        if (controller.signal.aborted) return;
+
+        setIsLoading(false);
+        setIsInitialLoading(false);
       }
     };
 
     loadItems();
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [offset, requestKey]);
+  }, [
+    offset,
+    requestKey,
+    debouncedSearchQuery,
+    filters.transactionType,
+    filters.structure,
+    filters.price,
+    filters.size,
+    filters.sizeUnit,
+    filters.options,
+    roomType,
+    hasMore,
+    hasRequestFailed,
+  ]);
 
   const loadMore = () => {
     if (isLoading || !hasMore || recommendedListings) return;

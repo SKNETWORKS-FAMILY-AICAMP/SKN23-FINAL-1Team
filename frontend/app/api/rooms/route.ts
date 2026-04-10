@@ -12,10 +12,12 @@ export async function fetchItems(params: {
   transactionType?: string;
   roomType?: "원룸" | "투룸" | "all";
   structure?: string;
-  price?: number | "all";
+  deposit?: number | "all";
+  monthlyRent?: number | "all";
   size?: number | "all";
   sizeUnit?: "m2" | "pyeong";
   options?: string[];
+  signal?: AbortSignal;
 }): Promise<RoomListApiResponse> {
   let lastError: unknown;
 
@@ -33,12 +35,14 @@ export async function fetchItems(params: {
           transaction_type: params.transactionType ?? "all",
           room_type: params.roomType ?? "all",
           structure: params.structure ?? "all",
-          price: params.price ?? "all",
+          deposit: params.deposit ?? "all",
+          monthly_rent: params.monthlyRent ?? "all",
           size: params.size ?? "all",
           size_unit: params.sizeUnit ?? "m2",
           options: params.options ?? [],
         }),
         cache: "no-store",
+        signal: params.signal,
       });
 
       if (!response.ok) {
@@ -47,6 +51,10 @@ export async function fetchItems(params: {
 
       return response.json();
     } catch (error) {
+      if (params.signal?.aborted) {
+        throw error;
+      }
+
       lastError = error;
 
       if (attempt === MAX_RETRIES) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -18,7 +18,8 @@ import { ChevronDown } from "lucide-react";
 
 export interface Filters {
   transactionType: string;
-  price: number | "all";
+  deposit: number | "all";
+  monthlyRent: number | "all";
   structure: string;
   size: number | "all";
   sizeUnit: "m2" | "pyeong";
@@ -32,7 +33,11 @@ interface FilterBarProps {
   onSearchChange: (query: string) => void;
 }
 
-const MAX_PRICE = 200;
+const MAX_DEPOSIT = 50000; // 만원 단위: 5억
+const MAX_MONTHLY_RENT = 200; // 만원 단위
+const MAX_SIZE_M2 = 66;
+const MAX_SIZE_PYEONG = 20;
+const SLIDER_DEBOUNCE_MS = 300;
 
 export function FilterBar({
   filters,
@@ -42,16 +47,77 @@ export function FilterBar({
 }: FilterBarProps) {
   const [priceOpen, setPriceOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
-
   const [sizeOpen, setSizeOpen] = useState(false);
 
-  const MAX_SIZE_M2 = 66;
-  const MAX_SIZE_PYEONG = 20;
+  const [depositDraft, setDepositDraft] = useState<number>(
+    filters.deposit === "all" ? 0 : filters.deposit,
+  );
+  const [monthlyRentDraft, setMonthlyRentDraft] = useState<number>(
+    filters.monthlyRent === "all" ? 0 : filters.monthlyRent,
+  );
+  const [sizeDraft, setSizeDraft] = useState<number>(
+    filters.size === "all" ? 0 : Number(filters.size),
+  );
+
+  useEffect(() => {
+    setDepositDraft(filters.deposit === "all" ? 0 : filters.deposit);
+  }, [filters.deposit]);
+
+  useEffect(() => {
+    setMonthlyRentDraft(
+      filters.monthlyRent === "all" ? 0 : filters.monthlyRent,
+    );
+  }, [filters.monthlyRent]);
+
+  useEffect(() => {
+    setSizeDraft(filters.size === "all" ? 0 : Number(filters.size));
+  }, [filters.size, filters.sizeUnit]);
+
+  useEffect(() => {
+    const currentDeposit = filters.deposit === "all" ? 0 : filters.deposit;
+    if (depositDraft === currentDeposit) return;
+
+    const timer = setTimeout(() => {
+      onFiltersChange({
+        ...filters,
+        deposit: depositDraft === 0 ? "all" : depositDraft,
+      });
+    }, SLIDER_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [depositDraft]);
+
+  useEffect(() => {
+    const currentMonthlyRent =
+      filters.monthlyRent === "all" ? 0 : filters.monthlyRent;
+    if (monthlyRentDraft === currentMonthlyRent) return;
+
+    const timer = setTimeout(() => {
+      onFiltersChange({
+        ...filters,
+        monthlyRent: monthlyRentDraft === 0 ? "all" : monthlyRentDraft,
+      });
+    }, SLIDER_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [monthlyRentDraft]);
+
+  useEffect(() => {
+    const currentSize = filters.size === "all" ? 0 : Number(filters.size);
+    if (sizeDraft === currentSize) return;
+
+    const timer = setTimeout(() => {
+      onFiltersChange({
+        ...filters,
+        size: sizeDraft === 0 ? "all" : sizeDraft,
+      });
+    }, SLIDER_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [sizeDraft, filters.sizeUnit]);
 
   const sizeMax = filters.sizeUnit === "m2" ? MAX_SIZE_M2 : MAX_SIZE_PYEONG;
   const sizeStep = filters.sizeUnit === "m2" ? 1 : 0.5;
-
-  const sizeDisplayValue = filters.size === "all" ? 0 : filters.size;
 
   const sizeLabel =
     filters.size === "all"
@@ -77,14 +143,22 @@ export function FilterBar({
 
   const optionsLabel =
     filters.options.length === 0 ? "옵션" : `옵션 ${filters.options.length}개`;
+
   const updateFilter = (
     key: keyof Filters,
     value: string | number | string[],
   ) => {
-    onFiltersChange({ ...filters, [key]: value } as Filters);
-  };
+    const nextFilters = { ...filters, [key]: value } as Filters;
 
-  const priceLabel = filters.price === 0 ? "가격" : `~ ${filters.price}만원`;
+    if (key === "transactionType") {
+      if (value === "jeonse") {
+        nextFilters.monthlyRent = "all";
+        setMonthlyRentDraft(0);
+      }
+    }
+
+    onFiltersChange(nextFilters);
+  };
 
   const toggleOption = (value: string) => {
     const nextOptions = filters.options.includes(value)
@@ -97,6 +171,36 @@ export function FilterBar({
   const resetOptions = () => {
     onFiltersChange({ ...filters, options: [] });
   };
+
+  const priceLabel = (() => {
+    if (filters.transactionType === "jeonse") {
+      return filters.deposit === "all"
+        ? "보증금"
+        : `전세 ~ ${filters.deposit}만원`;
+    }
+
+    if (filters.transactionType === "monthly") {
+      const depositText =
+        filters.deposit === "all"
+          ? "보증금 전체"
+          : `보증금 ~ ${filters.deposit}만원`;
+      const rentText =
+        filters.monthlyRent === "all"
+          ? "월세 전체"
+          : `월세 ~ ${filters.monthlyRent}만원`;
+      return `${depositText} / ${rentText}`;
+    }
+
+    const depositText =
+      filters.deposit === "all"
+        ? "보증금 전체"
+        : `보증금 ~ ${filters.deposit}만원`;
+    const rentText =
+      filters.monthlyRent === "all"
+        ? "월세 전체"
+        : `월세 ~ ${filters.monthlyRent}만원`;
+    return `${depositText} / ${rentText}`;
+  })();
 
   return (
     <div className="bg-ivory border-b border-border-warm px-4 md:px-6 py-3 md:py-4 flex flex-col gap-3 md:gap-4">
@@ -119,49 +223,83 @@ export function FilterBar({
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="w-[140px] md:w-[160px] lg:w-[160px] flex items-center justify-between rounded-md border border-border-warm bg-ivory px-3 py-2 text-sm md:text-base text-neutral-dark"
+              className="w-[200px] md:w-[220px] lg:w-[240px] flex items-center justify-between rounded-md border border-border-warm bg-ivory px-3 py-2 text-sm md:text-base text-neutral-dark"
             >
-              <span className="truncate">
-                {filters.price === "all" ? "가격" : `~ ${filters.price}만원`}
-              </span>
+              <span className="truncate">{priceLabel}</span>
               <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
             </button>
           </PopoverTrigger>
 
           <PopoverContent
             align="start"
-            className="w-[260px] md:w-[320px] lg:w-[360px] border-border-warm bg-ivory p-4"
+            className="w-[300px] md:w-[360px] lg:w-[420px] border-border-warm bg-ivory p-4"
           >
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-neutral-dark">
-                  최대 가격
-                </span>
-                <span className="text-sm text-neutral-muted">
-                  {filters.price === 0 ? "전체" : `${filters.price}만원`}
-                </span>
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-neutral-dark">
+                    보증금
+                  </span>
+                  <span className="text-sm text-neutral-muted">
+                    {depositDraft === 0 ? "전체" : `${depositDraft}만원`}
+                  </span>
+                </div>
+
+                <Slider
+                  value={[depositDraft]}
+                  min={0}
+                  max={MAX_DEPOSIT}
+                  step={500}
+                  onValueChange={(value) => setDepositDraft(value[0])}
+                />
+
+                <div className="flex justify-between text-xs text-neutral-muted">
+                  <span>전체</span>
+                  <span>1억</span>
+                  <span>2억</span>
+                  <span>3억</span>
+                  <span>5억+</span>
+                </div>
               </div>
 
-              <Slider
-                value={[filters.price]}
-                min={0}
-                max={MAX_PRICE}
-                step={5}
-                onValueChange={(value) => updateFilter("price", value[0])}
-              />
+              {filters.transactionType !== "jeonse" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-neutral-dark">
+                      월세
+                    </span>
+                    <span className="text-sm text-neutral-muted">
+                      {monthlyRentDraft === 0
+                        ? "전체"
+                        : `${monthlyRentDraft}만원`}
+                    </span>
+                  </div>
 
-              <div className="flex justify-between text-xs text-neutral-muted">
-                <span>전체</span>
-                <span>50</span>
-                <span>100</span>
-                <span>150</span>
-                <span>200+</span>
-              </div>
+                  <Slider
+                    value={[monthlyRentDraft]}
+                    min={0}
+                    max={MAX_MONTHLY_RENT}
+                    step={5}
+                    onValueChange={(value) => setMonthlyRentDraft(value[0])}
+                  />
+
+                  <div className="flex justify-between text-xs text-neutral-muted">
+                    <span>전체</span>
+                    <span>50</span>
+                    <span>100</span>
+                    <span>150</span>
+                    <span>200+</span>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => updateFilter("price", 0)}
+                  onClick={() => {
+                    setDepositDraft(0);
+                    setMonthlyRentDraft(0);
+                  }}
                   className="rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
                 >
                   초기화
@@ -214,11 +352,11 @@ export function FilterBar({
                   최대 면적
                 </span>
                 <span className="text-sm text-neutral-muted">
-                  {filters.size === "all"
+                  {sizeDraft === 0
                     ? "전체"
                     : filters.sizeUnit === "m2"
-                      ? `${filters.size}m²`
-                      : `${filters.size}평`}
+                      ? `${sizeDraft}m²`
+                      : `${sizeDraft}평`}
                 </span>
               </div>
 
@@ -227,15 +365,16 @@ export function FilterBar({
                   type="button"
                   onClick={() => {
                     const nextSize =
-                      filters.size === "all"
-                        ? "all"
-                        : Number((Number(filters.size) / 3.3058).toFixed(1));
+                      sizeDraft === 0
+                        ? 0
+                        : Number((sizeDraft / 3.3058).toFixed(1));
 
                     onFiltersChange({
                       ...filters,
                       sizeUnit: "pyeong",
-                      size: nextSize,
+                      size: nextSize === 0 ? "all" : nextSize,
                     });
+                    setSizeDraft(nextSize);
                   }}
                   className={`px-3 py-1.5 text-sm ${
                     filters.sizeUnit === "m2"
@@ -250,15 +389,14 @@ export function FilterBar({
                   type="button"
                   onClick={() => {
                     const nextSize =
-                      filters.size === "all"
-                        ? "all"
-                        : Math.round(Number(filters.size) * 3.3058);
+                      sizeDraft === 0 ? 0 : Math.round(sizeDraft * 3.3058);
 
                     onFiltersChange({
                       ...filters,
                       sizeUnit: "m2",
-                      size: nextSize,
+                      size: nextSize === 0 ? "all" : nextSize,
                     });
+                    setSizeDraft(nextSize);
                   }}
                   className={`px-3 py-1.5 text-sm ${
                     filters.sizeUnit === "pyeong"
@@ -271,16 +409,11 @@ export function FilterBar({
               </div>
 
               <Slider
-                value={[sizeDisplayValue]}
+                value={[sizeDraft]}
                 min={0}
                 max={sizeMax}
                 step={sizeStep}
-                onValueChange={(value) =>
-                  onFiltersChange({
-                    ...filters,
-                    size: value[0] === 0 ? "all" : value[0],
-                  })
-                }
+                onValueChange={(value) => setSizeDraft(value[0])}
               />
 
               <div className="flex justify-between text-xs text-neutral-muted">
@@ -306,12 +439,7 @@ export function FilterBar({
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    onFiltersChange({
-                      ...filters,
-                      size: "all",
-                    })
-                  }
+                  onClick={() => setSizeDraft(0)}
                   className="rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
                 >
                   초기화

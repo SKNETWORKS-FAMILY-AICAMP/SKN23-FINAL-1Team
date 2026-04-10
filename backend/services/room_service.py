@@ -1,8 +1,8 @@
 from sqlalchemy import select, func, or_, and_
-# from sqlalchemy.orm import Session
+
 from models.item_features import ItemFeatures
 from models.room import Room
-# from schemas.room_schema import RoomListRequest
+
 
 STRUCTURE_TO_ROOM_TYPE = {
     "open": "오픈형원룸",
@@ -55,13 +55,16 @@ def get_rooms(db, req):
         stmt = stmt.where(condition)
         count_stmt = count_stmt.where(condition)
 
+    # 거래 방식 필터
     if req.transaction_type == "monthly":
         stmt = stmt.where(Room.rent > 0)
         count_stmt = count_stmt.where(Room.rent > 0)
+
     elif req.transaction_type == "jeonse":
         stmt = stmt.where(Room.rent == 0)
         count_stmt = count_stmt.where(Room.rent == 0)
 
+    # 방 종류 필터
     if req.room_type == "원룸":
         if req.structure == "all":
             condition = Room.room_type.in_([
@@ -83,17 +86,21 @@ def get_rooms(db, req):
         stmt = stmt.where(condition)
         count_stmt = count_stmt.where(condition)
 
-    if req.price != "all":
-        price_value = int(req.price)
-
-        if req.transaction_type == "jeonse":
-            condition = Room.deposit <= price_value * 10000
-        else:
-            condition = Room.rent <= price_value
-
+    # 보증금 필터: all / monthly / jeonse 모두 가능
+    if req.deposit != "all":
+        deposit_value = int(req.deposit)
+        condition = Room.deposit <= deposit_value
         stmt = stmt.where(condition)
         count_stmt = count_stmt.where(condition)
 
+    # 월세 필터: all / monthly 에서만 가능
+    if req.transaction_type in ["all", "monthly"] and req.monthly_rent != "all":
+        monthly_rent_value = int(req.monthly_rent)
+        condition = Room.rent <= monthly_rent_value
+        stmt = stmt.where(condition)
+        count_stmt = count_stmt.where(condition)
+
+    # 면적 필터
     if req.size != "all":
         size_value = float(req.size)
         size_m2 = size_value if req.size_unit == "m2" else size_value * 3.3058
@@ -102,6 +109,7 @@ def get_rooms(db, req):
         stmt = stmt.where(condition)
         count_stmt = count_stmt.where(condition)
 
+    # 옵션 필터
     if req.options:
         option_conditions = []
 
