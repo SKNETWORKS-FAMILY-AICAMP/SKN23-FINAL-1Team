@@ -114,7 +114,6 @@ item_columns = [
 api_configs = [
     ("연립다세대", "RTMSDataSvcRHRent/getRTMSDataSvcRHRent"),
     ("오피스텔", "RTMSDataSvcOffiRent/getRTMSDataSvcOffiRent"),
-    ("단독다가구", "RTMSDataSvcSHRent/getRTMSDataSvcSHRent"),
 ]
 
 if __name__ == "__main__":
