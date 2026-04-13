@@ -1,9 +1,6 @@
-from __future__ import annotations
-
-from sqlalchemy import and_, func, or_, select
-
+from math import floor
+from sqlalchemy import select, func, or_, cast, Integer
 from models.room import Room
-
 
 STRUCTURE_TO_ROOM_TYPE = {
     "open": "오픈형원룸",
@@ -15,211 +12,182 @@ TWO_ROOM_DB_VALUES = [
     "투룸",
 ]
 
-OPTION_COLUMN_MAP = {
-    "aircon": "has_air_con",
-    "desk": "has_desk",
-    "fridge": "has_fridge",
-    "bookshelf": "has_bookcase",
-    "washer": "has_washer",
-    "bed": "has_bed",
-    "gas_stove": "has_gas_stove",
-    "induction": "has_induction",
-    "shoe_cabinet": "has_shoe_rack",
-    "microwave": "has_microwave",
-    "sink": "has_sink",
-    "closet": "has_closet",
-}
+CLUSTER_LEVEL_THRESHOLD = 5
 
+def format_korean_money(value: int | None) -> str:
+    safe_value = int(value or 0)
+    if safe_value >= 10000:
+        eok = safe_value // 10000
+        rest = safe_value % 10000
+        return f"{eok}억" if rest == 0 else f"{eok}억 {rest}만"
+    return f"{safe_value}만"
 
-def _safe_str(value) -> str:
-    return value.strip() if isinstance(value, str) else ""
+def format_price(deposit: int | None, rent: int | None) -> str:
+    safe_deposit = int(deposit or 0)
+    safe_rent = int(rent or 0)
 
+    if safe_rent <= 0:
+        return f"전세 {format_korean_money(safe_deposit)}"
 
-def _normalize_size_to_m2(size, size_unit: str):
-    if size in (None, "", "all"):
-        return None
+    return f"{format_korean_money(safe_deposit)} / {safe_rent}만"
 
-    try:
-        numeric_size = float(size)
-    except (TypeError, ValueError):
-        return None
+def format_size(area_m2) -> str:
+    if area_m2 is None:
+        return "-"
+    return f"{float(area_m2):.1f}m²"
 
-    if numeric_size <= 0:
-        return None
+def get_grid_size_by_level(level: int | None) -> float:
+    safe_level = level or 4
 
-    if size_unit == "pyeong":
-        return numeric_size * 3.3058
+    if safe_level <= 2:
+        return 0.02
+    if safe_level == 3:
+        return 0.01
+    if safe_level == 4:
+        return 0.005
+    if safe_level == 5:
+        return 0.002
+    return 0.001
 
-    return numeric_size
-
-
-def _apply_search_filter(stmt, req):
-    keyword = _safe_str(req.search)
-    if not keyword:
-        return stmt
-
-    like_keyword = f"%{keyword}%"
-    return stmt.where(
-        or_(
-            Room.address.ilike(like_keyword),
-            Room.title.ilike(like_keyword),
+def apply_room_filters(stmt, req):
+    if req.search.strip():
+        keyword = f"%{req.search.strip()}%"
+        stmt = stmt.where(
+            or_(
+                Room.address.ilike(keyword),
+                Room.title.ilike(keyword),
+            )
         )
-    )
 
-
-def _apply_transaction_filter(stmt, req):
     if req.transaction_type == "monthly":
-        return stmt.where(Room.rent > 0)
+        stmt = stmt.where(Room.rent > 0)
+    elif req.transaction_type == "jeonse":
+        stmt = stmt.where(Room.rent == 0)
 
-    if req.transaction_type == "jeonse":
-        return stmt.where(Room.rent == 0)
-
-    return stmt
-
-
-def _apply_room_type_filter(stmt, req):
     if req.room_type == "원룸":
-        stmt = stmt.where(Room.room_type.in_(["원룸", "오픈형원룸", "분리형원룸", "복층형원룸"]))
+        stmt = stmt.where(Room.room_type.like("%원룸%"))
     elif req.room_type == "투룸":
         stmt = stmt.where(Room.room_type.in_(TWO_ROOM_DB_VALUES))
 
-    if req.structure != "all":
-        mapped_structure = STRUCTURE_TO_ROOM_TYPE.get(req.structure)
-        if mapped_structure:
-            stmt = stmt.where(Room.room_type == mapped_structure)
+    if req.structure != "all" and req.room_type == "원룸":
+        mapped_room_type = STRUCTURE_TO_ROOM_TYPE.get(req.structure)
+        if mapped_room_type:
+            stmt = stmt.where(Room.room_type == mapped_room_type)
 
-    return stmt
-
-
-def _apply_price_filter(stmt, req):
     if req.deposit != "all":
-      try:
-          stmt = stmt.where(Room.deposit <= int(req.deposit))
-      except (TypeError, ValueError):
-          pass
+        stmt = stmt.where(Room.deposit <= int(req.deposit))
 
-    if req.monthly_rent != "all" and req.transaction_type != "jeonse":
-      try:
-          stmt = stmt.where(Room.rent <= int(req.monthly_rent))
-      except (TypeError, ValueError):
-          pass
+    if req.monthly_rent != "all":
+        stmt = stmt.where(Room.rent <= int(req.monthly_rent))
 
-    return stmt
+    if req.size != "all":
+        size_value = float(req.size)
+        if req.size_unit == "pyeong":
+          size_value = size_value * 3.3058
+        stmt = stmt.where(Room.area_m2 <= size_value)
 
+    if req.sw_lat is not None and req.ne_lat is not None:
+        stmt = stmt.where(Room.lat >= req.sw_lat, Room.lat <= req.ne_lat)
 
-def _apply_size_filter(stmt, req):
-    size_m2 = _normalize_size_to_m2(req.size, req.size_unit)
-    if size_m2 is None:
-        return stmt
-
-    return stmt.where(Room.area_m2 <= size_m2)
-
-
-def _apply_bounds_filter(stmt, req):
-    if None in (req.sw_lat, req.sw_lng, req.ne_lat, req.ne_lng):
-        return stmt
-
-    min_lat = min(req.sw_lat, req.ne_lat)
-    max_lat = max(req.sw_lat, req.ne_lat)
-    min_lng = min(req.sw_lng, req.ne_lng)
-    max_lng = max(req.sw_lng, req.ne_lng)
-
-    return stmt.where(
-        and_(
-            Room.lat >= min_lat,
-            Room.lat <= max_lat,
-            Room.lng >= min_lng,
-            Room.lng <= max_lng,
-        )
-    )
-
-
-def _apply_option_filter(stmt, req):
-    for option in req.options:
-        column_name = OPTION_COLUMN_MAP.get(option)
-        if not column_name:
-            continue
-
-        column = getattr(Room, column_name, None)
-        if column is None:
-            continue
-
-        stmt = stmt.where(column.is_(True))
+    if req.sw_lng is not None and req.ne_lng is not None:
+        stmt = stmt.where(Room.lng >= req.sw_lng, Room.lng <= req.ne_lng)
 
     return stmt
 
-
-def _apply_common_filters(stmt, req):
-    stmt = _apply_search_filter(stmt, req)
-    stmt = _apply_transaction_filter(stmt, req)
-    stmt = _apply_room_type_filter(stmt, req)
-    stmt = _apply_price_filter(stmt, req)
-    stmt = _apply_size_filter(stmt, req)
-    stmt = _apply_bounds_filter(stmt, req)
-    stmt = _apply_option_filter(stmt, req)
-    return stmt
-
-
-def _serialize_room(room: Room) -> dict:
+def serialize_room_marker(room):
     return {
+        "type": "marker",
+        "id": str(room.item_id),
         "item_id": room.item_id,
-        "status": room.status,
-        "title": room.title,
-        "url": room.url,
+        "title": room.title or "제목 없는 매물",
+        "price": format_price(room.deposit, room.rent),
+        "deposit": format_korean_money(room.deposit),
+        "monthlyRent": str(int(room.rent or 0)),
         "address": room.address,
-        "deposit": room.deposit,
-        "rent": room.rent,
-        "manage_cost": room.manage_cost,
-        "service_type": room.service_type,
-        "room_type": room.room_type,
-        "floor": room.floor,
-        "all_floors": room.all_floors,
-        "area_m2": float(room.area_m2) if room.area_m2 is not None else None,
+        "size": format_size(room.area_m2),
+        "floor": room.floor or "-",
+        "images": [room.image_thumbnail] if room.image_thumbnail else [],
         "lat": float(room.lat),
         "lng": float(room.lng),
-        "geohash": room.geohash,
-        "image_thumbnail": room.image_thumbnail,
+        "structure": room.room_type or "매물",
+        "options": [],
     }
 
-
-def search_rooms(db, req):
+def get_rooms(db, req):
     stmt = select(Room)
     count_stmt = select(func.count()).select_from(Room)
 
-    stmt = _apply_common_filters(stmt, req)
-    count_stmt = _apply_common_filters(count_stmt, req)
+    stmt = apply_room_filters(stmt, req)
+    count_stmt = apply_room_filters(count_stmt, req)
 
-    stmt = stmt.order_by(Room.updated_at.desc(), Room.item_id.desc())
-    stmt = stmt.offset(req.offset).limit(req.limit)
-
-    items = db.execute(stmt).scalars().all()
     total = db.execute(count_stmt).scalar_one()
-
-    serialized = [_serialize_room(room) for room in items]
+    rows = db.execute(
+        stmt.order_by(Room.updated_at.desc().nullslast(), Room.item_id.desc())
+        .offset(req.offset)
+        .limit(req.limit)
+    ).scalars().all()
 
     return {
-        "items": serialized,
+        "items": rows,
         "total": total,
-        "offset": req.offset,
-        "limit": req.limit,
         "has_more": req.offset + req.limit < total,
     }
 
+def get_map_items(db, req):
+    base_stmt = select(Room)
+    base_stmt = apply_room_filters(base_stmt, req)
 
-def search_rooms_for_map(db, req):
-    stmt = select(Room)
-    stmt = _apply_common_filters(stmt, req)
-    stmt = stmt.order_by(Room.updated_at.desc(), Room.item_id.desc())
+    level = req.level or 4
 
-    items = db.execute(stmt).scalars().all()
-    serialized = [_serialize_room(room) for room in items]
+    if level >= CLUSTER_LEVEL_THRESHOLD:
+        rows = db.execute(
+            base_stmt.order_by(Room.updated_at.desc().nullslast(), Room.item_id.desc())
+            .limit(1000)
+        ).scalars().all()
 
-    total = len(serialized)
+        return {
+            "mode": "marker",
+            "items": [serialize_room_marker(room) for room in rows],
+        }
+
+    grid_size = get_grid_size_by_level(level)
+
+    lat_bucket = cast(func.floor(Room.lat / grid_size), Integer)
+    lng_bucket = cast(func.floor(Room.lng / grid_size), Integer)
+
+    cluster_stmt = (
+        select(
+            lat_bucket.label("lat_bucket"),
+            lng_bucket.label("lng_bucket"),
+            func.avg(Room.lat).label("lat"),
+            func.avg(Room.lng).label("lng"),
+            func.count(Room.item_id).label("count"),
+        )
+        .select_from(Room)
+    )
+
+    cluster_stmt = apply_room_filters(cluster_stmt, req)
+    cluster_stmt = (
+        cluster_stmt
+        .group_by(lat_bucket, lng_bucket)
+        .order_by(func.count(Room.item_id).desc())
+        .limit(500)
+    )
+
+    rows = db.execute(cluster_stmt).all()
+
+    items = [
+        {
+            "type": "cluster",
+            "id": f"{row.lat_bucket}_{row.lng_bucket}",
+            "lat": float(row.lat),
+            "lng": float(row.lng),
+            "count": int(row.count),
+        }
+        for row in rows
+    ]
 
     return {
-        "items": serialized,
-        "total": total,
-        "offset": 0,
-        "limit": total,
-        "has_more": False,
+        "mode": "cluster",
+        "items": items,
     }

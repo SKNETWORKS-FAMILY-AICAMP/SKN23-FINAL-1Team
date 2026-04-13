@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "@/components/room-finder/header";
 import { FilterBar, type Filters } from "@/components/room-finder/filter-bar";
-import { MapView, type Listing } from "@/components/room-finder/map-view";
+import {
+  MapView,
+  type Listing,
+  type MapBounds,
+  type MapItem,
+} from "@/components/room-finder/map-view";
 import { ListingPanel } from "@/components/room-finder/listing-panel";
 import { fetchItems, fetchMapItems } from "@/app/api/rooms/route";
 import { mapItemToListing } from "@/utils/roomMappers";
@@ -21,15 +26,6 @@ const defaultFilters: Filters = {
   options: [],
 };
 
-interface MapBounds {
-  swLat: number;
-  swLng: number;
-  neLat: number;
-  neLng: number;
-  centerLat: number;
-  centerLng: number;
-}
-
 function isSameBounds(a: MapBounds | null, b: MapBounds | null) {
   if (!a || !b) return false;
 
@@ -39,7 +35,8 @@ function isSameBounds(a: MapBounds | null, b: MapBounds | null) {
     a.neLat === b.neLat &&
     a.neLng === b.neLng &&
     a.centerLat === b.centerLat &&
-    a.centerLng === b.centerLng
+    a.centerLng === b.centerLng &&
+    a.level === b.level
   );
 }
 
@@ -53,7 +50,7 @@ export function HomeContainer() {
   const [isPanelOpen, setIsPanelOpen] = useState(true);
 
   const [listings, setListings] = useState<Listing[]>([]);
-  const [mapListingsBase, setMapListingsBase] = useState<Listing[]>([]);
+  const [mapItems, setMapItems] = useState<MapItem[]>([]);
   const [visibleListings, setVisibleListings] = useState<Listing[]>([]);
   const [recommendedListings, setRecommendedListings] = useState<
     Listing[] | null
@@ -67,7 +64,6 @@ export function HomeContainer() {
   const [isLocationReady, setIsLocationReady] = useState(false);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
 
-  const mapListings = recommendedListings ?? mapListingsBase;
   const panelListings = recommendedListings ?? listings;
 
   const requestKey = useMemo(() => {
@@ -109,7 +105,7 @@ export function HomeContainer() {
 
     prevRequestKeyRef.current = requestKey;
     setListings([]);
-    setMapListingsBase([]);
+    setMapItems([]);
     setVisibleListings([]);
     setRecommendedListings(null);
     setSelectedListing(null);
@@ -140,15 +136,19 @@ export function HomeContainer() {
   useEffect(() => {
     if (!selectedListing) return;
 
-    const sourceListings = recommendedListings ?? mapListingsBase;
+    const sourceListings =
+      (recommendedListings ?? visibleListings.length)
+        ? (recommendedListings ?? visibleListings)
+        : listings;
+
     const stillVisible = sourceListings.some(
       (listing) => listing.id === selectedListing.id,
     );
 
-    if (!stillVisible) {
+    if (!stillVisible && !recommendedListings) {
       setSelectedListing(null);
     }
-  }, [mapListingsBase, recommendedListings, selectedListing]);
+  }, [listings, visibleListings, recommendedListings, selectedListing]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -246,10 +246,11 @@ export function HomeContainer() {
           swLng: mapBounds.swLng,
           neLat: mapBounds.neLat,
           neLng: mapBounds.neLng,
+          level: mapBounds.level,
           signal: controller.signal,
         });
 
-        setMapListingsBase(data.items.map(mapItemToListing));
+        setMapItems(data.items);
       } catch (error) {
         if (controller.signal.aborted) return;
         console.error(error);
@@ -340,7 +341,7 @@ export function HomeContainer() {
         <section className="absolute inset-0 z-0">
           <MapView
             searchQuery={debouncedSearchQuery}
-            listings={mapListings}
+            mapItems={mapItems}
             selectedListing={selectedListing}
             onMarkerClick={setSelectedListing}
             onVisibleListingsChange={handleVisibleListingsChange}
@@ -400,7 +401,7 @@ export function HomeContainer() {
           <section className="relative flex-1">
             <MapView
               searchQuery={debouncedSearchQuery}
-              listings={mapListings}
+              mapItems={mapItems}
               selectedListing={selectedListing}
               onMarkerClick={(listing) => {
                 setSelectedListing(listing);

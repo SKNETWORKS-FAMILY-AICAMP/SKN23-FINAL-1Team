@@ -81,3 +81,23 @@ class RoomListResponse(BaseModel):
     offset: int
     limit: int
     has_more: bool
+    
+class RoomListRequest(BaseModel):
+    offset: int = 0
+    limit: int = 20
+    search: str = ""
+    transaction_type: str = "all"
+    room_type: str = "all"
+    structure: str = "all"
+    deposit: int | str = "all"
+    monthly_rent: int | str = "all"
+    size: int | float | str = "all"
+    size_unit: Literal["m2", "pyeong"] = "m2"
+    options: list[str] = []
+    lat: float | None = None
+    lng: float | None = None
+    sw_lat: float | None = None
+    sw_lng: float | None = None
+    ne_lat: float | None = None
+    ne_lng: float | None = None
+    level: int | None = None
