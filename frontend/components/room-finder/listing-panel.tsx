@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Listing } from "@/components/room-finder/map-view";
 import { ListingCard } from "@/components/common/ListingCards";
 import { AIRecommendation } from "@/components/room-finder/ai-recommendation";
+import { Sparkles, House } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ListingPanelProps {
   listings: Listing[];
@@ -48,7 +50,6 @@ export function ListingPanel({
     );
 
     observer.observe(observerRef.current);
-
     return () => observer.disconnect();
   }, [activeTab, hasMore, isLoading, onLoadMore]);
 
@@ -57,33 +58,43 @@ export function ListingPanel({
   }, [activeTab]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="border-b border-border-warm bg-ivory px-4 pt-6">
-        <div className="mb-4 text-lg font-semibold text-neutral-dark">
-          {headerTitle}
+    <div className="flex h-full flex-col overflow-hidden bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">
+      <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-4 pt-6 backdrop-blur-md">
+        <div className="mb-4">
+          <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400">
+            Curated Space
+          </p>
+          <div className="mt-1 text-xl font-bold tracking-tight text-stone-900">
+            {headerTitle}
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 rounded-xl bg-cream p-1">
+        <div className="grid grid-cols-2 rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
           <button
             type="button"
             onClick={() => setActiveTab("list")}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={cn(
+              "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
               activeTab === "list"
-                ? "bg-white text-neutral-dark shadow-sm"
-                : "text-neutral-muted hover:text-neutral-dark"
-            }`}
+                ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
+                : "text-stone-500 hover:text-stone-800",
+            )}
           >
+            <House className="h-4 w-4" />
             매물목록
           </button>
+
           <button
             type="button"
             onClick={() => setActiveTab("ai")}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={cn(
+              "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
               activeTab === "ai"
-                ? "bg-white text-neutral-dark shadow-sm"
-                : "text-neutral-muted hover:text-neutral-dark"
-            }`}
+                ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
+                : "text-stone-500 hover:text-stone-800",
+            )}
           >
+            <Sparkles className="h-4 w-4" />
             AI추천
           </button>
         </div>
@@ -91,12 +102,12 @@ export function ListingPanel({
 
       <div className="min-h-0 flex-1">
         {activeTab === "list" ? (
-          <div className="h-full overflow-y-auto p-4 ">
-            <div className="space-y-3">
+          <div className="h-full overflow-y-auto px-4 py-4">
+            <div className="space-y-4">
               {listings.map((listing) => (
                 <div
                   key={listing.id}
-                  className="cursor-pointer scale-100 transition-transform hover:scale-[1.02]"
+                  className="cursor-pointer transition-transform duration-200"
                 >
                   <ListingCard
                     listing={listing}
@@ -110,19 +121,19 @@ export function ListingPanel({
             <div ref={observerRef} className="h-10" />
 
             {isLoading && (
-              <div className="py-4 text-center text-sm text-gray-500">
+              <div className="py-6 text-center text-sm font-medium text-stone-500">
                 더 불러오는 중...
               </div>
             )}
 
             {!hasMore && listings.length > 0 && (
-              <div className="py-4 text-center text-sm text-gray-400">
+              <div className="py-6 text-center text-sm font-medium text-stone-400">
                 마지막 매물입니다.
               </div>
             )}
 
             {!isLoading && listings.length === 0 && (
-              <div className="py-10 text-center text-sm text-neutral-muted">
+              <div className="rounded-[24px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
                 표시할 매물이 없습니다.
               </div>
             )}

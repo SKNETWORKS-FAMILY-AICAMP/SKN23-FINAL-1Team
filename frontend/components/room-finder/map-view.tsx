@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 interface MapViewProps {
   searchQuery: string;
   listings: Listing[];
+  selectedListing?: Listing | null;
   onMarkerClick?: (listing: Listing) => void;
   onVisibleListingsChange?: (listings: Listing[]) => void;
 }
@@ -39,6 +40,7 @@ const DEFAULT_CENTER = {
 export function MapView({
   searchQuery,
   listings,
+  selectedListing,
   onMarkerClick,
   onVisibleListingsChange,
 }: MapViewProps) {
@@ -48,9 +50,10 @@ export function MapView({
   const infoWindowsRef = useRef<any[]>([]);
   const currentLocationMarkerRef = useRef<any>(null);
   const visibleListingIdsRef = useRef<string>("");
+  const lastAppliedSearchRef = useRef<string>("");
+  const hasMovedToCurrentLocationRef = useRef(false);
 
   const [isMapReady, setIsMapReady] = useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
 
   const clearMarkers = () => {
     markersRef.current.forEach((marker) => marker.setMap(null));
@@ -94,8 +97,6 @@ export function MapView({
       return;
     }
 
-    const bounds = new kakao.maps.LatLngBounds();
-
     listings.forEach((listing) => {
       const lat = Number(listing.lat);
       const lng = Number(listing.lng);
@@ -133,15 +134,7 @@ export function MapView({
 
       markersRef.current.push(marker);
       infoWindowsRef.current.push(infoWindow);
-      bounds.extend(position);
     });
-
-    if (markersRef.current.length === 1) {
-      map.setCenter(bounds.getSouthWest());
-      map.setLevel(3);
-    } else if (markersRef.current.length > 1) {
-      map.setBounds(bounds);
-    }
   };
 
   const moveToCurrentLocation = (map: any, kakao: any) => {
@@ -240,9 +233,9 @@ export function MapView({
         map.relayout();
         setIsMapReady(true);
 
-        if (!hasInitialized) {
+        if (!hasMovedToCurrentLocationRef.current) {
           moveToCurrentLocation(map, kakao);
-          setHasInitialized(true);
+          hasMovedToCurrentLocationRef.current = true;
         }
 
         createListingMarkers(map, kakao);
@@ -254,7 +247,7 @@ export function MapView({
     return () => {
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [hasInitialized, listings, onMarkerClick, onVisibleListingsChange]);
+  }, [listings, onMarkerClick, onVisibleListingsChange]);
 
   useEffect(() => {
     if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
@@ -277,17 +270,39 @@ export function MapView({
   useEffect(() => {
     if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
 
+    const trimmedQuery = searchQuery.trim();
+
+    if (trimmedQuery === lastAppliedSearchRef.current) return;
+
+    lastAppliedSearchRef.current = trimmedQuery;
+
+    if (!trimmedQuery) return;
+
     const map = mapInstanceRef.current;
     const kakao = window.kakao;
 
-    setTimeout(() => {
-      map.relayout();
-    }, 0);
-
-    if (searchQuery.trim()) {
-      moveToKeyword(map, kakao, searchQuery);
-    }
+    moveToKeyword(map, kakao, trimmedQuery);
   }, [searchQuery, isMapReady]);
+
+  useEffect(() => {
+    if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
+    if (!selectedListing) return;
+
+    const lat = Number(selectedListing.lat);
+    const lng = Number(selectedListing.lng);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+    const map = mapInstanceRef.current;
+    const kakao = window.kakao;
+    const position = new kakao.maps.LatLng(lat, lng);
+
+    map.panTo(position);
+
+    if (typeof map.getLevel === "function" && map.getLevel() > 4) {
+      map.setLevel(4);
+    }
+  }, [selectedListing, isMapReady]);
 
   useEffect(() => {
     const handleResize = () => {
