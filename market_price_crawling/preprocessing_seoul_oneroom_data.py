@@ -21,7 +21,4 @@ choices = ['전세', '반전세', '월세']
 
 data['class'] = np.select(conditions, choices, default='기타')
 
-del data["semi_basement"]
-del data["wolse"]
-
 data.to_csv("data/seoul_oneroom_data_adjusted.csv", index = False)
