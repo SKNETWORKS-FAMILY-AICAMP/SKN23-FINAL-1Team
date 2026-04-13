@@ -205,13 +205,26 @@ export function FilterBar({
     const depositText =
       filters.deposit === "all"
         ? "보증금"
-        : `보증금 ~ ${formatDeposit(filters.deposit)}`;
+        : `${formatDeposit(filters.deposit)}`;
     const rentText =
-      filters.monthlyRent === "all"
-        ? "월세"
-        : `월세 ~ ${filters.monthlyRent}만원`;
+      filters.monthlyRent === "all" ? "월세" : `${filters.monthlyRent}만원`;
     return `${depositText} / ${rentText}`;
   })();
+
+  const selectTriggerClass =
+    "min-w-[140px] md:min-w-[160px] py-5 rounded-2xl border border-stone-200/80 bg-white/90 text-sm font-medium tracking-tight text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-stone-300 hover:bg-white";
+
+  const popoverTriggerClass =
+    "min-w-[140px] max-w-[240px] md:min-w-[160px] flex items-center justify-between rounded-2xl border border-stone-200/80 bg-white/90 px-4 py-2.5 text-sm font-medium tracking-tight text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-stone-300 hover:bg-white";
+
+  const popoverContentClass =
+    "border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,246,241,0.96)_100%)] p-5 shadow-[0_18px_40px_rgba(15,23,42,0.12)]";
+
+  const dropdownContentClass =
+    "border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,246,241,0.96)_100%)] p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] rounded-2xl";
+
+  const selectItemClass =
+    "rounded-xl px-3 py-2.5 text-sm font-medium tracking-tight text-stone-700 outline-none transition-colors focus:bg-stone-100 focus:text-stone-900 data-[highlighted]:bg-stone-100 data-[highlighted]:text-stone-900";
 
   return (
     <div className="border-b border-stone-200/80 bg-white/70 px-4 py-4 backdrop-blur-md md:px-6">
@@ -220,22 +233,27 @@ export function FilterBar({
           value={filters.transactionType}
           onValueChange={(v) => updateFilter("transactionType", v)}
         >
-          <SelectTrigger className="min-w-[140px] md:min-w-[160px] bg-ivory border-border-warm text-neutral-dark text-sm md:text-base">
+          <SelectTrigger className={selectTriggerClass}>
             <SelectValue placeholder="거래 방식" />
           </SelectTrigger>
-          <SelectContent className="w-[200px] md:w-[180px] lg:w-[220px] bg-ivory border-border-warm">
-            <SelectItem value="all">전/월세</SelectItem>
-            <SelectItem value="monthly">월세</SelectItem>
-            <SelectItem value="jeonse">전세</SelectItem>
+          <SelectContent
+            className={`w-[200px] md:w-[180px] lg:w-[220px] ${dropdownContentClass}`}
+          >
+            <SelectItem value="all" className={selectItemClass}>
+              전/월세
+            </SelectItem>
+            <SelectItem value="monthly" className={selectItemClass}>
+              월세
+            </SelectItem>
+            <SelectItem value="jeonse" className={selectItemClass}>
+              전세
+            </SelectItem>
           </SelectContent>
         </Select>
 
         <Popover open={priceOpen} onOpenChange={setPriceOpen}>
           <PopoverTrigger asChild>
-            <button
-              type="button"
-              className="w-[200px] md:w-[220px] lg:w-[240px] flex items-center justify-between rounded-md border border-border-warm bg-ivory px-3 py-2 text-sm md:text-base text-neutral-dark"
-            >
+            <button type="button" className={popoverTriggerClass}>
               <span className="truncate">{priceLabel}</span>
               <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
             </button>
@@ -243,7 +261,7 @@ export function FilterBar({
 
           <PopoverContent
             align="start"
-            className="w-[300px] md:w-[360px] lg:w-[420px] border-border-warm bg-ivory p-4"
+            className={`w-[300px] md:w-[360px] lg:w-[420px] ${popoverContentClass}`}
           >
             <div className="space-y-6">
               <div className="space-y-4">
@@ -331,23 +349,30 @@ export function FilterBar({
           value={filters.structure}
           onValueChange={(v) => updateFilter("structure", v)}
         >
-          <SelectTrigger className="min-w-[140px] md:min-w-[160px] bg-ivory border-border-warm text-neutral-dark text-sm md:text-base">
+          <SelectTrigger className={selectTriggerClass}>
             <SelectValue placeholder="방 구조" />
           </SelectTrigger>
-          <SelectContent className="w-[140px] md:w-[180px] lg:w-[220px] bg-ivory border-border-warm">
-            <SelectItem value="all">구조</SelectItem>
-            <SelectItem value="open">오픈형</SelectItem>
-            <SelectItem value="separated">분리형</SelectItem>
-            <SelectItem value="duplex">복층</SelectItem>
+          <SelectContent
+            className={`w-[140px] md:w-[180px] lg:w-[220px] ${dropdownContentClass}`}
+          >
+            <SelectItem value="all" className={selectItemClass}>
+              구조
+            </SelectItem>
+            <SelectItem value="open" className={selectItemClass}>
+              오픈형
+            </SelectItem>
+            <SelectItem value="separated" className={selectItemClass}>
+              분리형
+            </SelectItem>
+            <SelectItem value="duplex" className={selectItemClass}>
+              복층
+            </SelectItem>
           </SelectContent>
         </Select>
 
         <Popover open={sizeOpen} onOpenChange={setSizeOpen}>
           <PopoverTrigger asChild>
-            <button
-              type="button"
-              className="w-[140px] md:w-[160px] lg:w-[160px] flex items-center justify-between rounded-md border border-border-warm bg-ivory px-3 py-2 text-sm md:text-base text-neutral-dark"
-            >
+            <button type="button" className={popoverTriggerClass}>
               <span className="truncate">{sizeLabel}</span>
               <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
             </button>
@@ -355,7 +380,7 @@ export function FilterBar({
 
           <PopoverContent
             align="start"
-            className="w-[260px] md:w-[320px] lg:w-[360px] border-border-warm bg-ivory p-4"
+            className={`w-[300px] md:w-[360px] lg:w-[420px] ${popoverContentClass}`}
           >
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -469,10 +494,7 @@ export function FilterBar({
 
         <Popover open={optionsOpen} onOpenChange={setOptionsOpen}>
           <PopoverTrigger asChild>
-            <button
-              type="button"
-              className="w-[140px] md:w-[160px] lg:w-[160px] flex items-center justify-between rounded-md border border-border-warm bg-ivory px-3 py-2 text-sm md:text-base text-neutral-dark"
-            >
+            <button type="button" className={popoverTriggerClass}>
               <span className="truncate">{optionsLabel}</span>
               <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
             </button>
@@ -480,7 +502,7 @@ export function FilterBar({
 
           <PopoverContent
             align="start"
-            className="w-[240px] md:w-[320px] lg:w-[380px] border-border-warm bg-ivory p-4"
+            className={`w-[240px] md:w-[320px] lg:w-[380px] ${popoverContentClass}`}
           >
             <div className="space-y-4">
               <div className="flex items-center gap-2">

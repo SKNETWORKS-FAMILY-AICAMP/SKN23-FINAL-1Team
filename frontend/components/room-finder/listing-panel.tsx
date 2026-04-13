@@ -58,7 +58,7 @@ export function ListingPanel({
   }, [activeTab]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">
+    <div className="flex h-full flex-col overflow-hidden bg-white md:bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">
       <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-4 pt-6 backdrop-blur-md">
         <div className="mb-4">
           <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400">
