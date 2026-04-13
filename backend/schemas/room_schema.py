@@ -1,23 +1,55 @@
-from pydantic import BaseModel, Field
 from typing import Literal
 
+from pydantic import BaseModel, Field
 
-class RoomListRequest(BaseModel):
+
+TransactionType = Literal["all", "monthly", "jeonse"]
+RoomTypeLiteral = Literal["원룸", "투룸", "all"]
+StructureLiteral = Literal["all", "open", "separated", "duplex"]
+SizeUnitLiteral = Literal["m2", "pyeong"]
+
+
+class RoomSearchRequest(BaseModel):
     offset: int = Field(default=0, ge=0)
-    limit: int = Field(default=20, ge=1, le=100)
+    limit: int = Field(default=20, ge=1, le=200)
 
     search: str = ""
-    transaction_type: Literal["all", "monthly", "jeonse"] = "all"
-    room_type: Literal["all", "원룸", "투룸"] = "all"
-    structure: Literal["all", "open", "separated", "duplex"] = "all"
+    transaction_type: TransactionType = "all"
+    room_type: RoomTypeLiteral = "all"
+    structure: StructureLiteral = "all"
 
-    deposit: int | Literal["all"] = "all"
-    monthly_rent: int | Literal["all"] = "all"
+    deposit: int | str = "all"
+    monthly_rent: int | str = "all"
+    size: float | str = "all"
+    size_unit: SizeUnitLiteral = "m2"
+    options: list[str] = Field(default_factory=list)
 
-    size: float | Literal["all"] = "all"
-    size_unit: Literal["m2", "pyeong"] = "m2"
+    lat: float | None = None
+    lng: float | None = None
+    sw_lat: float | None = None
+    sw_lng: float | None = None
+    ne_lat: float | None = None
+    ne_lng: float | None = None
 
-    options: list[str] = []
+
+class RoomMapSearchRequest(BaseModel):
+    search: str = ""
+    transaction_type: TransactionType = "all"
+    room_type: RoomTypeLiteral = "all"
+    structure: StructureLiteral = "all"
+
+    deposit: int | str = "all"
+    monthly_rent: int | str = "all"
+    size: float | str = "all"
+    size_unit: SizeUnitLiteral = "m2"
+    options: list[str] = Field(default_factory=list)
+
+    lat: float | None = None
+    lng: float | None = None
+    sw_lat: float | None = None
+    sw_lng: float | None = None
+    ne_lat: float | None = None
+    ne_lng: float | None = None
 
 
 class RoomItemResponse(BaseModel):
@@ -39,7 +71,8 @@ class RoomItemResponse(BaseModel):
     geohash: str | None = None
     image_thumbnail: str | None = None
 
-    model_config = {"from_attributes": True}
+    class Config:
+        from_attributes = True
 
 
 class RoomListResponse(BaseModel):
