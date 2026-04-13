@@ -23,7 +23,41 @@ export interface RoomSearchParams {
   swLng?: number;
   neLat?: number;
   neLng?: number;
+  level?: number;
   signal?: AbortSignal;
+}
+
+export interface MapClusterItem {
+  type: "cluster";
+  id: string;
+  lat: number;
+  lng: number;
+  count: number;
+}
+
+export interface MapMarkerItem {
+  type: "marker";
+  id: string;
+  item_id: number;
+  title: string;
+  price: string;
+  deposit: string;
+  monthlyRent: string;
+  address: string;
+  size: string;
+  floor: string;
+  images: string[];
+  lat: number;
+  lng: number;
+  structure: string;
+  options: string[];
+}
+
+export type MapItemResponse = MapClusterItem | MapMarkerItem;
+
+export interface MapSearchApiResponse {
+  mode: "cluster" | "marker";
+  items: MapItemResponse[];
 }
 
 async function postJsonWithRetry<T>(
@@ -87,6 +121,7 @@ function buildSearchBody(params: RoomSearchParams) {
     sw_lng: params.swLng ?? null,
     ne_lat: params.neLat ?? null,
     ne_lng: params.neLng ?? null,
+    level: params.level ?? null,
   };
 }
 
@@ -102,13 +137,13 @@ export async function fetchItems(
 
 export async function fetchMapItems(
   params: RoomSearchParams,
-): Promise<RoomListApiResponse> {
-  return postJsonWithRetry<RoomListApiResponse>(
+): Promise<MapSearchApiResponse> {
+  return postJsonWithRetry<MapSearchApiResponse>(
     `${API_BASE_URL}/rooms/map-search`,
     buildSearchBody({
       ...params,
       offset: 0,
-      limit: params.limit ?? 10000,
+      limit: params.limit ?? 1000,
     }),
     params.signal,
   );
