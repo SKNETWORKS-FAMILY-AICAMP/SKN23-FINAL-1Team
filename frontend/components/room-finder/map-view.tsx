@@ -5,7 +5,9 @@ import { useEffect, useRef, useState } from "react";
 interface MapViewProps {
   searchQuery: string;
   listings: Listing[];
+  selectedListing?: Listing | null;
   onMarkerClick?: (listing: Listing) => void;
+  onVisibleListingsChange?: (listings: Listing[]) => void;
 }
 
 export interface Listing {
@@ -38,16 +40,20 @@ const DEFAULT_CENTER = {
 export function MapView({
   searchQuery,
   listings,
+  selectedListing,
   onMarkerClick,
+  onVisibleListingsChange,
 }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const infoWindowsRef = useRef<any[]>([]);
   const currentLocationMarkerRef = useRef<any>(null);
+  const visibleListingIdsRef = useRef<string>("");
+  const lastAppliedSearchRef = useRef<string>("");
+  const hasMovedToCurrentLocationRef = useRef(false);
 
   const [isMapReady, setIsMapReady] = useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
 
   const clearMarkers = () => {
     markersRef.current.forEach((marker) => marker.setMap(null));
@@ -57,12 +63,39 @@ export function MapView({
     infoWindowsRef.current = [];
   };
 
+  const updateVisibleListings = (map: any, kakao: any) => {
+    if (!map) return;
+
+    const bounds = map.getBounds();
+
+    const visible = listings.filter((listing) => {
+      const lat = Number(listing.lat);
+      const lng = Number(listing.lng);
+
+      if (Number.isNaN(lat) || Number.isNaN(lng)) return false;
+
+      const position = new kakao.maps.LatLng(lat, lng);
+      return bounds.contain(position);
+    });
+
+    const nextIds = visible.map((listing) => listing.id).join(",");
+
+    if (visibleListingIdsRef.current === nextIds) return;
+
+    visibleListingIdsRef.current = nextIds;
+    onVisibleListingsChange?.(visible);
+  };
+
   const createListingMarkers = (map: any, kakao: any) => {
     clearMarkers();
 
-    if (!listings.length) return;
-
-    const bounds = new kakao.maps.LatLngBounds();
+    if (!listings.length) {
+      if (visibleListingIdsRef.current !== "") {
+        visibleListingIdsRef.current = "";
+        onVisibleListingsChange?.([]);
+      }
+      return;
+    }
 
     listings.forEach((listing) => {
       const lat = Number(listing.lat);
@@ -101,15 +134,7 @@ export function MapView({
 
       markersRef.current.push(marker);
       infoWindowsRef.current.push(infoWindow);
-      bounds.extend(position);
     });
-
-    if (markersRef.current.length === 1) {
-      map.setCenter(bounds.getSouthWest());
-      map.setLevel(3);
-    } else if (markersRef.current.length > 1) {
-      map.setBounds(bounds);
-    }
   };
 
   const moveToCurrentLocation = (map: any, kakao: any) => {
@@ -174,6 +199,10 @@ export function MapView({
   };
 
   useEffect(() => {
+    visibleListingIdsRef.current = "";
+  }, [listings]);
+
+  useEffect(() => {
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const initializeMap = () => {
@@ -204,14 +233,12 @@ export function MapView({
         map.relayout();
         setIsMapReady(true);
 
-        if (!hasInitialized) {
+        if (!hasMovedToCurrentLocationRef.current) {
           moveToCurrentLocation(map, kakao);
-          setHasInitialized(true);
+          hasMovedToCurrentLocationRef.current = true;
         }
 
-        if (listings.length > 0) {
-          createListingMarkers(map, kakao);
-        }
+        createListingMarkers(map, kakao);
       });
     };
 
@@ -220,7 +247,7 @@ export function MapView({
     return () => {
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [hasInitialized, listings, onMarkerClick]);
+  }, [listings, onMarkerClick, onVisibleListingsChange]);
 
   useEffect(() => {
     if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
@@ -228,14 +255,54 @@ export function MapView({
     const map = mapInstanceRef.current;
     const kakao = window.kakao;
 
-    setTimeout(() => {
-      map.relayout();
-    }, 0);
+    const handleIdle = () => {
+      updateVisibleListings(map, kakao);
+    };
 
-    if (searchQuery.trim()) {
-      moveToKeyword(map, kakao, searchQuery);
-    }
+    kakao.maps.event.addListener(map, "idle", handleIdle);
+    handleIdle();
+
+    return () => {
+      kakao.maps.event.removeListener(map, "idle", handleIdle);
+    };
+  }, [isMapReady, listings, onVisibleListingsChange]);
+
+  useEffect(() => {
+    if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
+
+    const trimmedQuery = searchQuery.trim();
+
+    if (trimmedQuery === lastAppliedSearchRef.current) return;
+
+    lastAppliedSearchRef.current = trimmedQuery;
+
+    if (!trimmedQuery) return;
+
+    const map = mapInstanceRef.current;
+    const kakao = window.kakao;
+
+    moveToKeyword(map, kakao, trimmedQuery);
   }, [searchQuery, isMapReady]);
+
+  useEffect(() => {
+    if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
+    if (!selectedListing) return;
+
+    const lat = Number(selectedListing.lat);
+    const lng = Number(selectedListing.lng);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+    const map = mapInstanceRef.current;
+    const kakao = window.kakao;
+    const position = new kakao.maps.LatLng(lat, lng);
+
+    map.panTo(position);
+
+    if (typeof map.getLevel === "function" && map.getLevel() > 4) {
+      map.setLevel(4);
+    }
+  }, [selectedListing, isMapReady]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -251,18 +318,18 @@ export function MapView({
   }, []);
 
   return (
-    <div className="relative w-full h-full min-h-[400px]">
+    <div className="relative h-full min-h-[400px] w-full">
       {!isMapReady && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-100">
           <div className="text-sm text-gray-500">지도 로딩 중...</div>
         </div>
       )}
 
-      <div ref={mapRef} className="w-full h-full min-h-[400px]" />
+      <div ref={mapRef} className="h-full min-h-[400px] w-full" />
 
       {searchQuery && (
-        <div className="absolute top-2 left-2 md:top-4 md:left-4 bg-linen/90 backdrop-blur-sm px-3 py-1.5 md:px-4 md:py-2 rounded-lg shadow-md z-10">
-          <span className="text-xs md:text-sm font-medium text-neutral-dark">
+        <div className="absolute top-2 left-2 z-10 rounded-lg bg-linen/90 px-3 py-1.5 shadow-md backdrop-blur-sm md:top-4 md:left-4 md:px-4 md:py-2">
+          <span className="text-xs font-medium text-neutral-dark md:text-sm">
             {searchQuery}
           </span>
         </div>
