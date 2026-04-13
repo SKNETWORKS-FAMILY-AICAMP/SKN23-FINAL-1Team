@@ -191,27 +191,30 @@ export function HomeContainer() {
         onSearchChange={setSearchQuery}
       />
 
-      <div className="flex border-b border-border-warm bg-cream lg:hidden">
-        <button
-          onClick={() => setMobileView("map")}
-          className={`flex-1 py-3 text-sm font-medium transition-colors ${
-            mobileView === "map"
-              ? "border-b-2 border-warm-brown text-neutral-dark"
-              : "text-neutral-muted"
-          }`}
-        >
-          지도
-        </button>
-        <button
-          onClick={() => setMobileView("list")}
-          className={`flex-1 py-3 text-sm font-medium transition-colors ${
-            mobileView === "list"
-              ? "border-b-2 border-warm-brown text-neutral-dark"
-              : "text-neutral-muted"
-          }`}
-        >
-          매물목록
-        </button>
+      <div className="border-b border-stone-200/80 bg-white/70 px-4 py-2 backdrop-blur-md lg:hidden">
+        <div className="grid grid-cols-2 rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+          <button
+            onClick={() => setMobileView("map")}
+            className={`rounded-xl px-4 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200 ${
+              mobileView === "map"
+                ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
+                : "text-stone-500 hover:text-stone-800"
+            }`}
+          >
+            지도
+          </button>
+
+          <button
+            onClick={() => setMobileView("list")}
+            className={`rounded-xl px-4 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200 ${
+              mobileView === "list"
+                ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
+                : "text-stone-500 hover:text-stone-800"
+            }`}
+          >
+            매물목록
+          </button>
+        </div>
       </div>
 
       <main className="relative hidden flex-1 overflow-hidden lg:block scroll-none">
