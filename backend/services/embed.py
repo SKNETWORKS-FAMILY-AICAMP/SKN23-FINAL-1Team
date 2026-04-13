@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 # --- [1. 환경 변수 및 날짜 설정] ---
 load_dotenv(override=True)
 
+
 def get_env(key, default=None):
     value = os.getenv(key, default)
     return value.strip() if value else ""
