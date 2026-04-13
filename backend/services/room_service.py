@@ -50,6 +50,7 @@ def get_grid_size_by_level(level: int | None) -> float:
     return 0.001
 
 def apply_room_filters(stmt, req):
+    stmt = stmt.where(Room.status == "ACTIVE")
     if req.search.strip():
         keyword = f"%{req.search.strip()}%"
         stmt = stmt.where(
