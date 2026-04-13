@@ -30,6 +30,19 @@ interface MapBounds {
   centerLng: number;
 }
 
+function isSameBounds(a: MapBounds | null, b: MapBounds | null) {
+  if (!a || !b) return false;
+
+  return (
+    a.swLat === b.swLat &&
+    a.swLng === b.swLng &&
+    a.neLat === b.neLat &&
+    a.neLng === b.neLng &&
+    a.centerLat === b.centerLat &&
+    a.centerLng === b.centerLng
+  );
+}
+
 export function HomeContainer() {
   const [roomType, setRoomType] = useState<"oneroom" | "tworoom">("oneroom");
   const [filters, setFilters] = useState<Filters>(defaultFilters);
@@ -108,6 +121,20 @@ export function HomeContainer() {
 
   const handleVisibleListingsChange = useCallback((nextListings: Listing[]) => {
     setVisibleListings(nextListings);
+  }, []);
+
+  const handleInitialLocationResolved = useCallback(() => {
+    setIsLocationReady((prev) => (prev ? prev : true));
+  }, []);
+
+  const handleBoundsChange = useCallback((nextBounds: MapBounds) => {
+    setMapBounds((prev) => {
+      if (isSameBounds(prev, nextBounds)) {
+        return prev;
+      }
+
+      return nextBounds;
+    });
   }, []);
 
   useEffect(() => {
@@ -249,19 +276,28 @@ export function HomeContainer() {
     roomType,
   ]);
 
+  const prevBoundsRef = useRef<MapBounds | null>(null);
+
   useEffect(() => {
     if (!mapBounds) return;
+
+    const prevBounds = prevBoundsRef.current;
+    prevBoundsRef.current = mapBounds;
+
+    if (!prevBounds) return;
+    if (isSameBounds(prevBounds, mapBounds)) return;
+
     setOffset(0);
     setHasMore(true);
     setListings([]);
     setIsInitialLoading(true);
     setHasRequestFailed(false);
-  }, [mapBounds?.swLat, mapBounds?.swLng, mapBounds?.neLat, mapBounds?.neLng]);
+  }, [mapBounds]);
 
-  const loadMore = () => {
+  const loadMore = useCallback(() => {
     if (isLoading || !hasMore || recommendedListings) return;
     setOffset((prev) => prev + PAGE_SIZE);
-  };
+  }, [hasMore, isLoading, recommendedListings]);
 
   return (
     <div className="flex h-screen flex-col bg-ivory">
@@ -308,10 +344,8 @@ export function HomeContainer() {
             selectedListing={selectedListing}
             onMarkerClick={setSelectedListing}
             onVisibleListingsChange={handleVisibleListingsChange}
-            onInitialLocationResolved={() => {
-              setIsLocationReady(true);
-            }}
-            onBoundsChange={setMapBounds}
+            onInitialLocationResolved={handleInitialLocationResolved}
+            onBoundsChange={handleBoundsChange}
           />
         </section>
 
@@ -373,10 +407,8 @@ export function HomeContainer() {
                 setMobileView("list");
               }}
               onVisibleListingsChange={handleVisibleListingsChange}
-              onInitialLocationResolved={() => {
-                setIsLocationReady(true);
-              }}
-              onBoundsChange={setMapBounds}
+              onInitialLocationResolved={handleInitialLocationResolved}
+              onBoundsChange={handleBoundsChange}
             />
           </section>
         ) : (

@@ -48,6 +48,17 @@ const DEFAULT_CENTER = {
   lng: 126.978,
 };
 
+function boundsToKey(bounds: MapBounds) {
+  return [
+    bounds.swLat,
+    bounds.swLng,
+    bounds.neLat,
+    bounds.neLng,
+    bounds.centerLat,
+    bounds.centerLng,
+  ].join(",");
+}
+
 export function MapView({
   searchQuery,
   listings,
@@ -65,6 +76,7 @@ export function MapView({
   const visibleListingIdsRef = useRef<string>("");
   const lastAppliedSearchRef = useRef<string>("");
   const hasMovedToCurrentLocationRef = useRef(false);
+  const lastBoundsKeyRef = useRef<string>("");
 
   const [isMapReady, setIsMapReady] = useState(false);
 
@@ -84,14 +96,21 @@ export function MapView({
     const ne = bounds.getNorthEast();
     const center = map.getCenter();
 
-    onBoundsChange?.({
+    const nextBounds: MapBounds = {
       swLat: sw.getLat(),
       swLng: sw.getLng(),
       neLat: ne.getLat(),
       neLng: ne.getLng(),
       centerLat: center.getLat(),
       centerLng: center.getLng(),
-    });
+    };
+
+    const nextKey = boundsToKey(nextBounds);
+
+    if (lastBoundsKeyRef.current === nextKey) return;
+    lastBoundsKeyRef.current = nextKey;
+
+    onBoundsChange?.(nextBounds);
   };
 
   const updateVisibleListings = (map: any, kakao: any) => {
@@ -263,9 +282,10 @@ export function MapView({
 
   useEffect(() => {
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let isCancelled = false;
 
     const initializeMap = () => {
-      if (!mapRef.current) return;
+      if (!mapRef.current || isCancelled) return;
 
       if (!window.kakao || !window.kakao.maps) {
         retryTimer = setTimeout(initializeMap, 200);
@@ -273,6 +293,8 @@ export function MapView({
       }
 
       window.kakao.maps.load(async () => {
+        if (isCancelled) return;
+
         const kakao = window.kakao;
 
         if (!mapInstanceRef.current) {
@@ -294,21 +316,23 @@ export function MapView({
 
         if (!hasMovedToCurrentLocationRef.current) {
           const coords = await moveToCurrentLocation(map, kakao);
+          if (isCancelled) return;
+
           hasMovedToCurrentLocationRef.current = true;
           onInitialLocationResolved?.(coords);
-          emitBounds(map);
-        } else {
-          emitBounds(map);
         }
+
+        emitBounds(map);
       });
     };
 
     initializeMap();
 
     return () => {
+      isCancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [onInitialLocationResolved, onBoundsChange]);
+  }, []);
 
   useEffect(() => {
     if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
