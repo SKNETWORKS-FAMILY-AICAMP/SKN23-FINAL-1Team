@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from db.database import get_db
+from db.session import get_db
 from schemas.room_schema import RoomListRequest
 from services.room_service import get_rooms, get_map_items
 
