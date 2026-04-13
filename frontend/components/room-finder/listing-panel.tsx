@@ -91,15 +91,19 @@ export function ListingPanel({
 
       <div className="min-h-0 flex-1">
         {activeTab === "list" ? (
-          <div className="h-full overflow-y-auto p-4">
+          <div className="h-full overflow-y-auto p-4 ">
             <div className="space-y-3">
               {listings.map((listing) => (
-                <ListingCard
+                <div
                   key={listing.id}
-                  listing={listing}
-                  isSelected={selectedListing?.id === listing.id}
-                  onClick={onListingClick}
-                />
+                  className="cursor-pointer scale-100 transition-transform hover:scale-[1.02]"
+                >
+                  <ListingCard
+                    listing={listing}
+                    isSelected={selectedListing?.id === listing.id}
+                    onClick={onListingClick}
+                  />
+                </div>
               ))}
             </div>
 

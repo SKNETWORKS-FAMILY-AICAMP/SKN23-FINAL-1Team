@@ -6,6 +6,7 @@ interface MapViewProps {
   searchQuery: string;
   listings: Listing[];
   onMarkerClick?: (listing: Listing) => void;
+  onVisibleListingsChange?: (listings: Listing[]) => void;
 }
 
 export interface Listing {
@@ -39,12 +40,14 @@ export function MapView({
   searchQuery,
   listings,
   onMarkerClick,
+  onVisibleListingsChange,
 }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const infoWindowsRef = useRef<any[]>([]);
   const currentLocationMarkerRef = useRef<any>(null);
+  const visibleListingIdsRef = useRef<string>("");
 
   const [isMapReady, setIsMapReady] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
@@ -57,10 +60,39 @@ export function MapView({
     infoWindowsRef.current = [];
   };
 
+  const updateVisibleListings = (map: any, kakao: any) => {
+    if (!map) return;
+
+    const bounds = map.getBounds();
+
+    const visible = listings.filter((listing) => {
+      const lat = Number(listing.lat);
+      const lng = Number(listing.lng);
+
+      if (Number.isNaN(lat) || Number.isNaN(lng)) return false;
+
+      const position = new kakao.maps.LatLng(lat, lng);
+      return bounds.contain(position);
+    });
+
+    const nextIds = visible.map((listing) => listing.id).join(",");
+
+    if (visibleListingIdsRef.current === nextIds) return;
+
+    visibleListingIdsRef.current = nextIds;
+    onVisibleListingsChange?.(visible);
+  };
+
   const createListingMarkers = (map: any, kakao: any) => {
     clearMarkers();
 
-    if (!listings.length) return;
+    if (!listings.length) {
+      if (visibleListingIdsRef.current !== "") {
+        visibleListingIdsRef.current = "";
+        onVisibleListingsChange?.([]);
+      }
+      return;
+    }
 
     const bounds = new kakao.maps.LatLngBounds();
 
@@ -174,6 +206,10 @@ export function MapView({
   };
 
   useEffect(() => {
+    visibleListingIdsRef.current = "";
+  }, [listings]);
+
+  useEffect(() => {
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const initializeMap = () => {
@@ -209,9 +245,7 @@ export function MapView({
           setHasInitialized(true);
         }
 
-        if (listings.length > 0) {
-          createListingMarkers(map, kakao);
-        }
+        createListingMarkers(map, kakao);
       });
     };
 
@@ -220,7 +254,25 @@ export function MapView({
     return () => {
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [hasInitialized, listings, onMarkerClick]);
+  }, [hasInitialized, listings, onMarkerClick, onVisibleListingsChange]);
+
+  useEffect(() => {
+    if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
+
+    const map = mapInstanceRef.current;
+    const kakao = window.kakao;
+
+    const handleIdle = () => {
+      updateVisibleListings(map, kakao);
+    };
+
+    kakao.maps.event.addListener(map, "idle", handleIdle);
+    handleIdle();
+
+    return () => {
+      kakao.maps.event.removeListener(map, "idle", handleIdle);
+    };
+  }, [isMapReady, listings, onVisibleListingsChange]);
 
   useEffect(() => {
     if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
@@ -251,18 +303,18 @@ export function MapView({
   }, []);
 
   return (
-    <div className="relative w-full h-full min-h-[400px]">
+    <div className="relative h-full min-h-[400px] w-full">
       {!isMapReady && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-100">
           <div className="text-sm text-gray-500">지도 로딩 중...</div>
         </div>
       )}
 
-      <div ref={mapRef} className="w-full h-full min-h-[400px]" />
+      <div ref={mapRef} className="h-full min-h-[400px] w-full" />
 
       {searchQuery && (
-        <div className="absolute top-2 left-2 md:top-4 md:left-4 bg-linen/90 backdrop-blur-sm px-3 py-1.5 md:px-4 md:py-2 rounded-lg shadow-md z-10">
-          <span className="text-xs md:text-sm font-medium text-neutral-dark">
+        <div className="absolute top-2 left-2 z-10 rounded-lg bg-linen/90 px-3 py-1.5 shadow-md backdrop-blur-sm md:top-4 md:left-4 md:px-4 md:py-2">
+          <span className="text-xs font-medium text-neutral-dark md:text-sm">
             {searchQuery}
           </span>
         </div>
