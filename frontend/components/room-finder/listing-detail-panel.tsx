@@ -96,6 +96,7 @@ export function ListingDetailPanel({
   const [detail, setDetail] = useState<ListingDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [areaUnit, setAreaUnit] = useState<"m2" | "pyeong">("m2");
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
     if (!listing?.id || !isOpen) return;
@@ -137,7 +138,9 @@ export function ListingDetailPanel({
 
     return [];
   }, [detail?.images, listing?.images]);
-
+  useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [imageUrls.length, listing?.id]);
   const currentItem = detail?.item;
   const features = detail?.features;
 
@@ -164,19 +167,12 @@ export function ListingDetailPanel({
         isOpen
           ? "translate-x-0 opacity-100"
           : "pointer-events-none translate-x-full opacity-0"
-      }`}
+      } `}
     >
       <div className="flex h-full flex-col">
         <div className="border-b border-stone-200/80 bg-white/70 px-6 py-5 backdrop-blur-md">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-[22px] font-bold tracking-tight text-stone-900">
-                매물 상세정보
-              </p>
-              <p className="mt-1 text-xs leading-5 text-stone-500">
-                선택한 매물의 세부 내용을 확인할 수 있습니다.
-              </p>
-            </div>
+            <div></div>
 
             <button
               type="button"
@@ -189,23 +185,42 @@ export function ListingDetailPanel({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-hide cursor-default">
           <div className="border-b border-stone-200 bg-stone-100">
             {imageUrls.length > 0 ? (
-              <Carousel opts={{ loop: true }} className="relative w-full">
+              <Carousel
+                opts={{ loop: true }}
+                className="relative w-full"
+                setApi={(api) => {
+                  if (!api) return;
+
+                  setCurrentImageIndex(api.selectedScrollSnap());
+
+                  api.on("select", () => {
+                    setCurrentImageIndex(api.selectedScrollSnap());
+                  });
+                }}
+              >
                 <CarouselContent className="ml-0">
                   {imageUrls.map((url, index) => (
                     <CarouselItem key={`${url}-${index}`} className="pl-0">
-                      <div className="relative aspect-[4/3] w-full overflow-hidden">
+                      <div className="relative aspect-[4/3] min-w-fit overflow-hidden">
                         <Image
                           src={url}
                           alt={`${
                             currentItem?.title ?? listing.title ?? "매물 이미지"
                           } ${index + 1}`}
                           fill
-                          className="object-cover transition-transform duration-700 hover:scale-105"
+                          sizes="(min-width: 1280px) 440px, 380px"
+                          className="object-cover transition-transform duration-700"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
+
+                        {imageUrls.length > 1 && (
+                          <div className="absolute bottom-4 right-4 z-10 rounded-full bg-black/55 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                            {currentImageIndex + 1} / {imageUrls.length}
+                          </div>
+                        )}
                       </div>
                     </CarouselItem>
                   ))}
@@ -246,10 +261,6 @@ export function ListingDetailPanel({
                 </div>
 
                 <div className="mt-5 overflow-hidden rounded-[24px] border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_24px_rgba(245,158,11,0.08)]">
-                  <div className="flex items-center gap-2 text-sm font-medium text-stone-500">
-                    <CreditCard className="h-4 w-4" />
-                    <span>가격 정보</span>
-                  </div>
                   <p className="mt-2 text-[30px] font-extrabold tracking-tight text-stone-900">
                     {formatPrice(currentItem?.deposit, currentItem?.rent)}
                   </p>
@@ -333,7 +344,7 @@ export function ListingDetailPanel({
                           <button
                             type="button"
                             onClick={() => setAreaUnit("m2")}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer scale-110 ${
                               areaUnit === "m2"
                                 ? "bg-stone-900 text-white shadow-sm"
                                 : "bg-transparent text-stone-600 hover:bg-white"
@@ -344,7 +355,7 @@ export function ListingDetailPanel({
                           <button
                             type="button"
                             onClick={() => setAreaUnit("pyeong")}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer scale-110 ${
                               areaUnit === "pyeong"
                                 ? "bg-stone-900 text-white shadow-sm"
                                 : "bg-transparent text-stone-600 hover:bg-white"
