@@ -29,11 +29,13 @@ export function ListingPanel({
   onSimilarListingsFound,
 }: ListingPanelProps) {
   const observerRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState<PanelTab>("list");
 
   useEffect(() => {
     if (activeTab !== "list") return;
-    if (!observerRef.current || !onLoadMore || !hasMore) return;
+    if (!observerRef.current || !scrollContainerRef.current) return;
+    if (!onLoadMore || !hasMore) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -43,7 +45,7 @@ export function ListingPanel({
         }
       },
       {
-        root: null,
+        root: scrollContainerRef.current,
         rootMargin: "200px",
         threshold: 0,
       },
@@ -102,7 +104,10 @@ export function ListingPanel({
 
       <div className="min-h-0 flex-1">
         {activeTab === "list" ? (
-          <div className="h-full overflow-y-auto px-4 py-4">
+          <div
+            ref={scrollContainerRef}
+            className="h-full overflow-y-auto px-4 py-4"
+          >
             <div className="space-y-4">
               {listings.map((listing) => (
                 <div
