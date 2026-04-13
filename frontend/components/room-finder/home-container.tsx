@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "@/components/room-finder/header";
 import { FilterBar, type Filters } from "@/components/room-finder/filter-bar";
 import { MapView, type Listing } from "@/components/room-finder/map-view";
@@ -31,6 +31,7 @@ export function HomeContainer() {
   const [isPanelOpen, setIsPanelOpen] = useState(true);
 
   const [listings, setListings] = useState<Listing[]>([]);
+  const [visibleListings, setVisibleListings] = useState<Listing[]>([]);
   const [recommendedListings, setRecommendedListings] = useState<
     Listing[] | null
   >(null);
@@ -41,6 +42,8 @@ export function HomeContainer() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasRequestFailed, setHasRequestFailed] = useState(false);
 
+  const mapListings = recommendedListings ?? listings;
+  const panelListings = recommendedListings ? mapListings : visibleListings;
   const displayListings = recommendedListings ?? listings;
 
   const requestKey = useMemo(() => {
@@ -82,6 +85,7 @@ export function HomeContainer() {
 
     prevRequestKeyRef.current = requestKey;
     setListings([]);
+    setVisibleListings([]);
     setRecommendedListings(null);
     setSelectedListing(null);
     setOffset(0);
@@ -154,6 +158,23 @@ export function HomeContainer() {
     hasRequestFailed,
   ]);
 
+  const handleVisibleListingsChange = useCallback((nextListings: Listing[]) => {
+    setVisibleListings(nextListings);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedListing) return;
+
+    const sourceListings = recommendedListings ?? visibleListings;
+    const stillVisible = sourceListings.some(
+      (listing) => listing.id === selectedListing.id,
+    );
+
+    if (!stillVisible) {
+      setSelectedListing(null);
+    }
+  }, [visibleListings, recommendedListings, selectedListing]);
+
   const loadMore = () => {
     if (isLoading || !hasMore || recommendedListings) return;
     setOffset((prev) => prev + PAGE_SIZE);
@@ -162,6 +183,7 @@ export function HomeContainer() {
   return (
     <div className="flex h-screen flex-col bg-ivory">
       <Header roomType={roomType} onRoomTypeChange={setRoomType} />
+
       <FilterBar
         filters={filters}
         onFiltersChange={setFilters}
@@ -192,12 +214,13 @@ export function HomeContainer() {
         </button>
       </div>
 
-      <main className="relative hidden flex-1 overflow-hidden lg:block">
+      <main className="relative hidden flex-1 overflow-hidden lg:block scroll-none">
         <section className="absolute inset-0 z-0">
           <MapView
             searchQuery={debouncedSearchQuery}
-            listings={displayListings}
+            listings={mapListings}
             onMarkerClick={setSelectedListing}
+            onVisibleListingsChange={handleVisibleListingsChange}
           />
         </section>
 
@@ -232,7 +255,7 @@ export function HomeContainer() {
             }`}
           >
             <ListingPanel
-              listings={displayListings}
+              listings={panelListings}
               selectedListing={selectedListing}
               isLoading={isLoading}
               hasMore={recommendedListings ? false : hasMore}
@@ -252,17 +275,18 @@ export function HomeContainer() {
           <section className="relative flex-1">
             <MapView
               searchQuery={debouncedSearchQuery}
-              listings={displayListings}
+              listings={mapListings}
               onMarkerClick={(listing) => {
                 setSelectedListing(listing);
                 setMobileView("list");
               }}
+              onVisibleListingsChange={handleVisibleListingsChange}
             />
           </section>
         ) : (
           <aside className="flex-1">
             <ListingPanel
-              listings={displayListings}
+              listings={panelListings}
               selectedListing={selectedListing}
               isLoading={isLoading}
               hasMore={recommendedListings ? false : hasMore}
