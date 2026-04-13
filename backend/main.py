@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from routers.router import router
 from routers.auth import router as auth_router
 from routers.rooms import router as rooms_router
+from routers.room_detail import router as room_detail_router
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -22,3 +23,4 @@ app.add_middleware(
 app.include_router(router)
 app.include_router(auth_router)
 app.include_router(rooms_router)
+app.include_router(room_detail_router)
