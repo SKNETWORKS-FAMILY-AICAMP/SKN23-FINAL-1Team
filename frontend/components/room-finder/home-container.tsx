@@ -5,7 +5,7 @@ import { Header } from "@/components/room-finder/header";
 import { FilterBar, type Filters } from "@/components/room-finder/filter-bar";
 import { MapView, type Listing } from "@/components/room-finder/map-view";
 import { ListingPanel } from "@/components/room-finder/listing-panel";
-import { fetchItems } from "@/app/api/rooms/route";
+import { fetchItems, fetchMapItems } from "@/app/api/rooms/route";
 import { mapItemToListing } from "@/utils/roomMappers";
 import { ListingDetailPanel } from "@/components/room-finder/listing-detail-panel";
 
@@ -21,6 +21,15 @@ const defaultFilters: Filters = {
   options: [],
 };
 
+interface MapBounds {
+  swLat: number;
+  swLng: number;
+  neLat: number;
+  neLng: number;
+  centerLat: number;
+  centerLng: number;
+}
+
 export function HomeContainer() {
   const [roomType, setRoomType] = useState<"oneroom" | "tworoom">("oneroom");
   const [filters, setFilters] = useState<Filters>(defaultFilters);
@@ -31,6 +40,7 @@ export function HomeContainer() {
   const [isPanelOpen, setIsPanelOpen] = useState(true);
 
   const [listings, setListings] = useState<Listing[]>([]);
+  const [mapListingsBase, setMapListingsBase] = useState<Listing[]>([]);
   const [visibleListings, setVisibleListings] = useState<Listing[]>([]);
   const [recommendedListings, setRecommendedListings] = useState<
     Listing[] | null
@@ -41,10 +51,11 @@ export function HomeContainer() {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasRequestFailed, setHasRequestFailed] = useState(false);
+  const [isLocationReady, setIsLocationReady] = useState(false);
+  const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
 
-  const mapListings = recommendedListings ?? listings;
-  const panelListings = recommendedListings ? mapListings : visibleListings;
-  const displayListings = recommendedListings ?? listings;
+  const mapListings = recommendedListings ?? mapListingsBase;
+  const panelListings = recommendedListings ?? listings;
 
   const requestKey = useMemo(() => {
     return JSON.stringify({
@@ -85,6 +96,7 @@ export function HomeContainer() {
 
     prevRequestKeyRef.current = requestKey;
     setListings([]);
+    setMapListingsBase([]);
     setVisibleListings([]);
     setRecommendedListings(null);
     setSelectedListing(null);
@@ -94,10 +106,28 @@ export function HomeContainer() {
     setIsInitialLoading(true);
   }, [requestKey]);
 
+  const handleVisibleListingsChange = useCallback((nextListings: Listing[]) => {
+    setVisibleListings(nextListings);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedListing) return;
+
+    const sourceListings = recommendedListings ?? mapListingsBase;
+    const stillVisible = sourceListings.some(
+      (listing) => listing.id === selectedListing.id,
+    );
+
+    if (!stillVisible) {
+      setSelectedListing(null);
+    }
+  }, [mapListingsBase, recommendedListings, selectedListing]);
+
   useEffect(() => {
     const controller = new AbortController();
 
-    const loadItems = async () => {
+    const loadPagedItems = async () => {
+      if (!isLocationReady || !mapBounds) return;
       if (!hasMore || hasRequestFailed) return;
 
       setIsLoading(true);
@@ -115,6 +145,12 @@ export function HomeContainer() {
           size: filters.size,
           sizeUnit: filters.sizeUnit,
           options: filters.options,
+          lat: mapBounds.centerLat,
+          lng: mapBounds.centerLng,
+          swLat: mapBounds.swLat,
+          swLng: mapBounds.swLng,
+          neLat: mapBounds.neLat,
+          neLng: mapBounds.neLng,
           signal: controller.signal,
         });
 
@@ -137,12 +173,14 @@ export function HomeContainer() {
       }
     };
 
-    loadItems();
+    loadPagedItems();
 
     return () => {
       controller.abort();
     };
   }, [
+    isLocationReady,
+    mapBounds,
     offset,
     requestKey,
     debouncedSearchQuery,
@@ -158,22 +196,67 @@ export function HomeContainer() {
     hasRequestFailed,
   ]);
 
-  const handleVisibleListingsChange = useCallback((nextListings: Listing[]) => {
-    setVisibleListings(nextListings);
-  }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadMapItems = async () => {
+      if (!isLocationReady || !mapBounds) return;
+
+      try {
+        const data = await fetchMapItems({
+          search: debouncedSearchQuery,
+          transactionType: filters.transactionType,
+          roomType: roomType === "oneroom" ? "원룸" : "투룸",
+          structure: filters.structure,
+          deposit: filters.deposit,
+          monthlyRent: filters.monthlyRent,
+          size: filters.size,
+          sizeUnit: filters.sizeUnit,
+          options: filters.options,
+          lat: mapBounds.centerLat,
+          lng: mapBounds.centerLng,
+          swLat: mapBounds.swLat,
+          swLng: mapBounds.swLng,
+          neLat: mapBounds.neLat,
+          neLng: mapBounds.neLng,
+          signal: controller.signal,
+        });
+
+        setMapListingsBase(data.items.map(mapItemToListing));
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error(error);
+      }
+    };
+
+    loadMapItems();
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    isLocationReady,
+    mapBounds,
+    requestKey,
+    debouncedSearchQuery,
+    filters.transactionType,
+    filters.deposit,
+    filters.monthlyRent,
+    filters.structure,
+    filters.size,
+    filters.sizeUnit,
+    filters.options,
+    roomType,
+  ]);
 
   useEffect(() => {
-    if (!selectedListing) return;
-
-    const sourceListings = recommendedListings ?? visibleListings;
-    const stillVisible = sourceListings.some(
-      (listing) => listing.id === selectedListing.id,
-    );
-
-    if (!stillVisible) {
-      setSelectedListing(null);
-    }
-  }, [visibleListings, recommendedListings, selectedListing]);
+    if (!mapBounds) return;
+    setOffset(0);
+    setHasMore(true);
+    setListings([]);
+    setIsInitialLoading(true);
+    setHasRequestFailed(false);
+  }, [mapBounds?.swLat, mapBounds?.swLng, mapBounds?.neLat, mapBounds?.neLng]);
 
   const loadMore = () => {
     if (isLoading || !hasMore || recommendedListings) return;
@@ -222,8 +305,13 @@ export function HomeContainer() {
           <MapView
             searchQuery={debouncedSearchQuery}
             listings={mapListings}
+            selectedListing={selectedListing}
             onMarkerClick={setSelectedListing}
             onVisibleListingsChange={handleVisibleListingsChange}
+            onInitialLocationResolved={() => {
+              setIsLocationReady(true);
+            }}
+            onBoundsChange={setMapBounds}
           />
         </section>
 
@@ -279,11 +367,16 @@ export function HomeContainer() {
             <MapView
               searchQuery={debouncedSearchQuery}
               listings={mapListings}
+              selectedListing={selectedListing}
               onMarkerClick={(listing) => {
                 setSelectedListing(listing);
                 setMobileView("list");
               }}
               onVisibleListingsChange={handleVisibleListingsChange}
+              onInitialLocationResolved={() => {
+                setIsLocationReady(true);
+              }}
+              onBoundsChange={setMapBounds}
             />
           </section>
         ) : (
@@ -304,10 +397,10 @@ export function HomeContainer() {
         )}
       </main>
 
-      {isInitialLoading && (
+      {(!isLocationReady || isInitialLoading) && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/10">
           <div className="rounded-lg bg-white px-4 py-3 shadow-md">
-            매물 불러오는 중...
+            현재 위치 기준 매물 불러오는 중...
           </div>
         </div>
       )}
