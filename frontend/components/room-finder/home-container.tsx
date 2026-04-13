@@ -44,6 +44,7 @@ export function HomeContainer() {
 
   const mapListings = recommendedListings ?? listings;
   const panelListings = recommendedListings ? mapListings : visibleListings;
+  const displayListings = recommendedListings ?? listings;
 
   const requestKey = useMemo(() => {
     return JSON.stringify({

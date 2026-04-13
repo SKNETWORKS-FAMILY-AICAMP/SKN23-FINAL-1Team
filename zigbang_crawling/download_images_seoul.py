@@ -119,7 +119,7 @@ def main(csv_path: Optional[str] = None):
     success, skip, fail = 0, 0, 0
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         future_to_task = {executor.submit(download_and_upload_to_s3, task): task for task in final_tasks}
-        with tqdm(total=len(final_tasks), desc="S3 업로드 중", unit="img", miniters=200) as pbar:
+        with tqdm(total=len(final_tasks), desc="S3 업로드 중", unit="img", miniters=200, mininterval=999999, maxinterval=999999) as pbar:
             for future in as_completed(future_to_task):
                 result = future.result()
                 if result == "success": success += 1

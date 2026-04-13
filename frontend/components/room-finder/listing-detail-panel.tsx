@@ -167,7 +167,7 @@ export function ListingDetailPanel({
         isOpen
           ? "translate-x-0 opacity-100"
           : "pointer-events-none translate-x-full opacity-0"
-      } `}
+      }`}
     >
       <div className="flex h-full flex-col">
         <div className="border-b border-stone-200/80 bg-white/70 px-6 py-5 backdrop-blur-md">

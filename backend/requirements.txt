@@ -45,4 +45,7 @@ python-multipart
 passlib[bcrypt]
 python-jose[cryptography]
 tqdm
-
+pillow
+torch
+open_clip_torch
+transformers
