@@ -272,6 +272,7 @@ export function MapView({
       });
 
       map.setBounds(bounds);
+      emitBounds(map);
     });
   };
 
@@ -360,7 +361,7 @@ export function MapView({
     return () => {
       kakao.maps.event.removeListener(map, "idle", handleIdle);
     };
-  }, [isMapReady, listings, onVisibleListingsChange]);
+  }, [isMapReady, listings, onVisibleListingsChange, onBoundsChange]);
 
   useEffect(() => {
     if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
@@ -411,7 +412,7 @@ export function MapView({
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, []);
+  }, [onBoundsChange]);
 
   return (
     <div className="relative h-full min-h-[400px] w-full">
