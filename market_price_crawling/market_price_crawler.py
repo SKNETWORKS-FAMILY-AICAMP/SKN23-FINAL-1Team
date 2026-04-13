@@ -45,6 +45,8 @@ def get_total_data(district_name, deal_ymd, DATA_GO_KR_API_KEY, num_rows, api_pa
             break
         
         for item in data["response"]["body"]["items"]["item"]:
+            if type(item) != dict:
+                continue
             row = []
             for column in item_columns:
                 if column == "deposit":
@@ -57,14 +59,6 @@ def get_total_data(district_name, deal_ymd, DATA_GO_KR_API_KEY, num_rows, api_pa
                 else:
                     row.append(item.get(column, ""))
             else:
-                if row[5] == -1:
-                    row.append(True)
-                else:
-                    row.append(False)
-                if row[6] != 0:
-                    row.append(True)
-                else:
-                    row.append(False)
                 count += 1
                 rows.append(row)
         
@@ -80,7 +74,7 @@ def get_total_data(district_name, deal_ymd, DATA_GO_KR_API_KEY, num_rows, api_pa
     with open(file_path, "a", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f)
         if not file_exists:
-            writer.writerow(item_columns + ["semi_basement", "wolse"])
+            writer.writerow(item_columns)
         writer.writerows(rows)
     
     print(f"{district_name}의 {deal_ymd} 시기의 {type_name} 유형 데이터 {count}개 수집 성공")
@@ -117,8 +111,10 @@ api_configs = [
 ]
 
 if __name__ == "__main__":
+    years = 5
+    print(f"최근 {years}개년의 데이터 수집 시작,,,")
     os.makedirs("data", exist_ok=True)
-    deal_ymds = make_deal_ymds(5)
+    deal_ymds = make_deal_ymds(years)
     for district_name in district.keys():
         for deal_ymd in deal_ymds:
             for type_name, api_path in api_configs:
