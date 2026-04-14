@@ -15,6 +15,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
+import { isValidImageSrc } from "../common/ListingCards";
 
 interface ListingDetailPanelProps {
   listing: Listing | null;
@@ -128,15 +129,13 @@ export function ListingDetailPanel({
   }, [listing?.id, isOpen]);
 
   const imageUrls = useMemo(() => {
-    if (detail?.images?.length) {
-      return detail.images.map((image) => image.url);
-    }
+    const rawUrls = detail?.images?.length
+      ? detail.images.map((image) => image.url)
+      : listing?.images
+        ? [listing.images[0]]
+        : [];
 
-    if (listing?.images) {
-      return [listing.images[0]];
-    }
-
-    return [];
+    return rawUrls.filter((url): url is string => isValidImageSrc(url));
   }, [detail?.images, listing?.images]);
   useEffect(() => {
     setCurrentImageIndex(0);

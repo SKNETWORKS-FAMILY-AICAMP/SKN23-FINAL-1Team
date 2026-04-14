@@ -10,6 +10,28 @@ from schemas.room_detail_schema import (
     RoomImageResponse,
 )
 
+
+def is_valid_image_value(value) -> bool:
+    if value is None:
+        return False
+
+    if not isinstance(value, str):
+        return False
+
+    normalized = value.strip()
+    lowered = normalized.lower()
+
+    if lowered in {"", "nan", "none", "null"}:
+        return False
+
+    return (
+        normalized.startswith("s3://")
+        or normalized.startswith("http://")
+        or normalized.startswith("https://")
+        or normalized.startswith("/")
+    )
+
+
 def s3_to_https_url(s3_uri: str) -> str:
     if not s3_uri:
         return s3_uri
@@ -20,6 +42,12 @@ def s3_to_https_url(s3_uri: str) -> str:
     without_scheme = s3_uri.replace("s3://", "", 1)
     bucket, key = without_scheme.split("/", 1)
     return f"https://{bucket}.s3.ap-northeast-2.amazonaws.com/{key}"
+
+
+def to_public_image_url(value: str) -> str:
+    if value.startswith("s3://"):
+        return create_presigned_get_url(value, expires_in=3600)
+    return value
 
 
 def get_room_detail(db, item_id: int):
@@ -86,12 +114,8 @@ def get_room_detail(db, item_id: int):
             amenities_raw=room.features.amenities_raw,
         )
 
-    image_payload = [
-        RoomImageResponse(
-            id=image.id,
-            url=create_presigned_get_url(image.s3_url, expires_in=3600),
-            is_main=image.is_main,
-        )
+    valid_images = [
+        image
         for image in sorted(
             room.images,
             key=lambda img: (
@@ -99,6 +123,16 @@ def get_room_detail(db, item_id: int):
                 img.id,
             ),
         )
+        if is_valid_image_value(image.s3_url)
+    ]
+
+    image_payload = [
+        RoomImageResponse(
+            id=image.id,
+            url=to_public_image_url(image.s3_url),
+            is_main=image.is_main,
+        )
+        for image in valid_images
     ]
 
     return RoomDetailResponse(
