@@ -10,6 +10,7 @@ from urllib.parse import unquote
 from dotenv import load_dotenv
 from psycopg2.extras import execute_values
 from concurrent.futures import ThreadPoolExecutor
+import numpy as np
 
 load_dotenv()
 
@@ -18,7 +19,7 @@ TARGET_MODEL = "openai/clip-vit-base-patch32"
 MAX_THREADS = 5
 API_BATCH_SIZE = 100 
 DB_FETCH_SIZE = 1000
-WEBHOOK_URL = "https://discord.com/api/webhooks/1493441055146643557/szeiOmw9uP1d2SBMJAfg6oBiCxb9Pu4_Ec_dDKIkr8MlB4e1Dem9XC3l-62st82yWreY"
+WEBHOOK_URL = os.getenv("WEBHOOK_URL_SERVERLESS")
 
 # [2. 전역 변수]
 total_success = 0
@@ -34,15 +35,31 @@ s3_client = boto3.client('s3',
 )
 
 def get_actual_vector(data):
-    """Infinity 응답 구조에서 벡터 추출"""
+    """Infinity 응답 구조에서 벡터 추출 후 L2 정규화 수행"""
+    vector = None
+    
+    # 1. 재귀적으로 실제 숫자 리스트(벡터) 찾기
     if isinstance(data, list) and len(data) > 0:
-        if isinstance(data[0], (int, float)): return data
-        return get_actual_vector(data[0])
-    if isinstance(data, dict):
+        if isinstance(data[0], (int, float)): 
+            vector = data
+        else:
+            vector = get_actual_vector(data[0])
+    elif isinstance(data, dict):
         for key in ['embedding', 'data', 'values']:
             if key in data:
                 res = get_actual_vector(data[key])
-                if res: return res
+                if res: 
+                    vector = res
+                    break
+    
+    # 2. [정규화 로직] 벡터를 찾았으면 길이를 1로 만듦
+    if vector is not None:
+        arr = np.array(vector, dtype=np.float32)
+        norm = np.linalg.norm(arr)
+        if norm > 1e-9:  # 0으로 나누기 방지
+            arr = arr / norm
+        return arr.tolist() # DB 저장을 위해 다시 리스트로 변환
+        
     return None
 
 def prepare_image(task):
@@ -86,26 +103,27 @@ def run_batch_pipeline(db_params):
     global total_success, skipped_ids
     
     conn = psycopg2.connect(**db_params)
-    with conn.cursor() as cur:
-        # 실패한 ID들을 제외하고 서울 지역 누락 데이터 조회
-        query = f"""
-            SELECT img.id, img.s3_url FROM item_images img 
-            LEFT JOIN item_image_embeddings emb ON img.id = emb.image_id 
-            WHERE emb.image_id IS NULL AND img.s3_url LIKE '%%/seoul/%%'
-        """
-        
-        params = []
-        
-        if skipped_ids:
-            id_list = list(skipped_ids)
-            placeholders = ', '.join(['%s'] * len(id_list))
-            query += f" AND img.id NOT IN ({placeholders})"
-            params.extend(id_list)
-        
-        query += f" LIMIT {DB_FETCH_SIZE};"
-        
-        cur.execute(query, params)
-        tasks = cur.fetchall()
+    try:
+        with conn.cursor() as cur:
+            # 실패한 ID들을 제외하고 서울 지역 누락 데이터 조회
+            query = f"""
+                SELECT img.id, img.s3_url FROM item_images img 
+                LEFT JOIN item_image_embeddings emb ON img.id = emb.image_id 
+                WHERE emb.image_id IS NULL AND img.s3_url LIKE '%%/seoul/%%'
+            """
+            
+            params = []
+            
+            if skipped_ids:
+                id_list = list(skipped_ids)
+                placeholders = ', '.join(['%s'] * len(id_list))
+                query += f" AND img.id NOT IN ({placeholders})"
+                params.extend(id_list)
+            
+            query += f" LIMIT {DB_FETCH_SIZE};"
+            
+            cur.execute(query, params)
+            tasks = cur.fetchall()
     finally:
         conn.close()
         

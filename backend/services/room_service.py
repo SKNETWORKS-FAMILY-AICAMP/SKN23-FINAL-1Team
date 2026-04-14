@@ -63,6 +63,8 @@ def format_size(area_m2) -> str:
 def get_grid_size_by_level(level: int | None) -> float:
     safe_level = int(level or 4)
 
+    # level 숫자가 작을수록 확대, 클수록 축소
+    # 따라서 축소될수록 grid는 더 커져야 함
     if safe_level == 2:
         return 0.002
     if safe_level == 3:
@@ -172,6 +174,7 @@ def get_map_items(db, req):
     level = int(req.level or 4)
     print(f"[get_map_items] level={level}")
 
+    # level 2 이상이면 무조건 클러스터
     if level >= 2:
         grid_size = get_grid_size_by_level(level)
 
@@ -214,6 +217,7 @@ def get_map_items(db, req):
             "items": items,
         }
 
+    # level 1일 때만 개별 마커
     rows = db.execute(
         base_stmt.order_by(
             Room.updated_at.desc().nullslast(),
