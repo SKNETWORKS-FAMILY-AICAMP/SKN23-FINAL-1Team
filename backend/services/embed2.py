@@ -18,7 +18,7 @@ TARGET_MODEL = "openai/clip-vit-base-patch32"
 MAX_THREADS = 5
 API_BATCH_SIZE = 100 
 DB_FETCH_SIZE = 1000
-WEBHOOK_URL = "https://discord.com/api/webhooks/1493441055146643557/szeiOmw9uP1d2SBMJAfg6oBiCxb9Pu4_Ec_dDKIkr8MlB4e1Dem9XC3l-62st82yWreY"
+WEBHOOK_URL = os.getenv("WEBHOOK_URL_SERVERLESS")
 
 # [2. 전역 변수]
 total_success = 0
@@ -86,26 +86,27 @@ def run_batch_pipeline(db_params):
     global total_success, skipped_ids
     
     conn = psycopg2.connect(**db_params)
-    with conn.cursor() as cur:
-        # 실패한 ID들을 제외하고 서울 지역 누락 데이터 조회
-        query = f"""
-            SELECT img.id, img.s3_url FROM item_images img 
-            LEFT JOIN item_image_embeddings emb ON img.id = emb.image_id 
-            WHERE emb.image_id IS NULL AND img.s3_url LIKE '%%/seoul/%%'
-        """
-        
-        params = []
-        
-        if skipped_ids:
-            id_list = list(skipped_ids)
-            placeholders = ', '.join(['%s'] * len(id_list))
-            query += f" AND img.id NOT IN ({placeholders})"
-            params.extend(id_list)
-        
-        query += f" LIMIT {DB_FETCH_SIZE};"
-        
-        cur.execute(query, params)
-        tasks = cur.fetchall()
+    try:
+        with conn.cursor() as cur:
+            # 실패한 ID들을 제외하고 서울 지역 누락 데이터 조회
+            query = f"""
+                SELECT img.id, img.s3_url FROM item_images img 
+                LEFT JOIN item_image_embeddings emb ON img.id = emb.image_id 
+                WHERE emb.image_id IS NULL AND img.s3_url LIKE '%%/seoul/%%'
+            """
+            
+            params = []
+            
+            if skipped_ids:
+                id_list = list(skipped_ids)
+                placeholders = ', '.join(['%s'] * len(id_list))
+                query += f" AND img.id NOT IN ({placeholders})"
+                params.extend(id_list)
+            
+            query += f" LIMIT {DB_FETCH_SIZE};"
+            
+            cur.execute(query, params)
+            tasks = cur.fetchall()
     finally:
         conn.close()
         
