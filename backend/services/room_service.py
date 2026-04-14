@@ -12,7 +12,7 @@ TWO_ROOM_DB_VALUES = [
     "투룸",
 ]
 
-CLUSTER_LEVEL_THRESHOLD = 3
+MAX_ZOOM_MARKER_LEVEL = 1
 
 def format_korean_money(value: int | None) -> str:
     safe_value = int(value or 0)
@@ -140,10 +140,13 @@ def get_map_items(db, req):
 
     level = req.level or 4
 
-    if level < CLUSTER_LEVEL_THRESHOLD:
+    # 가장 확대된 상태(level 1)에서만 개별 마커
+    if level == MAX_ZOOM_MARKER_LEVEL:
         rows = db.execute(
-            base_stmt.order_by(Room.updated_at.desc().nullslast(), Room.item_id.desc())
-            .limit(1000)
+            base_stmt.order_by(
+                Room.updated_at.desc().nullslast(),
+                Room.item_id.desc(),
+            ).limit(1000)
         ).scalars().all()
 
         return {
@@ -151,6 +154,7 @@ def get_map_items(db, req):
             "items": [serialize_room_marker(room) for room in rows],
         }
 
+    # level 2부터는 전부 클러스터
     grid_size = get_grid_size_by_level(level)
 
     lat_bucket = cast(func.floor(Room.lat / grid_size), Integer)
@@ -169,8 +173,7 @@ def get_map_items(db, req):
 
     cluster_stmt = apply_room_filters(cluster_stmt, req)
     cluster_stmt = (
-        cluster_stmt
-        .group_by(lat_bucket, lng_bucket)
+        cluster_stmt.group_by(lat_bucket, lng_bucket)
         .order_by(func.count(Room.item_id).desc())
         .limit(500)
     )
