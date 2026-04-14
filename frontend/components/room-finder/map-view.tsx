@@ -124,7 +124,7 @@ export function MapView({
   const mapInstanceRef = useRef<any>(null);
   const mapObjectsRef = useRef<any[]>([]);
   const infoWindowsRef = useRef<any[]>([]);
-  const currentLocationMarkerRef = useRef<any>(null);
+
   const visibleListingIdsRef = useRef<string>("");
   const lastAppliedSearchRef = useRef<string>("");
   const hasMovedToCurrentLocationRef = useRef(false);
@@ -331,15 +331,6 @@ export function MapView({
         map.setCenter(fallbackPos);
         map.setLevel(4);
 
-        if (currentLocationMarkerRef.current) {
-          currentLocationMarkerRef.current.setMap(null);
-        }
-
-        currentLocationMarkerRef.current = new kakao.maps.Marker({
-          map,
-          position: fallbackPos,
-        });
-
         resolve(fallback);
         return;
       }
@@ -353,30 +344,12 @@ export function MapView({
           map.setCenter(currentPos);
           map.setLevel(4);
 
-          if (currentLocationMarkerRef.current) {
-            currentLocationMarkerRef.current.setMap(null);
-          }
-
-          currentLocationMarkerRef.current = new kakao.maps.Marker({
-            map,
-            position: currentPos,
-          });
-
           resolve({ lat, lng });
         },
         () => {
           const fallbackPos = new kakao.maps.LatLng(fallback.lat, fallback.lng);
           map.setCenter(fallbackPos);
           map.setLevel(4);
-
-          if (currentLocationMarkerRef.current) {
-            currentLocationMarkerRef.current.setMap(null);
-          }
-
-          currentLocationMarkerRef.current = new kakao.maps.Marker({
-            map,
-            position: fallbackPos,
-          });
 
           resolve(fallback);
         },
