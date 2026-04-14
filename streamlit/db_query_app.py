@@ -4,7 +4,7 @@ import math
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
-
+from sqlalchemy import create_engine, text
 load_dotenv()
 
 st.set_page_config(
