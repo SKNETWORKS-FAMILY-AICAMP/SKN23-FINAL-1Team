@@ -288,7 +288,6 @@ export function MapView({
     const infoWindow = new kakao.maps.InfoWindow({
       content: `
         <div style="padding:8px 10px; font-size:12px; min-width:160px; line-height:1.4;">
-          <div style="font-weight:700; margin-bottom:4px;">${item.title}</div>
           <div>${item.price || `${item.deposit}/${item.monthlyRent}`}</div>
           <div style="color:#666; margin-top:2px;">${item.address}</div>
         </div>
