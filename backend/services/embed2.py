@@ -10,6 +10,7 @@ from urllib.parse import unquote
 from dotenv import load_dotenv
 from psycopg2.extras import execute_values
 from concurrent.futures import ThreadPoolExecutor
+import numpy as np
 
 load_dotenv()
 
@@ -34,15 +35,31 @@ s3_client = boto3.client('s3',
 )
 
 def get_actual_vector(data):
-    """Infinity 응답 구조에서 벡터 추출"""
+    """Infinity 응답 구조에서 벡터 추출 후 L2 정규화 수행"""
+    vector = None
+    
+    # 1. 재귀적으로 실제 숫자 리스트(벡터) 찾기
     if isinstance(data, list) and len(data) > 0:
-        if isinstance(data[0], (int, float)): return data
-        return get_actual_vector(data[0])
-    if isinstance(data, dict):
+        if isinstance(data[0], (int, float)): 
+            vector = data
+        else:
+            vector = get_actual_vector(data[0])
+    elif isinstance(data, dict):
         for key in ['embedding', 'data', 'values']:
             if key in data:
                 res = get_actual_vector(data[key])
-                if res: return res
+                if res: 
+                    vector = res
+                    break
+    
+    # 2. [정규화 로직] 벡터를 찾았으면 길이를 1로 만듦
+    if vector is not None:
+        arr = np.array(vector, dtype=np.float32)
+        norm = np.linalg.norm(arr)
+        if norm > 1e-9:  # 0으로 나누기 방지
+            arr = arr / norm
+        return arr.tolist() # DB 저장을 위해 다시 리스트로 변환
+        
     return None
 
 def prepare_image(task):
