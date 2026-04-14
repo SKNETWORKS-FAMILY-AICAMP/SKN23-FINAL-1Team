@@ -12,7 +12,7 @@ TWO_ROOM_DB_VALUES = [
     "투룸",
 ]
 
-CLUSTER_LEVEL_THRESHOLD = 5
+CLUSTER_LEVEL_THRESHOLD = 3
 
 def format_korean_money(value: int | None) -> str:
     safe_value = int(value or 0)
@@ -140,7 +140,7 @@ def get_map_items(db, req):
 
     level = req.level or 4
 
-    if level >= CLUSTER_LEVEL_THRESHOLD:
+    if level < CLUSTER_LEVEL_THRESHOLD:
         rows = db.execute(
             base_stmt.order_by(Room.updated_at.desc().nullslast(), Room.item_id.desc())
             .limit(1000)
