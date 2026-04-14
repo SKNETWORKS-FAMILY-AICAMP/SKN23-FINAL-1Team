@@ -351,15 +351,6 @@ export function MapView({
           map.setCenter(fallbackPos);
           map.setLevel(4);
 
-          if (currentLocationMarkerRef.current) {
-            currentLocationMarkerRef.current.setMap(null);
-          }
-
-          currentLocationMarkerRef.current = new kakao.maps.Marker({
-            map,
-            position: fallbackPos,
-          });
-
           resolve(fallback);
         },
         {
