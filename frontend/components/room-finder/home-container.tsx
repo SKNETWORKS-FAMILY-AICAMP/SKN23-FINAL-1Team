@@ -136,19 +136,14 @@ export function HomeContainer() {
   useEffect(() => {
     if (!selectedListing) return;
 
-    const sourceListings =
-      (recommendedListings ?? visibleListings.length)
-        ? (recommendedListings ?? visibleListings)
-        : listings;
-
-    const stillVisible = sourceListings.some(
+    const stillExistsInPanel = panelListings.some(
       (listing) => listing.id === selectedListing.id,
     );
 
-    if (!stillVisible && !recommendedListings) {
+    if (!stillExistsInPanel) {
       setSelectedListing(null);
     }
-  }, [listings, visibleListings, recommendedListings, selectedListing]);
+  }, [panelListings, selectedListing]);
 
   useEffect(() => {
     const controller = new AbortController();
