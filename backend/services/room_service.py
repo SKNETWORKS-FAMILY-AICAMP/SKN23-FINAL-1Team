@@ -46,17 +46,15 @@ def get_grid_size_by_level(level: int | None) -> float:
 
     # level 숫자가 작을수록 확대, 클수록 축소
     # 따라서 축소될수록 grid는 더 커져야 함
-    if safe_level <= 1:
-        return 0.0008
     if safe_level == 2:
-        return 0.0015
+        return 0.002
     if safe_level == 3:
-        return 0.003
+        return 0.004
     if safe_level == 4:
-        return 0.006
+        return 0.008
     if safe_level == 5:
-        return 0.012
-    return 0.02
+        return 0.015
+    return 0.025
 
 
 def apply_room_filters(stmt, req):
@@ -152,59 +150,61 @@ def get_map_items(db, req):
     base_stmt = select(Room)
     base_stmt = apply_room_filters(base_stmt, req)
 
-    level = req.level or 4
+    level = int(req.level or 4)
+    print(f"[get_map_items] level={level}")
 
-    # 가장 확대된 상태에서만 marker
-    if level <= MAX_ZOOM_MARKER_LEVEL:
-        rows = db.execute(
-            base_stmt.order_by(
-                Room.updated_at.desc().nullslast(),
-                Room.item_id.desc(),
-            ).limit(1000)
-        ).scalars().all()
+    # level 2 이상이면 무조건 클러스터
+    if level >= 2:
+        grid_size = get_grid_size_by_level(level)
+
+        lat_bucket = cast(func.floor(Room.lat / grid_size), Integer)
+        lng_bucket = cast(func.floor(Room.lng / grid_size), Integer)
+
+        cluster_stmt = (
+            select(
+                lat_bucket.label("lat_bucket"),
+                lng_bucket.label("lng_bucket"),
+                func.avg(Room.lat).label("lat"),
+                func.avg(Room.lng).label("lng"),
+                func.count(Room.item_id).label("count"),
+            )
+            .select_from(Room)
+        )
+
+        cluster_stmt = apply_room_filters(cluster_stmt, req)
+        cluster_stmt = (
+            cluster_stmt.group_by(lat_bucket, lng_bucket)
+            .order_by(func.count(Room.item_id).desc())
+            .limit(500)
+        )
+
+        rows = db.execute(cluster_stmt).all()
+
+        items = [
+            {
+                "type": "cluster",
+                "id": f"{row.lat_bucket}_{row.lng_bucket}",
+                "lat": float(row.lat),
+                "lng": float(row.lng),
+                "count": int(row.count),
+            }
+            for row in rows
+        ]
 
         return {
-            "mode": "marker",
-            "items": [serialize_room_marker(room) for room in rows],
+            "mode": "cluster",
+            "items": items,
         }
 
-    grid_size = get_grid_size_by_level(level)
-
-    lat_bucket = cast(func.floor(Room.lat / grid_size), Integer)
-    lng_bucket = cast(func.floor(Room.lng / grid_size), Integer)
-
-    cluster_stmt = (
-        select(
-            lat_bucket.label("lat_bucket"),
-            lng_bucket.label("lng_bucket"),
-            func.avg(Room.lat).label("lat"),
-            func.avg(Room.lng).label("lng"),
-            func.count(Room.item_id).label("count"),
-        )
-        .select_from(Room)
-    )
-
-    cluster_stmt = apply_room_filters(cluster_stmt, req)
-    cluster_stmt = (
-        cluster_stmt.group_by(lat_bucket, lng_bucket)
-        .order_by(func.count(Room.item_id).desc())
-        .limit(500)
-    )
-
-    rows = db.execute(cluster_stmt).all()
-
-    items = [
-        {
-            "type": "cluster",
-            "id": f"{row.lat_bucket}_{row.lng_bucket}",
-            "lat": float(row.lat),
-            "lng": float(row.lng),
-            "count": int(row.count),
-        }
-        for row in rows
-    ]
+    # level 1일 때만 개별 마커
+    rows = db.execute(
+        base_stmt.order_by(
+            Room.updated_at.desc().nullslast(),
+            Room.item_id.desc(),
+        ).limit(1000)
+    ).scalars().all()
 
     return {
-        "mode": "cluster",
-        "items": items,
+        "mode": "marker",
+        "items": [serialize_room_marker(room) for room in rows],
     }
