@@ -1,4 +1,3 @@
-from math import floor
 from sqlalchemy import select, func, or_, cast, Integer
 from models.room import Room
 
@@ -12,7 +11,10 @@ TWO_ROOM_DB_VALUES = [
     "투룸",
 ]
 
+# 카카오맵에서 "가장 확대된 상태" 기준.
+# 실제 서비스에서 level 1이 최대 확대가 아니면 2로 바꾸면 됨.
 MAX_ZOOM_MARKER_LEVEL = 1
+
 
 def format_korean_money(value: int | None) -> str:
     safe_value = int(value or 0)
@@ -21,6 +23,7 @@ def format_korean_money(value: int | None) -> str:
         rest = safe_value % 10000
         return f"{eok}억" if rest == 0 else f"{eok}억 {rest}만"
     return f"{safe_value}만"
+
 
 def format_price(deposit: int | None, rent: int | None) -> str:
     safe_deposit = int(deposit or 0)
@@ -31,26 +34,34 @@ def format_price(deposit: int | None, rent: int | None) -> str:
 
     return f"{format_korean_money(safe_deposit)} / {safe_rent}만"
 
+
 def format_size(area_m2) -> str:
     if area_m2 is None:
         return "-"
     return f"{float(area_m2):.1f}m²"
 
+
 def get_grid_size_by_level(level: int | None) -> float:
     safe_level = level or 4
 
-    if safe_level <= 2:
-        return 0.02
+    # level 숫자가 작을수록 확대, 클수록 축소
+    # 따라서 축소될수록 grid는 더 커져야 함
+    if safe_level <= 1:
+        return 0.0008
+    if safe_level == 2:
+        return 0.0015
     if safe_level == 3:
-        return 0.01
+        return 0.003
     if safe_level == 4:
-        return 0.005
+        return 0.006
     if safe_level == 5:
-        return 0.002
-    return 0.001
+        return 0.012
+    return 0.02
+
 
 def apply_room_filters(stmt, req):
     stmt = stmt.where(Room.status == "ACTIVE")
+
     if req.search.strip():
         keyword = f"%{req.search.strip()}%"
         stmt = stmt.where(
@@ -84,7 +95,7 @@ def apply_room_filters(stmt, req):
     if req.size != "all":
         size_value = float(req.size)
         if req.size_unit == "pyeong":
-          size_value = size_value * 3.3058
+            size_value = size_value * 3.3058
         stmt = stmt.where(Room.area_m2 <= size_value)
 
     if req.sw_lat is not None and req.ne_lat is not None:
@@ -94,6 +105,7 @@ def apply_room_filters(stmt, req):
         stmt = stmt.where(Room.lng >= req.sw_lng, Room.lng <= req.ne_lng)
 
     return stmt
+
 
 def serialize_room_marker(room):
     return {
@@ -113,6 +125,7 @@ def serialize_room_marker(room):
         "structure": room.room_type or "매물",
         "options": [],
     }
+
 
 def get_rooms(db, req):
     stmt = select(Room)
@@ -134,14 +147,15 @@ def get_rooms(db, req):
         "has_more": req.offset + req.limit < total,
     }
 
+
 def get_map_items(db, req):
     base_stmt = select(Room)
     base_stmt = apply_room_filters(base_stmt, req)
 
     level = req.level or 4
 
-    # 가장 확대된 상태(level 1)에서만 개별 마커
-    if level == MAX_ZOOM_MARKER_LEVEL:
+    # 가장 확대된 상태에서만 marker
+    if level <= MAX_ZOOM_MARKER_LEVEL:
         rows = db.execute(
             base_stmt.order_by(
                 Room.updated_at.desc().nullslast(),
@@ -154,7 +168,6 @@ def get_map_items(db, req):
             "items": [serialize_room_marker(room) for room in rows],
         }
 
-    # level 2부터는 전부 클러스터
     grid_size = get_grid_size_by_level(level)
 
     lat_bucket = cast(func.floor(Room.lat / grid_size), Integer)
