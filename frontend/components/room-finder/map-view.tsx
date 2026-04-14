@@ -2,10 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 
-interface MapViewProps {
-  searchQuery: string;
-  listings: Listing[];
-  onMarkerClick?: (listing: Listing) => void;
+export interface MapBounds {
+  swLat: number;
+  swLng: number;
+  neLat: number;
+  neLng: number;
+  centerLat: number;
+  centerLng: number;
+  level: number;
 }
 
 export interface Listing {
@@ -24,6 +28,44 @@ export interface Listing {
   options: string[];
 }
 
+export interface ClusterMapItem {
+  type: "cluster";
+  id: string;
+  lat: number;
+  lng: number;
+  count: number;
+}
+
+export interface MarkerMapItem {
+  type: "marker";
+  id: string;
+  item_id: number;
+  title: string;
+  price: string;
+  deposit: string;
+  monthlyRent: string;
+  address: string;
+  size: string;
+  floor: string;
+  images: string[];
+  lat: number;
+  lng: number;
+  structure: string;
+  options: string[];
+}
+
+export type MapItem = ClusterMapItem | MarkerMapItem;
+
+interface MapViewProps {
+  searchQuery: string;
+  mapItems: MapItem[];
+  selectedListing?: Listing | null;
+  onMarkerClick?: (listing: Listing) => void;
+  onVisibleListingsChange?: (listings: Listing[]) => void;
+  onInitialLocationResolved?: (coords: { lat: number; lng: number }) => void;
+  onBoundsChange?: (bounds: MapBounds) => void;
+}
+
 declare global {
   interface Window {
     kakao: any;
@@ -35,100 +77,258 @@ const DEFAULT_CENTER = {
   lng: 126.978,
 };
 
+function boundsToKey(bounds: MapBounds) {
+  return [
+    bounds.swLat,
+    bounds.swLng,
+    bounds.neLat,
+    bounds.neLng,
+    bounds.centerLat,
+    bounds.centerLng,
+    bounds.level,
+  ].join(",");
+}
+
+function isMarkerItem(item: MapItem): item is MarkerMapItem {
+  return item.type === "marker";
+}
+
+function mapMarkerItemToListing(item: MarkerMapItem): Listing {
+  return {
+    id: String(item.item_id ?? item.id),
+    title: item.title,
+    price: item.price,
+    deposit: item.deposit,
+    monthlyRent: item.monthlyRent,
+    address: item.address,
+    size: item.size,
+    floor: item.floor,
+    images: item.images ?? [],
+    lat: Number(item.lat),
+    lng: Number(item.lng),
+    structure: item.structure,
+    options: item.options ?? [],
+  };
+}
+
 export function MapView({
   searchQuery,
-  listings,
+  mapItems,
+  selectedListing,
   onMarkerClick,
+  onVisibleListingsChange,
+  onInitialLocationResolved,
+  onBoundsChange,
 }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const mapObjectsRef = useRef<any[]>([]);
   const infoWindowsRef = useRef<any[]>([]);
   const currentLocationMarkerRef = useRef<any>(null);
+  const visibleListingIdsRef = useRef<string>("");
+  const lastAppliedSearchRef = useRef<string>("");
+  const hasMovedToCurrentLocationRef = useRef(false);
+  const lastBoundsKeyRef = useRef<string>("");
 
   const [isMapReady, setIsMapReady] = useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
 
-  const clearMarkers = () => {
-    markersRef.current.forEach((marker) => marker.setMap(null));
-    markersRef.current = [];
+  const clearMapObjects = () => {
+    mapObjectsRef.current.forEach((object) => {
+      if (typeof object.setMap === "function") {
+        object.setMap(null);
+      }
+    });
+    mapObjectsRef.current = [];
 
     infoWindowsRef.current.forEach((infoWindow) => infoWindow.close());
     infoWindowsRef.current = [];
   };
 
-  const createListingMarkers = (map: any, kakao: any) => {
-    clearMarkers();
+  const emitBounds = (map: any) => {
+    if (!window.kakao) return;
 
-    if (!listings.length) return;
+    const bounds = map.getBounds();
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    const center = map.getCenter();
 
-    const bounds = new kakao.maps.LatLngBounds();
+    const nextBounds: MapBounds = {
+      swLat: sw.getLat(),
+      swLng: sw.getLng(),
+      neLat: ne.getLat(),
+      neLng: ne.getLng(),
+      centerLat: center.getLat(),
+      centerLng: center.getLng(),
+      level: typeof map.getLevel === "function" ? map.getLevel() : 4,
+    };
 
-    listings.forEach((listing) => {
-      const lat = Number(listing.lat);
-      const lng = Number(listing.lng);
+    const nextKey = boundsToKey(nextBounds);
 
-      if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+    if (lastBoundsKeyRef.current === nextKey) return;
+    lastBoundsKeyRef.current = nextKey;
 
-      const position = new kakao.maps.LatLng(lat, lng);
-
-      const marker = new kakao.maps.Marker({
-        map,
-        position,
-      });
-
-      const infoWindow = new kakao.maps.InfoWindow({
-        content: `
-          <div style="padding:8px 10px; font-size:12px; min-width:160px; line-height:1.4;">
-            <div style="font-weight:700; margin-bottom:4px;">${listing.title}</div>
-            <div>${listing.price || `${listing.deposit}/${listing.monthlyRent}`}</div>
-            <div style="color:#666; margin-top:2px;">${listing.address}</div>
-          </div>
-        `,
-      });
-
-      kakao.maps.event.addListener(marker, "click", () => {
-        onMarkerClick?.(listing);
-      });
-
-      kakao.maps.event.addListener(marker, "mouseover", () => {
-        infoWindow.open(map, marker);
-      });
-
-      kakao.maps.event.addListener(marker, "mouseout", () => {
-        infoWindow.close();
-      });
-
-      markersRef.current.push(marker);
-      infoWindowsRef.current.push(infoWindow);
-      bounds.extend(position);
-    });
-
-    if (markersRef.current.length === 1) {
-      map.setCenter(bounds.getSouthWest());
-      map.setLevel(3);
-    } else if (markersRef.current.length > 1) {
-      map.setBounds(bounds);
-    }
+    onBoundsChange?.(nextBounds);
   };
 
-  const moveToCurrentLocation = (map: any, kakao: any) => {
-    if (!navigator.geolocation) {
-      const fallback = new kakao.maps.LatLng(
-        DEFAULT_CENTER.lat,
-        DEFAULT_CENTER.lng,
-      );
-      map.setCenter(fallback);
+  const updateVisibleListings = (map: any, kakao: any) => {
+    if (!map) return;
+
+    const markerItems = mapItems.filter(isMarkerItem);
+
+    if (!markerItems.length) {
+      if (visibleListingIdsRef.current !== "") {
+        visibleListingIdsRef.current = "";
+        onVisibleListingsChange?.([]);
+      }
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        const currentPos = new kakao.maps.LatLng(lat, lng);
+    const bounds = map.getBounds();
 
-        map.setCenter(currentPos);
+    const visible = markerItems
+      .filter((item) => {
+        const lat = Number(item.lat);
+        const lng = Number(item.lng);
+
+        if (Number.isNaN(lat) || Number.isNaN(lng)) return false;
+
+        const position = new kakao.maps.LatLng(lat, lng);
+        return bounds.contain(position);
+      })
+      .map(mapMarkerItemToListing);
+
+    const nextIds = visible.map((listing) => listing.id).join(",");
+
+    if (visibleListingIdsRef.current === nextIds) return;
+
+    visibleListingIdsRef.current = nextIds;
+    onVisibleListingsChange?.(visible);
+  };
+
+  const createClusterOverlay = (map: any, kakao: any, item: ClusterMapItem) => {
+    const position = new kakao.maps.LatLng(Number(item.lat), Number(item.lng));
+
+    const sizeClass =
+      item.count >= 1000
+        ? "width:64px;height:64px;font-size:15px;"
+        : item.count >= 100
+          ? "width:56px;height:56px;font-size:14px;"
+          : "width:48px;height:48px;font-size:13px;";
+
+    const content = document.createElement("div");
+    content.innerHTML = `
+      <div
+        style="
+          ${sizeClass}
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          border-radius:9999px;
+          background:rgba(245,158,11,0.92);
+          color:white;
+          font-weight:700;
+          box-shadow:0 10px 24px rgba(15,23,42,0.18);
+          border:3px solid rgba(255,255,255,0.95);
+          cursor:pointer;
+          user-select:none;
+        "
+      >
+        ${item.count}
+      </div>
+    `;
+
+    const overlay = new kakao.maps.CustomOverlay({
+      map,
+      position,
+      content,
+      yAnchor: 0.5,
+      xAnchor: 0.5,
+    });
+
+    content.addEventListener("click", () => {
+      const currentLevel =
+        typeof map.getLevel === "function" ? map.getLevel() : 4;
+      const nextLevel = Math.max(currentLevel - 2, 1);
+
+      map.setLevel(nextLevel, { anchor: position });
+      map.panTo(position);
+    });
+
+    mapObjectsRef.current.push(overlay);
+  };
+
+  const createMarker = (map: any, kakao: any, item: MarkerMapItem) => {
+    const lat = Number(item.lat);
+    const lng = Number(item.lng);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+    const position = new kakao.maps.LatLng(lat, lng);
+
+    const marker = new kakao.maps.Marker({
+      map,
+      position,
+    });
+
+    const infoWindow = new kakao.maps.InfoWindow({
+      content: `
+        <div style="padding:8px 10px; font-size:12px; min-width:160px; line-height:1.4;">
+          <div style="font-weight:700; margin-bottom:4px;">${item.title}</div>
+          <div>${item.price || `${item.deposit}/${item.monthlyRent}`}</div>
+          <div style="color:#666; margin-top:2px;">${item.address}</div>
+        </div>
+      `,
+    });
+
+    const listing = mapMarkerItemToListing(item);
+
+    kakao.maps.event.addListener(marker, "click", () => {
+      onMarkerClick?.(listing);
+    });
+
+    kakao.maps.event.addListener(marker, "mouseover", () => {
+      infoWindow.open(map, marker);
+    });
+
+    kakao.maps.event.addListener(marker, "mouseout", () => {
+      infoWindow.close();
+    });
+
+    mapObjectsRef.current.push(marker);
+    infoWindowsRef.current.push(infoWindow);
+  };
+
+  const createMapObjects = (map: any, kakao: any) => {
+    clearMapObjects();
+
+    if (!mapItems.length) {
+      if (visibleListingIdsRef.current !== "") {
+        visibleListingIdsRef.current = "";
+        onVisibleListingsChange?.([]);
+      }
+      return;
+    }
+
+    mapItems.forEach((item) => {
+      if (item.type === "cluster") {
+        createClusterOverlay(map, kakao, item);
+        return;
+      }
+
+      createMarker(map, kakao, item);
+    });
+  };
+
+  const moveToCurrentLocation = (map: any, kakao: any) => {
+    return new Promise<{ lat: number; lng: number }>((resolve) => {
+      const fallback = {
+        lat: DEFAULT_CENTER.lat,
+        lng: DEFAULT_CENTER.lng,
+      };
+
+      if (!navigator.geolocation) {
+        const fallbackPos = new kakao.maps.LatLng(fallback.lat, fallback.lng);
+        map.setCenter(fallbackPos);
         map.setLevel(4);
 
         if (currentLocationMarkerRef.current) {
@@ -137,22 +337,56 @@ export function MapView({
 
         currentLocationMarkerRef.current = new kakao.maps.Marker({
           map,
-          position: currentPos,
+          position: fallbackPos,
         });
-      },
-      () => {
-        const fallback = new kakao.maps.LatLng(
-          DEFAULT_CENTER.lat,
-          DEFAULT_CENTER.lng,
-        );
-        map.setCenter(fallback);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      },
-    );
+
+        resolve(fallback);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          const currentPos = new kakao.maps.LatLng(lat, lng);
+
+          map.setCenter(currentPos);
+          map.setLevel(4);
+
+          if (currentLocationMarkerRef.current) {
+            currentLocationMarkerRef.current.setMap(null);
+          }
+
+          currentLocationMarkerRef.current = new kakao.maps.Marker({
+            map,
+            position: currentPos,
+          });
+
+          resolve({ lat, lng });
+        },
+        () => {
+          const fallbackPos = new kakao.maps.LatLng(fallback.lat, fallback.lng);
+          map.setCenter(fallbackPos);
+          map.setLevel(4);
+
+          if (currentLocationMarkerRef.current) {
+            currentLocationMarkerRef.current.setMap(null);
+          }
+
+          currentLocationMarkerRef.current = new kakao.maps.Marker({
+            map,
+            position: fallbackPos,
+          });
+
+          resolve(fallback);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        },
+      );
+    });
   };
 
   const moveToKeyword = (map: any, kakao: any, keyword: string) => {
@@ -170,21 +404,29 @@ export function MapView({
       });
 
       map.setBounds(bounds);
+      emitBounds(map);
     });
   };
 
   useEffect(() => {
+    visibleListingIdsRef.current = "";
+  }, [mapItems]);
+
+  useEffect(() => {
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let isCancelled = false;
 
     const initializeMap = () => {
-      if (!mapRef.current) return;
+      if (!mapRef.current || isCancelled) return;
 
       if (!window.kakao || !window.kakao.maps) {
         retryTimer = setTimeout(initializeMap, 200);
         return;
       }
 
-      window.kakao.maps.load(() => {
+      window.kakao.maps.load(async () => {
+        if (isCancelled) return;
+
         const kakao = window.kakao;
 
         if (!mapInstanceRef.current) {
@@ -204,23 +446,25 @@ export function MapView({
         map.relayout();
         setIsMapReady(true);
 
-        if (!hasInitialized) {
-          moveToCurrentLocation(map, kakao);
-          setHasInitialized(true);
+        if (!hasMovedToCurrentLocationRef.current) {
+          const coords = await moveToCurrentLocation(map, kakao);
+          if (isCancelled) return;
+
+          hasMovedToCurrentLocationRef.current = true;
+          onInitialLocationResolved?.(coords);
         }
 
-        if (listings.length > 0) {
-          createListingMarkers(map, kakao);
-        }
+        emitBounds(map);
       });
     };
 
     initializeMap();
 
     return () => {
+      isCancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [hasInitialized, listings, onMarkerClick]);
+  }, []);
 
   useEffect(() => {
     if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
@@ -228,19 +472,71 @@ export function MapView({
     const map = mapInstanceRef.current;
     const kakao = window.kakao;
 
-    setTimeout(() => {
-      map.relayout();
-    }, 0);
+    createMapObjects(map, kakao);
+    updateVisibleListings(map, kakao);
+  }, [isMapReady, mapItems, onMarkerClick, onVisibleListingsChange]);
 
-    if (searchQuery.trim()) {
-      moveToKeyword(map, kakao, searchQuery);
-    }
+  useEffect(() => {
+    if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
+
+    const map = mapInstanceRef.current;
+    const kakao = window.kakao;
+
+    const handleIdle = () => {
+      updateVisibleListings(map, kakao);
+      emitBounds(map);
+    };
+
+    kakao.maps.event.addListener(map, "idle", handleIdle);
+    handleIdle();
+
+    return () => {
+      kakao.maps.event.removeListener(map, "idle", handleIdle);
+    };
+  }, [isMapReady, mapItems, onVisibleListingsChange, onBoundsChange]);
+
+  useEffect(() => {
+    if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
+
+    const trimmedQuery = searchQuery.trim();
+
+    if (trimmedQuery === lastAppliedSearchRef.current) return;
+
+    lastAppliedSearchRef.current = trimmedQuery;
+
+    if (!trimmedQuery) return;
+
+    const map = mapInstanceRef.current;
+    const kakao = window.kakao;
+
+    moveToKeyword(map, kakao, trimmedQuery);
   }, [searchQuery, isMapReady]);
+
+  useEffect(() => {
+    if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
+    if (!selectedListing) return;
+
+    const lat = Number(selectedListing.lat);
+    const lng = Number(selectedListing.lng);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+    const map = mapInstanceRef.current;
+    const kakao = window.kakao;
+    const position = new kakao.maps.LatLng(lat, lng);
+
+    map.panTo(position);
+
+    if (typeof map.getLevel === "function" && map.getLevel() > 4) {
+      map.setLevel(4);
+    }
+  }, [selectedListing, isMapReady]);
 
   useEffect(() => {
     const handleResize = () => {
       if (!mapInstanceRef.current) return;
       mapInstanceRef.current.relayout();
+      emitBounds(mapInstanceRef.current);
     };
 
     window.addEventListener("resize", handleResize);
@@ -248,21 +544,21 @@ export function MapView({
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, []);
+  }, [onBoundsChange]);
 
   return (
-    <div className="relative w-full h-full min-h-[400px]">
+    <div className="relative h-full min-h-[400px] w-full">
       {!isMapReady && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-100">
-          <div className="text-sm text-gray-500">지도 로딩 중...</div>
+          <div className="text-sm text-gray-500">지도 로딩 중.</div>
         </div>
       )}
 
-      <div ref={mapRef} className="w-full h-full min-h-[400px]" />
+      <div ref={mapRef} className="h-full min-h-[400px] w-full" />
 
       {searchQuery && (
-        <div className="absolute top-2 left-2 md:top-4 md:left-4 bg-linen/90 backdrop-blur-sm px-3 py-1.5 md:px-4 md:py-2 rounded-lg shadow-md z-10">
-          <span className="text-xs md:text-sm font-medium text-neutral-dark">
+        <div className="absolute top-2 left-2 z-10 rounded-lg bg-linen/90 px-3 py-1.5 shadow-md backdrop-blur-sm md:top-4 md:left-4 md:px-4 md:py-2">
+          <span className="text-xs font-medium text-neutral-dark md:text-sm">
             {searchQuery}
           </span>
         </div>
