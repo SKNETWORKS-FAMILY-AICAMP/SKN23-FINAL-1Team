@@ -36,7 +36,17 @@ function isSameBounds(a: MapBounds | null, b: MapBounds | null) {
     a.neLng === b.neLng &&
     a.centerLat === b.centerLat &&
     a.centerLng === b.centerLng &&
-    a.level === b.level
+    a.level === b.level &&
+    a.source === b.source
+  );
+}
+
+function shouldReloadByBounds(source?: MapBounds["source"]) {
+  return (
+    source === "initial" ||
+    source === "user" ||
+    source === "cluster" ||
+    source === "search"
   );
 }
 
@@ -136,25 +146,21 @@ export function HomeContainer() {
   useEffect(() => {
     if (!selectedListing) return;
 
-    const sourceListings =
-      (recommendedListings ?? visibleListings.length)
-        ? (recommendedListings ?? visibleListings)
-        : listings;
-
-    const stillVisible = sourceListings.some(
+    const stillExistsInPanel = panelListings.some(
       (listing) => listing.id === selectedListing.id,
     );
 
-    if (!stillVisible && !recommendedListings) {
+    if (!stillExistsInPanel) {
       setSelectedListing(null);
     }
-  }, [listings, visibleListings, recommendedListings, selectedListing]);
+  }, [panelListings, selectedListing]);
 
   useEffect(() => {
     const controller = new AbortController();
 
     const loadPagedItems = async () => {
       if (!isLocationReady || !mapBounds) return;
+      if (!shouldReloadByBounds(mapBounds.source)) return;
       if (!hasMore || hasRequestFailed) return;
 
       setIsLoading(true);
@@ -228,6 +234,7 @@ export function HomeContainer() {
 
     const loadMapItems = async () => {
       if (!isLocationReady || !mapBounds) return;
+      if (!shouldReloadByBounds(mapBounds.source)) return;
 
       try {
         const data = await fetchMapItems({
@@ -287,6 +294,7 @@ export function HomeContainer() {
 
     if (!prevBounds) return;
     if (isSameBounds(prevBounds, mapBounds)) return;
+    if (!shouldReloadByBounds(mapBounds.source)) return;
 
     setOffset(0);
     setHasMore(true);
