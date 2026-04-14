@@ -1,10 +1,7 @@
 import os
 import math
-from io import BytesIO
 
 import pandas as pd
-import psycopg2
-from psycopg2 import sql
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -37,8 +34,23 @@ def get_db_config():
     }
 
 
-def get_connection():
-    return psycopg2.connect(**get_db_config())
+def get_db_config():
+    return {
+        "host": os.getenv("DB_HOST", "127.0.0.1"),
+        "port": int(os.getenv("DB_PORT", "5432")),
+        "dbname": os.getenv("DB_NAME", "postgres"),
+        "user": os.getenv("DB_USER", "postgres"),
+        "password": os.getenv("DB_PASSWORD", ""),
+    }
+
+
+def get_engine():
+    cfg = get_db_config()
+    db_url = (
+        f"postgresql+psycopg2://{cfg['user']}:{cfg['password']}"
+        f"@{cfg['host']}:{cfg['port']}/{cfg['dbname']}"
+    )
+    return create_engine(db_url, pool_pre_ping=True)
 
 
 @st.cache_data(ttl=60)
@@ -49,8 +61,9 @@ def load_tables():
         WHERE table_schema = 'public'
         ORDER BY table_name
     """
-    with get_connection() as conn:
-        df = pd.read_sql(query, conn)
+    engine = get_engine()
+    with engine.connect() as conn:
+        df = pd.read_sql(text(query), conn)
     return df["table_name"].tolist()
 
 
@@ -60,11 +73,16 @@ def load_columns(table_name: str):
         SELECT column_name, data_type
         FROM information_schema.columns
         WHERE table_schema = 'public'
-          AND table_name = %s
+          AND table_name = :table_name
         ORDER BY ordinal_position
     """
-    with get_connection() as conn:
-        df = pd.read_sql(query, conn, params=[table_name])
+    engine = get_engine()
+    with engine.connect() as conn:
+        df = pd.read_sql(
+            text(query),
+            conn,
+            params={"table_name": table_name},
+        )
     return df
 
 
@@ -98,7 +116,7 @@ def is_date_type(data_type: str) -> bool:
 
 def build_where_clause(filters, columns_df):
     conditions = []
-    params = []
+    params = {}
 
     for _, row in columns_df.iterrows():
         col = row["column_name"]
@@ -107,49 +125,43 @@ def build_where_clause(filters, columns_df):
         if data_type == "boolean":
             value = filters.get(col)
             if value == "TRUE":
-                conditions.append(sql.SQL("{} = TRUE").format(sql.Identifier(col)))
+                conditions.append(f'"{col}" = TRUE')
             elif value == "FALSE":
-                conditions.append(sql.SQL("{} = FALSE").format(sql.Identifier(col)))
+                conditions.append(f'"{col}" = FALSE')
 
         elif is_text_type(data_type):
             keyword = filters.get(col)
             if keyword:
-                conditions.append(
-                    sql.SQL("{} ILIKE %s").format(sql.Identifier(col))
-                )
-                params.append(f"%{keyword}%")
+                conditions.append(f'"{col}" ILIKE :{col}')
+                params[col] = f"%{keyword}%"
 
         elif is_numeric_type(data_type):
             min_value = filters.get(f"{col}__min")
             max_value = filters.get(f"{col}__max")
 
             if min_value not in (None, ""):
-                conditions.append(
-                    sql.SQL("{} >= %s").format(sql.Identifier(col))
-                )
-                params.append(min_value)
+                key = f"{col}_min"
+                conditions.append(f'"{col}" >= :{key}')
+                params[key] = min_value
 
             if max_value not in (None, ""):
-                conditions.append(
-                    sql.SQL("{} <= %s").format(sql.Identifier(col))
-                )
-                params.append(max_value)
+                key = f"{col}_max"
+                conditions.append(f'"{col}" <= :{key}')
+                params[key] = max_value
 
         elif is_date_type(data_type):
             start_date = filters.get(f"{col}__start")
             end_date = filters.get(f"{col}__end")
 
             if start_date:
-                conditions.append(
-                    sql.SQL("{} >= %s").format(sql.Identifier(col))
-                )
-                params.append(start_date)
+                key = f"{col}_start"
+                conditions.append(f'"{col}" >= :{key}')
+                params[key] = start_date
 
             if end_date:
-                conditions.append(
-                    sql.SQL("{} <= %s").format(sql.Identifier(col))
-                )
-                params.append(end_date)
+                key = f"{col}_end"
+                conditions.append(f'"{col}" <= :{key}')
+                params[key] = end_date
 
     return conditions, params
 
@@ -157,33 +169,29 @@ def build_where_clause(filters, columns_df):
 def fetch_table_data(table_name, columns_df, filters, sort_column, sort_order, page, page_size):
     where_conditions, params = build_where_clause(filters, columns_df)
 
-    base_query = sql.SQL("SELECT * FROM {}").format(sql.Identifier(table_name))
-    count_query = sql.SQL("SELECT COUNT(*) FROM {}").format(sql.Identifier(table_name))
+    base_query = f'SELECT * FROM "{table_name}"'
+    count_query = f'SELECT COUNT(*) AS total_count FROM "{table_name}"'
 
     if where_conditions:
-        where_sql = sql.SQL(" WHERE ") + sql.SQL(" AND ").join(where_conditions)
+        where_sql = " WHERE " + " AND ".join(where_conditions)
         base_query += where_sql
         count_query += where_sql
 
     if sort_column:
-        order_sql = sql.SQL(" ORDER BY {} {}").format(
-            sql.Identifier(sort_column),
-            sql.SQL("ASC" if sort_order == "ASC" else "DESC"),
-        )
-        base_query += order_sql
+        sort_direction = "ASC" if sort_order == "ASC" else "DESC"
+        base_query += f' ORDER BY "{sort_column}" {sort_direction}'
 
     offset = (page - 1) * page_size
-    base_query += sql.SQL(" LIMIT %s OFFSET %s")
-    final_params = params + [page_size, offset]
+    base_query += " LIMIT :limit_value OFFSET :offset_value"
+    params["limit_value"] = page_size
+    params["offset_value"] = offset
 
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(count_query, params)
-            total_count = cur.fetchone()[0]
+    engine = get_engine()
+    with engine.connect() as conn:
+        total_count = pd.read_sql(text(count_query), conn, params=params).iloc[0]["total_count"]
+        df = pd.read_sql(text(base_query), conn, params=params)
 
-        df = pd.read_sql(base_query, conn, params=final_params)
-
-    return df, total_count
+    return df, int(total_count)
 
 
 def run_select_query(query_text: str):
@@ -195,8 +203,9 @@ def run_select_query(query_text: str):
     if any(word in stripped for word in forbidden):
         raise ValueError("조회용 프로그램이므로 SELECT 외 쿼리는 허용되지 않습니다.")
 
-    with get_connection() as conn:
-        return pd.read_sql(query_text, conn)
+    engine = get_engine()
+    with engine.connect() as conn:
+        return pd.read_sql(text(query_text), conn)
 
 
 def to_csv_bytes(df: pd.DataFrame) -> bytes:
