@@ -11,9 +11,28 @@ TWO_ROOM_DB_VALUES = [
     "투룸",
 ]
 
-# 카카오맵에서 "가장 확대된 상태" 기준.
-# 실제 서비스에서 level 1이 최대 확대가 아니면 2로 바꾸면 됨.
 MAX_ZOOM_MARKER_LEVEL = 1
+
+
+def is_valid_image_value(value) -> bool:
+    if value is None:
+        return False
+
+    if not isinstance(value, str):
+        return False
+
+    normalized = value.strip()
+    lowered = normalized.lower()
+
+    if lowered in {"", "nan", "none", "null"}:
+        return False
+
+    return (
+        normalized.startswith("http://")
+        or normalized.startswith("https://")
+        or normalized.startswith("/")
+        or normalized.startswith("s3://")
+    )
 
 
 def format_korean_money(value: int | None) -> str:
@@ -42,7 +61,7 @@ def format_size(area_m2) -> str:
 
 
 def get_grid_size_by_level(level: int | None) -> float:
-    safe_level = level or 4
+    safe_level = int(level or 4)
 
     # level 숫자가 작을수록 확대, 클수록 축소
     # 따라서 축소될수록 grid는 더 커져야 함
@@ -106,6 +125,8 @@ def apply_room_filters(stmt, req):
 
 
 def serialize_room_marker(room):
+    image_urls = [room.image_thumbnail] if is_valid_image_value(room.image_thumbnail) else []
+
     return {
         "type": "marker",
         "id": str(room.item_id),
@@ -117,7 +138,7 @@ def serialize_room_marker(room):
         "address": room.address,
         "size": format_size(room.area_m2),
         "floor": room.floor or "-",
-        "images": [room.image_thumbnail] if room.image_thumbnail else [],
+        "images": image_urls,
         "lat": float(room.lat),
         "lng": float(room.lng),
         "structure": room.room_type or "매물",
