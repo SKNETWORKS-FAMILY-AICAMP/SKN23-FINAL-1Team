@@ -10,6 +10,7 @@ export interface MapBounds {
   centerLat: number;
   centerLng: number;
   level: number;
+  source: "initial" | "user" | "cluster" | "search" | "selection";
 }
 
 export interface Listing {
@@ -86,6 +87,7 @@ function boundsToKey(bounds: MapBounds) {
     bounds.centerLat,
     bounds.centerLng,
     bounds.level,
+    bounds.source,
   ].join(",");
 }
 
@@ -124,11 +126,13 @@ export function MapView({
   const mapInstanceRef = useRef<any>(null);
   const mapObjectsRef = useRef<any[]>([]);
   const infoWindowsRef = useRef<any[]>([]);
-  const currentLocationMarkerRef = useRef<any>(null);
+
   const visibleListingIdsRef = useRef<string>("");
   const lastAppliedSearchRef = useRef<string>("");
   const hasMovedToCurrentLocationRef = useRef(false);
   const lastBoundsKeyRef = useRef<string>("");
+
+  const pendingSourceRef = useRef<MapBounds["source"]>("initial");
 
   const [isMapReady, setIsMapReady] = useState(false);
 
@@ -152,6 +156,9 @@ export function MapView({
     const ne = bounds.getNorthEast();
     const center = map.getCenter();
 
+    const source = pendingSourceRef.current;
+    pendingSourceRef.current = "user";
+
     const nextBounds: MapBounds = {
       swLat: sw.getLat(),
       swLng: sw.getLng(),
@@ -160,6 +167,7 @@ export function MapView({
       centerLat: center.getLat(),
       centerLng: center.getLng(),
       level: typeof map.getLevel === "function" ? map.getLevel() : 4,
+      source,
     };
 
     const nextKey = boundsToKey(nextBounds);
@@ -168,6 +176,12 @@ export function MapView({
     lastBoundsKeyRef.current = nextKey;
 
     onBoundsChange?.(nextBounds);
+    console.log(
+      "current kakao level:",
+      nextBounds.level,
+      "source:",
+      nextBounds.source,
+    );
   };
 
   const updateVisibleListings = (map: any, kakao: any) => {
@@ -248,8 +262,9 @@ export function MapView({
     content.addEventListener("click", () => {
       const currentLevel =
         typeof map.getLevel === "function" ? map.getLevel() : 4;
-      const nextLevel = Math.max(currentLevel - 2, 1);
+      const nextLevel = Math.max(currentLevel - 1, 1);
 
+      pendingSourceRef.current = "cluster";
       map.setLevel(nextLevel, { anchor: position });
       map.panTo(position);
     });
@@ -328,18 +343,9 @@ export function MapView({
 
       if (!navigator.geolocation) {
         const fallbackPos = new kakao.maps.LatLng(fallback.lat, fallback.lng);
+        pendingSourceRef.current = "initial";
         map.setCenter(fallbackPos);
         map.setLevel(4);
-
-        if (currentLocationMarkerRef.current) {
-          currentLocationMarkerRef.current.setMap(null);
-        }
-
-        currentLocationMarkerRef.current = new kakao.maps.Marker({
-          map,
-          position: fallbackPos,
-        });
-
         resolve(fallback);
         return;
       }
@@ -350,33 +356,17 @@ export function MapView({
           const lng = position.coords.longitude;
           const currentPos = new kakao.maps.LatLng(lat, lng);
 
+          pendingSourceRef.current = "initial";
           map.setCenter(currentPos);
           map.setLevel(4);
-
-          if (currentLocationMarkerRef.current) {
-            currentLocationMarkerRef.current.setMap(null);
-          }
-
-          currentLocationMarkerRef.current = new kakao.maps.Marker({
-            map,
-            position: currentPos,
-          });
 
           resolve({ lat, lng });
         },
         () => {
           const fallbackPos = new kakao.maps.LatLng(fallback.lat, fallback.lng);
+          pendingSourceRef.current = "initial";
           map.setCenter(fallbackPos);
           map.setLevel(4);
-
-          if (currentLocationMarkerRef.current) {
-            currentLocationMarkerRef.current.setMap(null);
-          }
-
-          currentLocationMarkerRef.current = new kakao.maps.Marker({
-            map,
-            position: fallbackPos,
-          });
 
           resolve(fallback);
         },
@@ -403,6 +393,7 @@ export function MapView({
         bounds.extend(new kakao.maps.LatLng(Number(place.y), Number(place.x)));
       });
 
+      pendingSourceRef.current = "search";
       map.setBounds(bounds);
       emitBounds(map);
     });
@@ -525,17 +516,16 @@ export function MapView({
     const kakao = window.kakao;
     const position = new kakao.maps.LatLng(lat, lng);
 
+    // 선택 이동은 목록 갱신 트리거가 아니어야 함
+    pendingSourceRef.current = "selection";
     map.panTo(position);
-
-    if (typeof map.getLevel === "function" && map.getLevel() > 4) {
-      map.setLevel(4);
-    }
   }, [selectedListing, isMapReady]);
 
   useEffect(() => {
     const handleResize = () => {
       if (!mapInstanceRef.current) return;
       mapInstanceRef.current.relayout();
+      pendingSourceRef.current = "user";
       emitBounds(mapInstanceRef.current);
     };
 
