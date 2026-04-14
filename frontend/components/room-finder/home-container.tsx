@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Header } from "@/components/room-finder/header";
 import { FilterBar, type Filters } from "@/components/room-finder/filter-bar";
-import { MapView, type Listing } from "@/components/room-finder/map-view";
+import {
+  MapView,
+  type Listing,
+  type MapBounds,
+  type MapItem,
+} from "@/components/room-finder/map-view";
 import { ListingPanel } from "@/components/room-finder/listing-panel";
-import { fetchItems } from "@/app/api/rooms/route";
+import { fetchItems, fetchMapItems } from "@/app/api/rooms/route";
 import { mapItemToListing } from "@/utils/roomMappers";
 import { ListingDetailPanel } from "@/components/room-finder/listing-detail-panel";
 
@@ -21,6 +26,20 @@ const defaultFilters: Filters = {
   options: [],
 };
 
+function isSameBounds(a: MapBounds | null, b: MapBounds | null) {
+  if (!a || !b) return false;
+
+  return (
+    a.swLat === b.swLat &&
+    a.swLng === b.swLng &&
+    a.neLat === b.neLat &&
+    a.neLng === b.neLng &&
+    a.centerLat === b.centerLat &&
+    a.centerLng === b.centerLng &&
+    a.level === b.level
+  );
+}
+
 export function HomeContainer() {
   const [roomType, setRoomType] = useState<"oneroom" | "tworoom">("oneroom");
   const [filters, setFilters] = useState<Filters>(defaultFilters);
@@ -31,6 +50,8 @@ export function HomeContainer() {
   const [isPanelOpen, setIsPanelOpen] = useState(true);
 
   const [listings, setListings] = useState<Listing[]>([]);
+  const [mapItems, setMapItems] = useState<MapItem[]>([]);
+  const [visibleListings, setVisibleListings] = useState<Listing[]>([]);
   const [recommendedListings, setRecommendedListings] = useState<
     Listing[] | null
   >(null);
@@ -40,8 +61,10 @@ export function HomeContainer() {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasRequestFailed, setHasRequestFailed] = useState(false);
+  const [isLocationReady, setIsLocationReady] = useState(false);
+  const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
 
-  const displayListings = recommendedListings ?? listings;
+  const panelListings = recommendedListings ?? listings;
 
   const requestKey = useMemo(() => {
     return JSON.stringify({
@@ -82,6 +105,8 @@ export function HomeContainer() {
 
     prevRequestKeyRef.current = requestKey;
     setListings([]);
+    setMapItems([]);
+    setVisibleListings([]);
     setRecommendedListings(null);
     setSelectedListing(null);
     setOffset(0);
@@ -90,10 +115,46 @@ export function HomeContainer() {
     setIsInitialLoading(true);
   }, [requestKey]);
 
+  const handleVisibleListingsChange = useCallback((nextListings: Listing[]) => {
+    setVisibleListings(nextListings);
+  }, []);
+
+  const handleInitialLocationResolved = useCallback(() => {
+    setIsLocationReady((prev) => (prev ? prev : true));
+  }, []);
+
+  const handleBoundsChange = useCallback((nextBounds: MapBounds) => {
+    setMapBounds((prev) => {
+      if (isSameBounds(prev, nextBounds)) {
+        return prev;
+      }
+
+      return nextBounds;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedListing) return;
+
+    const sourceListings =
+      (recommendedListings ?? visibleListings.length)
+        ? (recommendedListings ?? visibleListings)
+        : listings;
+
+    const stillVisible = sourceListings.some(
+      (listing) => listing.id === selectedListing.id,
+    );
+
+    if (!stillVisible && !recommendedListings) {
+      setSelectedListing(null);
+    }
+  }, [listings, visibleListings, recommendedListings, selectedListing]);
+
   useEffect(() => {
     const controller = new AbortController();
 
-    const loadItems = async () => {
+    const loadPagedItems = async () => {
+      if (!isLocationReady || !mapBounds) return;
       if (!hasMore || hasRequestFailed) return;
 
       setIsLoading(true);
@@ -111,6 +172,12 @@ export function HomeContainer() {
           size: filters.size,
           sizeUnit: filters.sizeUnit,
           options: filters.options,
+          lat: mapBounds.centerLat,
+          lng: mapBounds.centerLng,
+          swLat: mapBounds.swLat,
+          swLng: mapBounds.swLng,
+          neLat: mapBounds.neLat,
+          neLng: mapBounds.neLng,
           signal: controller.signal,
         });
 
@@ -133,12 +200,14 @@ export function HomeContainer() {
       }
     };
 
-    loadItems();
+    loadPagedItems();
 
     return () => {
       controller.abort();
     };
   }, [
+    isLocationReady,
+    mapBounds,
     offset,
     requestKey,
     debouncedSearchQuery,
@@ -154,14 +223,87 @@ export function HomeContainer() {
     hasRequestFailed,
   ]);
 
-  const loadMore = () => {
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadMapItems = async () => {
+      if (!isLocationReady || !mapBounds) return;
+
+      try {
+        const data = await fetchMapItems({
+          search: debouncedSearchQuery,
+          transactionType: filters.transactionType,
+          roomType: roomType === "oneroom" ? "원룸" : "투룸",
+          structure: filters.structure,
+          deposit: filters.deposit,
+          monthlyRent: filters.monthlyRent,
+          size: filters.size,
+          sizeUnit: filters.sizeUnit,
+          options: filters.options,
+          lat: mapBounds.centerLat,
+          lng: mapBounds.centerLng,
+          swLat: mapBounds.swLat,
+          swLng: mapBounds.swLng,
+          neLat: mapBounds.neLat,
+          neLng: mapBounds.neLng,
+          level: mapBounds.level,
+          signal: controller.signal,
+        });
+
+        setMapItems(data.items);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error(error);
+      }
+    };
+
+    loadMapItems();
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    isLocationReady,
+    mapBounds,
+    requestKey,
+    debouncedSearchQuery,
+    filters.transactionType,
+    filters.deposit,
+    filters.monthlyRent,
+    filters.structure,
+    filters.size,
+    filters.sizeUnit,
+    filters.options,
+    roomType,
+  ]);
+
+  const prevBoundsRef = useRef<MapBounds | null>(null);
+
+  useEffect(() => {
+    if (!mapBounds) return;
+
+    const prevBounds = prevBoundsRef.current;
+    prevBoundsRef.current = mapBounds;
+
+    if (!prevBounds) return;
+    if (isSameBounds(prevBounds, mapBounds)) return;
+
+    setOffset(0);
+    setHasMore(true);
+    setListings([]);
+    setIsInitialLoading(true);
+    setHasRequestFailed(false);
+  }, [mapBounds]);
+
+  const loadMore = useCallback(() => {
     if (isLoading || !hasMore || recommendedListings) return;
     setOffset((prev) => prev + PAGE_SIZE);
-  };
+  }, [hasMore, isLoading, recommendedListings]);
 
   return (
     <div className="flex h-screen flex-col bg-ivory">
       <Header roomType={roomType} onRoomTypeChange={setRoomType} />
+
       <FilterBar
         filters={filters}
         onFiltersChange={setFilters}
@@ -169,35 +311,42 @@ export function HomeContainer() {
         onSearchChange={setSearchQuery}
       />
 
-      <div className="flex border-b border-border-warm bg-cream lg:hidden">
-        <button
-          onClick={() => setMobileView("map")}
-          className={`flex-1 py-3 text-sm font-medium transition-colors ${
-            mobileView === "map"
-              ? "border-b-2 border-warm-brown text-neutral-dark"
-              : "text-neutral-muted"
-          }`}
-        >
-          지도
-        </button>
-        <button
-          onClick={() => setMobileView("list")}
-          className={`flex-1 py-3 text-sm font-medium transition-colors ${
-            mobileView === "list"
-              ? "border-b-2 border-warm-brown text-neutral-dark"
-              : "text-neutral-muted"
-          }`}
-        >
-          매물목록
-        </button>
+      <div className="border-b border-stone-200/80 bg-white/70 px-4 py-2 backdrop-blur-md lg:hidden">
+        <div className="grid grid-cols-2 rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+          <button
+            onClick={() => setMobileView("map")}
+            className={`rounded-xl px-4 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200 ${
+              mobileView === "map"
+                ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
+                : "text-stone-500 hover:text-stone-800"
+            }`}
+          >
+            지도
+          </button>
+
+          <button
+            onClick={() => setMobileView("list")}
+            className={`rounded-xl px-4 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200 ${
+              mobileView === "list"
+                ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
+                : "text-stone-500 hover:text-stone-800"
+            }`}
+          >
+            매물목록
+          </button>
+        </div>
       </div>
 
-      <main className="relative hidden flex-1 overflow-hidden lg:block">
+      <main className="relative hidden flex-1 overflow-hidden lg:block scroll-none">
         <section className="absolute inset-0 z-0">
           <MapView
             searchQuery={debouncedSearchQuery}
-            listings={displayListings}
+            mapItems={mapItems}
+            selectedListing={selectedListing}
             onMarkerClick={setSelectedListing}
+            onVisibleListingsChange={handleVisibleListingsChange}
+            onInitialLocationResolved={handleInitialLocationResolved}
+            onBoundsChange={handleBoundsChange}
           />
         </section>
 
@@ -232,7 +381,7 @@ export function HomeContainer() {
             }`}
           >
             <ListingPanel
-              listings={displayListings}
+              listings={panelListings}
               selectedListing={selectedListing}
               isLoading={isLoading}
               hasMore={recommendedListings ? false : hasMore}
@@ -252,17 +401,21 @@ export function HomeContainer() {
           <section className="relative flex-1">
             <MapView
               searchQuery={debouncedSearchQuery}
-              listings={displayListings}
+              mapItems={mapItems}
+              selectedListing={selectedListing}
               onMarkerClick={(listing) => {
                 setSelectedListing(listing);
                 setMobileView("list");
               }}
+              onVisibleListingsChange={handleVisibleListingsChange}
+              onInitialLocationResolved={handleInitialLocationResolved}
+              onBoundsChange={handleBoundsChange}
             />
           </section>
         ) : (
           <aside className="flex-1">
             <ListingPanel
-              listings={displayListings}
+              listings={panelListings}
               selectedListing={selectedListing}
               isLoading={isLoading}
               hasMore={recommendedListings ? false : hasMore}
@@ -277,10 +430,10 @@ export function HomeContainer() {
         )}
       </main>
 
-      {isInitialLoading && (
+      {(!isLocationReady || isInitialLoading) && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/10">
           <div className="rounded-lg bg-white px-4 py-3 shadow-md">
-            매물 불러오는 중...
+            현재 위치 기준 매물 불러오는 중...
           </div>
         </div>
       )}
