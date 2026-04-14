@@ -248,7 +248,7 @@ export function MapView({
     content.addEventListener("click", () => {
       const currentLevel =
         typeof map.getLevel === "function" ? map.getLevel() : 4;
-      const nextLevel = Math.max(currentLevel - 2, 1);
+      const nextLevel = Math.max(currentLevel - 1, 1);
 
       map.setLevel(nextLevel, { anchor: position });
       map.panTo(position);
