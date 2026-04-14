@@ -18,7 +18,7 @@ TARGET_MODEL = "openai/clip-vit-base-patch32"
 MAX_THREADS = 5
 API_BATCH_SIZE = 100 
 DB_FETCH_SIZE = 1000
-WEBHOOK_URL = "https://discord.com/api/webhooks/1493441055146643557/szeiOmw9uP1d2SBMJAfg6oBiCxb9Pu4_Ec_dDKIkr8MlB4e1Dem9XC3l-62st82yWreY"
+WEBHOOK_URL = os.getenv("WEBHOOK_URL_SERVERLESS")
 
 # [2. 전역 변수]
 total_success = 0
