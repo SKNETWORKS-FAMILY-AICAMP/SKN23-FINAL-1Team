@@ -32,11 +32,14 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json()
 
+    // Python 백엔드 응답: { file_paths: [...] } or { images: [...] }
+    // 프론트엔드가 기대하는 형태: { images: [{ id, url, prompt }] }
     const filePaths: string[] = data.file_paths ?? data.images ?? []
 
     const images = filePaths.map((filePath: string, index: number) => ({
       id: `${Date.now()}-${index}`,
-      url: `${BACKEND_URL}/api/images/${encodeURIComponent(
+      // Python 서버가 static으로 serve하는 경로로 변환
+      url: `${BACKEND_URL}/images/${encodeURIComponent(
         filePath.split(/[\\/]/).pop() ?? filePath
       )}`,
       prompt,
