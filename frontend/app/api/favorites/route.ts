@@ -1,21 +1,33 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 async function requestFavorite(path: string, options?: RequestInit) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.headers ?? {}),
-    },
-    credentials: "include",
-  });
+  const url = `${API_BASE_URL}${path}`;
+  console.log("[favorite] API_BASE_URL =", API_BASE_URL);
+  console.log("[favorite] request url =", url);
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || "즐겨찾기 요청에 실패했습니다.");
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options?.headers ?? {}),
+      },
+      credentials: "include",
+    });
+
+    console.log("[favorite] status =", response.status);
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("[favorite] response error body =", text);
+      throw new Error(`즐겨찾기 요청 실패 (${response.status}): ${text}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error("[favorite] fetch 자체 실패", error);
+    throw error;
   }
-
-  return response.json();
 }
 
 export type FavoriteListResponse = {

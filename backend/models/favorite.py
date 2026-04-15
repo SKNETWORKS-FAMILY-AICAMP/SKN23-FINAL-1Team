@@ -12,8 +12,16 @@ class Favorite(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("public.user.user_id", ondelete="CASCADE"), nullable=False)
-    item_id = Column(Integer, ForeignKey("public.items.item_id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(
+        Integer,
+        ForeignKey("public.user.user_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    item_id = Column(
+        Integer,
+        ForeignKey("public.items.item_id", ondelete="CASCADE"),
+        nullable=False,
+    )
     created_at = Column(DateTime, server_default=func.now(), nullable=True)
 
     user = relationship("User", back_populates="favorites")

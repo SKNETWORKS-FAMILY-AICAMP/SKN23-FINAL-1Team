@@ -5,6 +5,7 @@ from db.base import Base
 
 class User(Base):
     __tablename__ = "user"
+    __table_args__ = {"schema": "public"}
 
     user_id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     email = Column(String(100), nullable=True)
