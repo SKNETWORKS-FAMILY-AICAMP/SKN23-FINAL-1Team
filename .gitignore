@@ -154,6 +154,7 @@ dist
 [Ss]cripts
 pyvenv.cfg
 .venv
+*_venv/*
 pip-selfcheck.json
 
 # Windows Zone.Identifier files (ADS)

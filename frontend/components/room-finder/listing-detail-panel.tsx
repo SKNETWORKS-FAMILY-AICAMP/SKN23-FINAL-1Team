@@ -16,12 +16,16 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { isValidImageSrc } from "../common/ListingCards";
+import { FavoriteButton } from "@/components/common/Button";
 
 interface ListingDetailPanelProps {
   listing: Listing | null;
   isOpen: boolean;
   onClose: () => void;
   listPanelOpen: boolean;
+  favoriteIds: number[];
+  favoriteLoadingIds: number[];
+  onToggleFavorite: (listingId: number) => void;
 }
 
 const formatKoreanMoney = (value: number) => {
@@ -93,11 +97,17 @@ export function ListingDetailPanel({
   isOpen,
   onClose,
   listPanelOpen,
+  favoriteIds,
+  favoriteLoadingIds,
+  onToggleFavorite,
 }: ListingDetailPanelProps) {
   const [detail, setDetail] = useState<ListingDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [areaUnit, setAreaUnit] = useState<"m2" | "pyeong">("m2");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const listingId = Number(listing?.id ?? 0);
+  const isFavorite = favoriteIds.includes(listingId);
+  const isFavoriteLoading = favoriteLoadingIds.includes(listingId);
 
   useEffect(() => {
     if (!listing?.id || !isOpen) return;
@@ -213,7 +223,15 @@ export function ListingDetailPanel({
                           sizes="(min-width: 1280px) 440px, 380px"
                           className="object-cover transition-transform duration-700"
                         />
+
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
+                        <div className="absolute right-4 top-4 z-20">
+                          <FavoriteButton
+                            isFavorite={isFavorite}
+                            disabled={isFavoriteLoading}
+                            onClick={() => onToggleFavorite(listingId)}
+                          />
+                        </div>
 
                         {imageUrls.length > 1 && (
                           <div className="absolute bottom-4 right-4 z-10 rounded-full bg-black/55 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
