@@ -18,10 +18,13 @@ st.set_page_config(
 
 DEFAULT_TABLES = [
     "items",
-    "items_features",
+    "item_features",
     "item_images",
     "item_image_embeddings",
-    "users",
+    "user",
+    "favorite",
+    "recent_price",
+    "user_item_image"
 ]
 
 PAGE_SIZE_OPTIONS = [20, 50, 100, 200]
