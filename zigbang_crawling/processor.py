@@ -54,7 +54,7 @@ def to_bool(val):
     if pd.isna(val): return False
     if isinstance(val, bool): return val
     val_str = str(val).lower().strip()
-    return val_str in ('true', '1', 't', 'y', 'yes', '가능')
+    return val_str in ('true', '1', 't', 'y', 'yes', '가능', "주차 가능")
 
 COLUMN_MAP = {
     '매물번호': 'item_id', '상태': 'status', '매물_URL': 'url', '전체주소': 'address',
