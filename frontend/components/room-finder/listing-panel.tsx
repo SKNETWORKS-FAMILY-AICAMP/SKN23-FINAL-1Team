@@ -15,6 +15,9 @@ interface ListingPanelProps {
   hasMore?: boolean;
   isLoading?: boolean;
   onSimilarListingsFound?: (listings: Listing[]) => void;
+  favoriteIds: number[];
+  favoriteLoadingIds: number[];
+  onToggleFavorite: (listingId: number) => void;
 }
 
 type PanelTab = "list" | "ai";
@@ -27,6 +30,9 @@ export function ListingPanel({
   hasMore = false,
   isLoading = false,
   onSimilarListingsFound,
+  favoriteIds,
+  favoriteLoadingIds,
+  onToggleFavorite,
 }: ListingPanelProps) {
   const observerRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -118,6 +124,13 @@ export function ListingPanel({
                     listing={listing}
                     isSelected={selectedListing?.id === listing.id}
                     onClick={onListingClick}
+                    isFavorite={favoriteIds.includes(Number(listing.id))}
+                    isFavoriteLoading={favoriteLoadingIds.includes(
+                      Number(listing.id),
+                    )}
+                    onToggleFavorite={() =>
+                      onToggleFavorite(Number(listing.id))
+                    }
                   />
                 </div>
               ))}
