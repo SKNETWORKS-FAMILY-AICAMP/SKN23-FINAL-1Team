@@ -38,7 +38,7 @@ export function AIRecommendation({
     setGeneratedImages([])
 
     try {
-      const response = await fetch("/api/generate-room-images", {
+      const response = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
@@ -188,7 +188,7 @@ export function AIRecommendation({
                       </button>
                     </div>
                     <div className="absolute bottom-1 md:bottom-2 right-1 md:right-2 text-[10px] md:text-xs text-white/80 bg-black/50 px-1 md:px-1.5 py-0.5 rounded">
-                      1/16
+                      1
                     </div>
                   </div>
 

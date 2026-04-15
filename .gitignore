@@ -174,3 +174,14 @@ zigbang_crawling/data/
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.ico
+*.webp
+*.svg
