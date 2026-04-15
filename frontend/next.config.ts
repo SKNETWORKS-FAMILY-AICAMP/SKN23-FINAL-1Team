@@ -14,6 +14,12 @@ const nextConfig: NextConfig = {
         hostname: s3Hostname || "",
         pathname: "/zigbang_data/images/**",
       },
+      {
+        protocol: "http",
+        hostname: "3.37.97.17",
+        port: "8000",
+        pathname: "/api/images/**",
+      },
     ],
   },
 };
