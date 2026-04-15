@@ -13,6 +13,12 @@ import { ListingPanel } from "@/components/room-finder/listing-panel";
 import { fetchItems, fetchMapItems } from "@/app/api/rooms/route";
 import { mapItemToListing } from "@/utils/roomMappers";
 import { ListingDetailPanel } from "@/components/room-finder/listing-detail-panel";
+import { useAuthStore } from "@/store/authStore";
+import {
+  fetchFavorites,
+  addFavorite,
+  removeFavorite,
+} from "@/app/api/favorites/route";
 
 const PAGE_SIZE = 20;
 
@@ -73,6 +79,12 @@ export function HomeContainer() {
   const [hasRequestFailed, setHasRequestFailed] = useState(false);
   const [isLocationReady, setIsLocationReady] = useState(false);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+
+  const user = useAuthStore((state) => state.user);
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
+  const [favoriteLoadingIds, setFavoriteLoadingIds] = useState<number[]>([]);
 
   const panelListings = recommendedListings ?? listings;
 
@@ -308,6 +320,60 @@ export function HomeContainer() {
     setOffset((prev) => prev + PAGE_SIZE);
   }, [hasMore, isLoading, recommendedListings]);
 
+  useEffect(() => {
+    if (!isLoggedIn || !user?.user_id) {
+      setFavoriteIds([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const loadFavorites = async () => {
+      try {
+        const data = await fetchFavorites(user.user_id!, controller.signal);
+        setFavoriteIds(data.items.map((item) => item.item_id));
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error(error);
+        setFavoriteIds([]);
+      }
+    };
+
+    loadFavorites();
+
+    return () => controller.abort();
+  }, [isLoggedIn, user?.user_id]);
+
+  const handleToggleFavorite = useCallback(
+    async (listingId: number) => {
+      if (!isLoggedIn || !user?.user_id) {
+        alert("로그인 후 이용할 수 있습니다.");
+        return;
+      }
+
+      if (favoriteLoadingIds.includes(listingId)) return;
+
+      const isFavorite = favoriteIds.includes(listingId);
+
+      setFavoriteLoadingIds((prev) => [...prev, listingId]);
+
+      try {
+        if (isFavorite) {
+          await removeFavorite(listingId, user.user_id);
+          setFavoriteIds((prev) => prev.filter((id) => id !== listingId));
+        } else {
+          await addFavorite(listingId, user.user_id);
+          setFavoriteIds((prev) => [...prev, listingId]);
+        }
+      } catch (error) {
+        console.error(error);
+        alert("즐겨찾기 처리 중 오류가 발생했습니다.");
+      } finally {
+        setFavoriteLoadingIds((prev) => prev.filter((id) => id !== listingId));
+      }
+    },
+    [favoriteIds, favoriteLoadingIds, isLoggedIn, user?.user_id],
+  );
+
   return (
     <div className="flex h-screen flex-col bg-ivory">
       <Header roomType={roomType} onRoomTypeChange={setRoomType} />
@@ -363,6 +429,9 @@ export function HomeContainer() {
           isOpen={!!selectedListing}
           onClose={() => setSelectedListing(null)}
           listPanelOpen={isPanelOpen}
+          favoriteIds={favoriteIds}
+          favoriteLoadingIds={favoriteLoadingIds}
+          onToggleFavorite={handleToggleFavorite}
         />
 
         <aside
@@ -395,6 +464,9 @@ export function HomeContainer() {
               hasMore={recommendedListings ? false : hasMore}
               onLoadMore={loadMore}
               onListingClick={setSelectedListing}
+              favoriteIds={favoriteIds}
+              favoriteLoadingIds={favoriteLoadingIds}
+              onToggleFavorite={handleToggleFavorite}
               onSimilarListingsFound={(similar) => {
                 setRecommendedListings(similar);
                 setSelectedListing(similar[0] ?? null);
@@ -429,6 +501,9 @@ export function HomeContainer() {
               hasMore={recommendedListings ? false : hasMore}
               onLoadMore={loadMore}
               onListingClick={setSelectedListing}
+              favoriteIds={favoriteIds}
+              favoriteLoadingIds={favoriteLoadingIds}
+              onToggleFavorite={handleToggleFavorite}
               onSimilarListingsFound={(similar) => {
                 setRecommendedListings(similar);
                 setSelectedListing(similar[0] ?? null);
