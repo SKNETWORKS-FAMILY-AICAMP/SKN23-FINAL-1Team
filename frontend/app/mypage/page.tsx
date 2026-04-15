@@ -4,9 +4,14 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { cn } from "@/lib/utils";
 import { Heart, Clock, Sparkles, ChevronRight, ImageIcon, Settings, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Logo from "@/assets/Logo.png";
+import {
+  fetchFavorites as apiFetchFavorites,
+  addFavorite,
+  removeFavorite,
+} from "@/app/api/favorites/route";
 
 type Section = "liked" | "recent" | "gallery" | "settings";
 type RoomTab = "all" | "oneroom" | "tworoom";
@@ -23,42 +28,6 @@ interface Property {
   type: "oneroom" | "tworoom";
 }
 
-const DUMMY_LIKED: Property[] = [
-  {
-    id: 1,
-    image: "",
-    tag: "분리형원룸",
-    title: "주소전입x, 사업자용, 분리형 오피스텔,...",
-    price: "2,000/150",
-    address: "중구 중인동 13-1",
-    area: "46.23㎡",
-    floor: "28층",
-    type: "oneroom",
-  },
-  {
-    id: 2,
-    image: "",
-    tag: "원룸",
-    title: "채광 좋은 신축 원룸, 풀옵션",
-    price: "1,000/50",
-    address: "마포구 합정동 123-4",
-    area: "33.05㎡",
-    floor: "3층",
-    type: "oneroom",
-  },
-  {
-    id: 3,
-    image: "",
-    tag: "투룸",
-    title: "넓은 투룸, 주차 가능, 반려동물 가능",
-    price: "3,000/80",
-    address: "성동구 성수동 45-6",
-    area: "59.40㎡",
-    floor: "5층",
-    type: "tworoom",
-  },
-];
-
 const DUMMY_RECENT: Property[] = [
   {
     id: 4,
@@ -73,13 +42,101 @@ const DUMMY_RECENT: Property[] = [
   },
 ];
 
+function formatPrice(deposit: number, rent: number): string {
+  const fmt = (v: number) => {
+    if (v >= 10000) {
+      const eok = Math.floor(v / 10000);
+      const rest = v % 10000;
+      return rest === 0 ? `${eok}억` : `${eok}억 ${rest}만`;
+    }
+    return `${v}만`;
+  };
+  if (rent <= 0) return `전세 ${fmt(deposit)}`;
+  return `${fmt(deposit)} / ${rent}만`;
+}
+
+function getRoomType(roomType: string): "oneroom" | "tworoom" {
+  return roomType.includes("투룸") ? "tworoom" : "oneroom";
+}
+
 export default function MyPage() {
   const user = useAuthStore((state) => state.user);
   const router = useRouter();
   const [activeSection, setActiveSection] = useState<Section>("liked");
   const [activeTab, setActiveTab] = useState<RoomTab>("all");
-  const [likedIds, setLikedIds] = useState<number[]>(DUMMY_LIKED.map((p) => p.id));
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [likedProperties, setLikedProperties] = useState<Property[]>([]);
+  const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
+  const [isLoading, setIsLoading] = useState(false);
+
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000";
+
+  // 찜 목록 조회
+  const loadFavorites = useCallback(async () => {
+    if (!user?.user_id) return;
+    setIsLoading(true);
+    try {
+      const data = await apiFetchFavorites(user.user_id);
+      const itemIds: number[] = data.items.map((f) => f.item_id);
+      setLikedIds(new Set(itemIds));
+
+      const properties = await Promise.all(
+        itemIds.map(async (itemId) => {
+          const r = await fetch(`${BACKEND_URL}/rooms/${itemId}`);
+          if (!r.ok) return null;
+          const detail = await r.json();
+          const item = detail.item;
+          return {
+            id: item.item_id,
+            image: detail.images?.[0]?.url || "",
+            tag: item.room_type || "매물",
+            title: item.title || "제목 없음",
+            price: formatPrice(item.deposit, item.rent),
+            address: item.address,
+            area: item.area_m2 ? `${parseFloat(item.area_m2).toFixed(2)}㎡` : "-",
+            floor: item.floor || "-",
+            type: getRoomType(item.room_type || ""),
+          } as Property;
+        })
+      );
+
+      setLikedProperties(properties.filter(Boolean) as Property[]);
+    } catch (error) {
+      console.error("찜 목록 조회 실패:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.user_id]);
+
+  useEffect(() => {
+    loadFavorites();
+  }, [loadFavorites]);
+
+  // 찜 토글
+  const toggleLike = async (id: number) => {
+    if (!user?.user_id) return;
+    const isLiked = likedIds.has(id);
+
+    try {
+      if (isLiked) {
+        await removeFavorite(id, user.user_id);
+        setLikedIds((prev) => { const s = new Set(prev); s.delete(id); return s; });
+        setLikedProperties((prev) => prev.filter((p) => p.id !== id));
+      } else {
+        await addFavorite(id, user.user_id);
+        setLikedIds((prev) => new Set(prev).add(id));
+        await loadFavorites();
+      }
+    } catch (error) {
+      console.error("찜 토글 실패:", error);
+    }
+  };
+
+  const filteredLiked = likedProperties.filter((p) => {
+    if (activeTab === "all") return true;
+    return p.type === activeTab;
+  });
 
   if (!user) {
     return (
@@ -120,7 +177,7 @@ export default function MyPage() {
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84z"/>
             </svg>
           ),
         };
@@ -134,17 +191,6 @@ export default function MyPage() {
   };
 
   const badge = getSocialBadge(user.social_type);
-
-  const toggleLike = (id: number) => {
-    setLikedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  };
-
-  const filteredLiked = DUMMY_LIKED.filter((p) => {
-    if (activeTab === "all") return true;
-    return p.type === activeTab;
-  });
 
   const navItems = [
     { id: "liked" as Section,    label: "찜한 매물",      icon: Heart },
@@ -162,14 +208,14 @@ export default function MyPage() {
 
   const handleNavClick = (id: Section) => {
     setActiveSection(id);
-    setSidebarOpen(false); // 모바일에서 메뉴 선택 후 사이드바 닫기
+    setSidebarOpen(false);
   };
 
   const PropertyCard = ({ property }: { property: Property }) => {
-    const isLiked = likedIds.includes(property.id);
+    const isLiked = likedIds.has(property.id);
     return (
       <div className="overflow-hidden rounded-[20px] border border-stone-200/80 bg-white/80 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)]">
-        <div className="relative h-36 w-full bg-stone-100 md:h-48 ">
+        <div className="relative h-36 w-full bg-stone-100 md:h-48">
           {property.image ? (
             <img src={property.image} alt={property.title} className="h-full w-full object-cover" />
           ) : (
@@ -206,30 +252,31 @@ export default function MyPage() {
     );
   };
 
-  // 사이드바 내용 (데스크탑 + 모바일 공통)
   const SidebarContent = () => (
     <>
       <div className="border-b border-stone-200/80 p-5">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-stone-200/80 bg-stone-100/80 text-base font-bold text-stone-700">
-          {user.nickname.charAt(0)}
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-stone-100 text-base font-bold text-stone-500">
+            {user.nickname?.charAt(0) ?? "?"}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold tracking-tight text-stone-900">{user.nickname}</p>
+            <p className="truncate text-xs text-stone-400">{user.email}</p>
+          </div>
         </div>
-        <p className="mt-3 text-sm font-bold tracking-tight text-stone-900">{user.nickname}님</p>
-        <p className="mt-0.5 truncate text-xs font-medium text-stone-500">{user.email}</p>
-        <span className={cn(
-          "mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
-          badge.className
-        )}>
+        <div className={cn("mt-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold", badge.className)}>
           {badge.icon}
           {badge.label}
-        </span>
+        </div>
       </div>
-      <nav className="flex-1 py-3">
+
+      <nav className="flex-1 space-y-1 p-3">
         {navItems.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => handleNavClick(id)}
             className={cn(
-              "flex w-full items-center gap-3 border-l-2 px-5 py-2.5 text-sm font-medium tracking-tight transition-all duration-150",
+              "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold tracking-tight transition-all duration-200",
               activeSection === id
                 ? "border-stone-800 bg-stone-100/80 text-stone-900"
                 : "border-transparent text-stone-500 hover:bg-stone-50 hover:text-stone-800"
@@ -246,35 +293,17 @@ export default function MyPage() {
   return (
     <div className="flex h-screen flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)]">
 
-      {/* 헤더 */}
       <header className="border-b border-stone-200/80 bg-white/70 backdrop-blur-xl">
         <div className="flex h-16 items-center">
-
-          {/* 로고 영역 */}
           <div className="flex h-full w-14 flex-shrink-0 items-center justify-center border-r border-stone-200/80 md:w-56">
-            {/* 모바일: 햄버거 버튼 */}
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="flex items-center justify-center md:hidden"
-            >
+            <button onClick={() => setSidebarOpen(true)} className="flex items-center justify-center md:hidden">
               <Menu className="h-5 w-5 text-stone-500" />
             </button>
-            {/* 데스크탑: 로고 */}
-            <Image
-              src={Logo}
-              alt="로고"
-              width={120}
-              height={40}
-              className="hidden object-contain md:block"
-            />
+            <Image src={Logo} alt="로고" width={120} height={40} className="hidden object-contain md:block" />
           </div>
-
-          {/* 타이틀 */}
           <p className="flex-1 text-center text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400">
             My Page
           </p>
-
-          {/* 돌아가기 */}
           <div className="flex w-14 flex-shrink-0 justify-end px-3 md:w-56 md:px-6">
             <button
               onClick={() => router.back()}
@@ -284,40 +313,30 @@ export default function MyPage() {
               <span className="md:hidden">←</span>
             </button>
           </div>
-
         </div>
       </header>
 
-      {/* 본문 */}
       <div className="relative flex flex-1 overflow-hidden">
 
-        {/* 모바일 오버레이 */}
         {sidebarOpen && (
-          <div
-            className="absolute inset-0 z-20 bg-black/30 md:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
+          <div className="absolute inset-0 z-20 bg-black/30 md:hidden" onClick={() => setSidebarOpen(false)} />
         )}
 
-        {/* 사이드바 - 데스크탑: 항상 표시 / 모바일: 슬라이드 */}
         <aside
           className={cn(
             "absolute z-30 flex h-full w-72 flex-shrink-0 flex-col border-r border-stone-200/80 bg-white/95 backdrop-blur-md transition-transform duration-300 md:relative md:w-56 md:translate-x-0 md:bg-white/70",
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           )}
         >
-          {/* 모바일 닫기 버튼 */}
           <div className="flex items-center justify-between border-b border-stone-200/80 px-5 py-4 md:hidden">
             <Image src={Logo} alt="로고" width={100} height={32} className="object-contain" />
             <button onClick={() => setSidebarOpen(false)}>
               <X className="h-5 w-5 text-stone-400" />
             </button>
           </div>
-
           <SidebarContent />
         </aside>
 
-        {/* 메인 콘텐츠 */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
 
           {/* 찜한 매물 */}
@@ -342,12 +361,14 @@ export default function MyPage() {
                   </button>
                 ))}
               </div>
-              {filteredLiked.length === 0 ? (
+              {isLoading ? (
+                <div className="py-10 text-center text-sm font-medium text-stone-400">불러오는 중...</div>
+              ) : filteredLiked.length === 0 ? (
                 <div className="rounded-[20px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500">
                   찜한 매물이 없습니다.
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3 ">
+                <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3">
                   {filteredLiked.map((property) => (
                     <PropertyCard key={property.id} property={property} />
                   ))}
@@ -384,10 +405,7 @@ export default function MyPage() {
               </p>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 {[...Array(5)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-36 w-full rounded-2xl border border-stone-200/80 bg-stone-100/80 md:h-48"
-                  />
+                  <div key={i} className="h-36 w-full rounded-2xl border border-stone-200/80 bg-stone-100/80 md:h-48" />
                 ))}
                 <div className="flex h-36 w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-stone-200 bg-white/80 transition-colors hover:bg-stone-50 md:h-48">
                   <ImageIcon className="h-5 w-5 text-stone-300" />
