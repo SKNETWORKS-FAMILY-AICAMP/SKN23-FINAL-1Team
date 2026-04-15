@@ -23,14 +23,21 @@ s3 = boto3.client(
 )
 
 # DB 연결
-conn = psycopg2.connect(
-    host="127.0.0.1",
-    database="postgres",
-    user="postgres",
-    password="Enc0re!2026",
-    port=15432,
-    sslmode="require"
-)
+def get_conn():
+    return psycopg2.connect(
+        host="127.0.0.1",
+        database="postgres",
+        user="postgres",
+        password="Enc0re!2026",
+        port=15432,
+        sslmode="require",
+        keepalives=1,
+        keepalives_idle=30,
+        keepalives_interval=10,
+        keepalives_count=5
+    )
+
+conn = get_conn()
 cur = conn.cursor()
 
 # ================================================================
@@ -38,7 +45,6 @@ cur = conn.cursor()
 # ================================================================
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"디바이스: {device}")
-
 print("모델 로드 중...")
 clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
@@ -47,7 +53,7 @@ clip_model.eval()
 print("✅ CLIP 로드 완료\n")
 
 # ================================================================
-# S3 다운로드 (멀티스레드용)
+# S3 다운로드 + 패딩
 # ================================================================
 def download_image(s3_url):
     try:
@@ -76,34 +82,58 @@ def to_vector_str(embedding):
     return "[" + ",".join(map(str, embedding)) + "]"
 
 # ================================================================
-# DB 배치 저장
+# DB 배치 저장 (연결 끊기면 재연결)
 # ================================================================
 def save_batch_to_db(batch_ids, embeddings):
+    global conn, cur
     for image_id, emb in zip(batch_ids, embeddings):
-        cur.execute("""
-            INSERT INTO public.item_image_embeddings
-                (image_id, embedding, model_name, created_at)
-            VALUES (%s, %s::vector, %s, %s)
-            ON CONFLICT (image_id) DO UPDATE
-                SET embedding = EXCLUDED.embedding,
-                    model_name = EXCLUDED.model_name,
-                    created_at = EXCLUDED.created_at
-        """, (
-            image_id,
-            to_vector_str(emb),
-            "clip-vit-base-patch32",
-            datetime.now()
-        ))
+        try:
+            cur.execute("""
+                INSERT INTO public.item_image_embeddings
+                    (image_id, embedding, model_name, created_at)
+                VALUES (%s, %s::vector, %s, %s)
+                ON CONFLICT (image_id) DO UPDATE
+                    SET embedding = EXCLUDED.embedding,
+                        model_name = EXCLUDED.model_name,
+                        created_at = EXCLUDED.created_at
+            """, (
+                image_id,
+                to_vector_str(emb),
+                "clip-vit-base-patch32",
+                datetime.now()
+            ))
+        except (psycopg2.OperationalError, psycopg2.InterfaceError):
+            print("\n🔄 DB 재연결 중...")
+            conn = get_conn()
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO public.item_image_embeddings
+                    (image_id, embedding, model_name, created_at)
+                VALUES (%s, %s::vector, %s, %s)
+                ON CONFLICT (image_id) DO UPDATE
+                    SET embedding = EXCLUDED.embedding,
+                        model_name = EXCLUDED.model_name,
+                        created_at = EXCLUDED.created_at
+            """, (
+                image_id,
+                to_vector_str(emb),
+                "clip-vit-base-patch32",
+                datetime.now()
+            ))
     conn.commit()
 
 # ================================================================
-# 전체 실행
+# 전체 실행 (이미 임베딩된 것 제외)
 # ================================================================
 def run_pipeline(batch_size=32):
     success_count = 0
     error_count = 0
 
-    cur.execute("SELECT id, s3_url FROM item_images")
+    # 이미 임베딩된 것 제외하고 조회
+    cur.execute("""
+        SELECT id, s3_url FROM item_images
+        WHERE id NOT IN (SELECT image_id FROM public.item_image_embeddings)
+    """)
     rows = cur.fetchall()
     total = len(rows)
     print(f"총 {total}개 이미지 처리 시작 (배치 크기: {batch_size})\n")
@@ -133,7 +163,10 @@ def run_pipeline(batch_size=32):
                 error_count += len(batch) - len(valid_ids)
 
             except Exception as e:
-                conn.rollback()
+                try:
+                    conn.rollback()
+                except:
+                    pass
                 error_count += len(batch)
                 tqdm.write(f"❌ 배치 에러: {e}")
 

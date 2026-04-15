@@ -1,11 +1,13 @@
 import os
 import requests
-import json
 from openai import OpenAI
 from dotenv import load_dotenv
 from datetime import datetime
+import json
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
-# (기존 경로 설정 및 초기화 부분 동일)
+# 프로젝트 루트의 .env 파일 로드
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 dotenv_path = os.path.join(BASE_DIR, ".env")
 load_dotenv(dotenv_path)
@@ -21,10 +23,8 @@ if not os.path.exists(CREATE_IMAGE_DIR):
     os.makedirs(CREATE_IMAGE_DIR, exist_ok=True)
     print(f"[*] 이미지 저장 폴더 생성 완료: {CREATE_IMAGE_DIR}")
 
+
 def _refine_prompt(user_prompt: str, model: str, system_role: str):
-    """
-    GPT를 경유하여 상세 영문 프롬프트와 파일명용 영문 요약을 JSON으로 반환합니다.
-    """
     try:
         print(f"[_refine_prompt] Refining prompt with {model}...")
         response = client.chat.completions.create(
@@ -33,30 +33,62 @@ def _refine_prompt(user_prompt: str, model: str, system_role: str):
                 {"role": "system", "content": system_role},
                 {"role": "user", "content": user_prompt}
             ],
-            response_format={"type": "json_object"}, # JSON 응답 강제
+            response_format={"type": "json_object"},
             temperature=0.7
         )
-        
-        # GPT가 뱉은 JSON 파싱
         res_content = json.loads(response.choices[0].message.content)
         refined_prompt = res_content.get("prompt", user_prompt)
         file_summary = res_content.get("summary", "room_image")
-        
         print(f"[_refine_prompt] Summary: {file_summary}")
         return refined_prompt, file_summary
-    
+
     except Exception as e:
         print(f"[_refine_prompt] Error: {e}")
-        # 에러 시 기본값 반환
         return user_prompt, "error_image"
 
-def generate_image(user_prompt: str, size: str = "1792x1024", quality: str = "standard", n: int = 1):
-    # 시스템 롤 업데이트 (JSON 출력 지침 추가)
+
+def _generate_single(user_prompt: str, system_role: str, size: str, quality: str, index: int):
+    """이미지 1장 생성 (병렬 호출용)"""
+    try:
+        refined_prompt, file_summary = _refine_prompt(user_prompt, GEN_GPT_MODEL, system_role)
+
+        print(f"[generate_image] Generating image {index+1}/4 for: {file_summary}")
+        response = client.images.generate(
+            model=GEN_DALLE_MODEL,
+            prompt=refined_prompt,
+            size=size,
+            quality=quality,
+            n=1,
+        )
+
+        image_url = response.data[0].url
+        image_data = requests.get(image_url).content
+
+        timestamp = datetime.now().strftime("%H%M%S")
+        random_suffix = os.urandom(2).hex()
+        file_name = f"{timestamp}_{file_summary}_{random_suffix}.png"
+        file_path = os.path.join(CREATE_IMAGE_DIR, file_name)
+
+        with open(file_path, "wb") as f:
+            f.write(image_data)
+
+        print(f"[generate_image] Saved: {file_name}")
+        return file_path
+
+    except Exception as e:
+        print(f"[generate_image] Error on image {index+1}: {e}")
+        return None
+
+
+def generate_image(user_prompt: str, size: str = "1792x1024", quality: str = "standard", n: int = 4):
     system_role = (
         """
             You are a Korean real estate photographer.
 
             Create a DALL-E 3 prompt for a realistic Korean studio apartment (one-room).
+            Return a JSON object with two keys:
+            - "prompt": the detailed DALL-E 3 prompt in English
+            - "summary": a short English filename summary (snake_case, max 30 chars)
 
             ## CORE OBJECTIVE ##
             - Each generation must represent a DIFFERENT apartment variation based on the same user condition.
@@ -88,38 +120,15 @@ def generate_image(user_prompt: str, size: str = "1792x1024", quality: str = "st
             - clean but not luxurious
         """
     )
-    
-    # 1. GPT로 프롬프트 고도화 및 요약 획득
-    refined_prompt, file_summary = _refine_prompt(user_prompt, GEN_GPT_MODEL, system_role)
-    
-    # 2. DALL-E 3 이미지 생성
-    try:
-        print(f"[generate_image] Generating image for: {file_summary}")
-        response = client.images.generate(
-            model=GEN_DALLE_MODEL,
-            prompt=refined_prompt,
-            size=size,
-            quality=quality,
-            n=n,
-        )
-        
-        image_url = response.data[0].url
-        image_data = requests.get(image_url).content
-        
-        # 3. 파일명 조립 (시분초_요약_랜덤값.png)
-        timestamp = datetime.now().strftime("%H%M%S")
-        random_suffix = os.urandom(2).hex() 
-        
-        # 예: 153045_clean_semi_basement_ab12.png
-        file_name = f"{timestamp}_{file_summary}_{random_suffix}.png"
-        file_path = os.path.join(CREATE_IMAGE_DIR, file_name)
-        
-        with open(file_path, "wb") as f:
-            f.write(image_data)
-            
-        print(f"[generate_image] Saved: {file_name}")
-        return [file_path]
-        
-    except Exception as e:
-        print(f"[generate_image] Error: {e}")
-        return None
+
+    # 4장 병렬 생성
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [
+            executor.submit(_generate_single, user_prompt, system_role, size, quality, i)
+            for i in range(4)
+        ]
+        file_paths = [f.result() for f in futures]
+
+    file_paths = [p for p in file_paths if p is not None]
+
+    return file_paths if file_paths else None
