@@ -5,6 +5,9 @@ import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import URL
+
+load_dotenv()
 load_dotenv()
 
 st.set_page_config(
@@ -44,13 +47,28 @@ def get_db_config():
     }
 
 
+@st.cache_resource
 def get_engine():
     cfg = get_db_config()
-    db_url = (
-        f"postgresql+psycopg2://{cfg['user']}:{cfg['password']}"
-        f"@{cfg['host']}:{cfg['port']}/{cfg['dbname']}"
+    print("[DB CONFIG]", cfg["host"], cfg["port"], cfg["dbname"], cfg["user"])
+    db_url = URL.create(
+        drivername="postgresql+psycopg2",
+        username=cfg["user"],
+        password=cfg["password"],
+        host=cfg["host"],
+        port=cfg["port"],
+        database=cfg["dbname"],
     )
-    return create_engine(db_url, pool_pre_ping=True)
+
+    engine = create_engine(
+        db_url,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+        pool_size=5,
+        max_overflow=10,
+        future=True,
+    )
+    return engine
 
 
 @st.cache_data(ttl=60)
