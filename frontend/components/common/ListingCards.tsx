@@ -36,6 +36,9 @@ export function ListingCard({
   listing,
   isSelected = false,
   onClick,
+  isFavorite = false,
+  isFavoriteLoading = false,
+  onToggleFavorite,
 }: ListingCardProps) {
   const imageSrc = isValidImageSrc(listing.images?.[0])
     ? listing.images[0]

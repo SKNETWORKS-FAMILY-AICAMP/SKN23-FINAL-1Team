@@ -327,10 +327,9 @@ export function HomeContainer() {
     }
 
     const controller = new AbortController();
-
     const loadFavorites = async () => {
       try {
-        const data = await fetchFavorites(controller.signal);
+        const data = await fetchFavorites(user.user_id!, controller.signal);
         setFavoriteIds(data.items.map((item) => item.item_id));
       } catch (error) {
         if (controller.signal.aborted) return;
@@ -359,10 +358,10 @@ export function HomeContainer() {
 
       try {
         if (isFavorite) {
-          await removeFavorite(listingId);
+          await removeFavorite(listingId, user.user_id);
           setFavoriteIds((prev) => prev.filter((id) => id !== listingId));
         } else {
-          await addFavorite(listingId);
+          await addFavorite(listingId, user.user_id);
           setFavoriteIds((prev) => [...prev, listingId]);
         }
       } catch (error) {

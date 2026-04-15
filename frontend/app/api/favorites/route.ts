@@ -25,21 +25,23 @@ export type FavoriteListResponse = {
   }[];
 };
 
-export async function fetchFavorites(signal?: AbortSignal) {
-  return requestFavorite("/favorites", {
+export async function fetchFavorites(userId: number, signal?: AbortSignal) {
+  return requestFavorite(`/favorites?user_id=${userId}`, {
     method: "GET",
     signal,
   }) as Promise<FavoriteListResponse>;
 }
 
-export async function addFavorite(itemId: number) {
+export async function addFavorite(itemId: number, userId: number) {
   return requestFavorite(`/favorites/${itemId}`, {
     method: "POST",
+    body: JSON.stringify({ user_id: userId }),
   });
 }
 
-export async function removeFavorite(itemId: number) {
+export async function removeFavorite(itemId: number, userId: number) {
   return requestFavorite(`/favorites/${itemId}`, {
     method: "DELETE",
+    body: JSON.stringify({ user_id: userId }),
   });
 }

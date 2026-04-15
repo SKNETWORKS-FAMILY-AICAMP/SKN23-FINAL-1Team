@@ -2,6 +2,10 @@ from pydantic import BaseModel
 from datetime import datetime
 
 
+class FavoriteToggleRequest(BaseModel):
+    user_id: int
+
+
 class FavoriteCreateResponse(BaseModel):
     success: bool
     item_id: int
