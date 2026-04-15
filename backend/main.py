@@ -4,7 +4,10 @@ from routers.auth import router as auth_router
 from routers.rooms import router as rooms_router
 from routers.room_detail import router as room_detail_router
 from fastapi.middleware.cors import CORSMiddleware
+
 from routers.ai_image_router import router as ai_image_router
+from routers.favorite import router as favorite_router
+
 
 app = FastAPI()
 
@@ -26,3 +29,5 @@ app.include_router(auth_router)
 app.include_router(rooms_router)
 app.include_router(room_detail_router)
 app.include_router(ai_image_router)
+app.include_router(favorite_router)
+

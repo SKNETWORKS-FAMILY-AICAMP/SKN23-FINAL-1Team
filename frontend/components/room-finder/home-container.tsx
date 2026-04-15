@@ -13,6 +13,12 @@ import { ListingPanel } from "@/components/room-finder/listing-panel";
 import { fetchItems, fetchMapItems } from "@/app/api/rooms/route";
 import { mapItemToListing } from "@/utils/roomMappers";
 import { ListingDetailPanel } from "@/components/room-finder/listing-detail-panel";
+import { useAuthStore } from "@/store/authStore";
+import {
+  fetchFavorites,
+  addFavorite,
+  removeFavorite,
+} from "@/app/api/favorites/route";
 
 const PAGE_SIZE = 20;
 
@@ -36,7 +42,17 @@ function isSameBounds(a: MapBounds | null, b: MapBounds | null) {
     a.neLng === b.neLng &&
     a.centerLat === b.centerLat &&
     a.centerLng === b.centerLng &&
-    a.level === b.level
+    a.level === b.level &&
+    a.source === b.source
+  );
+}
+
+function shouldReloadByBounds(source?: MapBounds["source"]) {
+  return (
+    source === "initial" ||
+    source === "user" ||
+    source === "cluster" ||
+    source === "search"
   );
 }
 
@@ -63,6 +79,12 @@ export function HomeContainer() {
   const [hasRequestFailed, setHasRequestFailed] = useState(false);
   const [isLocationReady, setIsLocationReady] = useState(false);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+
+  const user = useAuthStore((state) => state.user);
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
+  const [favoriteLoadingIds, setFavoriteLoadingIds] = useState<number[]>([]);
 
   const panelListings = recommendedListings ?? listings;
 
@@ -136,25 +158,21 @@ export function HomeContainer() {
   useEffect(() => {
     if (!selectedListing) return;
 
-    const sourceListings =
-      (recommendedListings ?? visibleListings.length)
-        ? (recommendedListings ?? visibleListings)
-        : listings;
-
-    const stillVisible = sourceListings.some(
+    const stillExistsInPanel = panelListings.some(
       (listing) => listing.id === selectedListing.id,
     );
 
-    if (!stillVisible && !recommendedListings) {
+    if (!stillExistsInPanel) {
       setSelectedListing(null);
     }
-  }, [listings, visibleListings, recommendedListings, selectedListing]);
+  }, [panelListings, selectedListing]);
 
   useEffect(() => {
     const controller = new AbortController();
 
     const loadPagedItems = async () => {
       if (!isLocationReady || !mapBounds) return;
+      if (!shouldReloadByBounds(mapBounds.source)) return;
       if (!hasMore || hasRequestFailed) return;
 
       setIsLoading(true);
@@ -228,6 +246,7 @@ export function HomeContainer() {
 
     const loadMapItems = async () => {
       if (!isLocationReady || !mapBounds) return;
+      if (!shouldReloadByBounds(mapBounds.source)) return;
 
       try {
         const data = await fetchMapItems({
@@ -287,6 +306,7 @@ export function HomeContainer() {
 
     if (!prevBounds) return;
     if (isSameBounds(prevBounds, mapBounds)) return;
+    if (!shouldReloadByBounds(mapBounds.source)) return;
 
     setOffset(0);
     setHasMore(true);
@@ -299,6 +319,60 @@ export function HomeContainer() {
     if (isLoading || !hasMore || recommendedListings) return;
     setOffset((prev) => prev + PAGE_SIZE);
   }, [hasMore, isLoading, recommendedListings]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !user?.user_id) {
+      setFavoriteIds([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const loadFavorites = async () => {
+      try {
+        const data = await fetchFavorites(user.user_id!, controller.signal);
+        setFavoriteIds(data.items.map((item) => item.item_id));
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error(error);
+        setFavoriteIds([]);
+      }
+    };
+
+    loadFavorites();
+
+    return () => controller.abort();
+  }, [isLoggedIn, user?.user_id]);
+
+  const handleToggleFavorite = useCallback(
+    async (listingId: number) => {
+      if (!isLoggedIn || !user?.user_id) {
+        alert("로그인 후 이용할 수 있습니다.");
+        return;
+      }
+
+      if (favoriteLoadingIds.includes(listingId)) return;
+
+      const isFavorite = favoriteIds.includes(listingId);
+
+      setFavoriteLoadingIds((prev) => [...prev, listingId]);
+
+      try {
+        if (isFavorite) {
+          await removeFavorite(listingId, user.user_id);
+          setFavoriteIds((prev) => prev.filter((id) => id !== listingId));
+        } else {
+          await addFavorite(listingId, user.user_id);
+          setFavoriteIds((prev) => [...prev, listingId]);
+        }
+      } catch (error) {
+        console.error(error);
+        alert("즐겨찾기 처리 중 오류가 발생했습니다.");
+      } finally {
+        setFavoriteLoadingIds((prev) => prev.filter((id) => id !== listingId));
+      }
+    },
+    [favoriteIds, favoriteLoadingIds, isLoggedIn, user?.user_id],
+  );
 
   return (
     <div className="flex h-screen flex-col bg-ivory">
@@ -355,6 +429,9 @@ export function HomeContainer() {
           isOpen={!!selectedListing}
           onClose={() => setSelectedListing(null)}
           listPanelOpen={isPanelOpen}
+          favoriteIds={favoriteIds}
+          favoriteLoadingIds={favoriteLoadingIds}
+          onToggleFavorite={handleToggleFavorite}
         />
 
         <aside
@@ -387,6 +464,9 @@ export function HomeContainer() {
               hasMore={recommendedListings ? false : hasMore}
               onLoadMore={loadMore}
               onListingClick={setSelectedListing}
+              favoriteIds={favoriteIds}
+              favoriteLoadingIds={favoriteLoadingIds}
+              onToggleFavorite={handleToggleFavorite}
               onSimilarListingsFound={(similar) => {
                 setRecommendedListings(similar);
                 setSelectedListing(similar[0] ?? null);
@@ -421,6 +501,9 @@ export function HomeContainer() {
               hasMore={recommendedListings ? false : hasMore}
               onLoadMore={loadMore}
               onListingClick={setSelectedListing}
+              favoriteIds={favoriteIds}
+              favoriteLoadingIds={favoriteLoadingIds}
+              onToggleFavorite={handleToggleFavorite}
               onSimilarListingsFound={(similar) => {
                 setRecommendedListings(similar);
                 setSelectedListing(similar[0] ?? null);

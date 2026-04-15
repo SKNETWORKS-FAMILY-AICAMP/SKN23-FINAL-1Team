@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import type { Listing } from "@/components/room-finder/map-view";
+import { FavoriteButton } from "@/components/common/Button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Ruler, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -10,13 +11,39 @@ interface ListingCardProps {
   listing: Listing;
   isSelected?: boolean;
   onClick?: (listing: Listing) => void;
+  isFavorite?: boolean;
+  isFavoriteLoading?: boolean;
+  onToggleFavorite?: () => void;
+}
+
+export function isValidImageSrc(value?: string | null) {
+  if (!value) return false;
+
+  const normalized = value.trim().toLowerCase();
+
+  if (["", "nan", "none", "null"].includes(normalized)) {
+    return false;
+  }
+
+  return (
+    normalized.startsWith("http://") ||
+    normalized.startsWith("https://") ||
+    normalized.startsWith("/")
+  );
 }
 
 export function ListingCard({
   listing,
   isSelected = false,
   onClick,
+  isFavorite = false,
+  isFavoriteLoading = false,
+  onToggleFavorite,
 }: ListingCardProps) {
+  const imageSrc = isValidImageSrc(listing.images?.[0])
+    ? listing.images[0]
+    : null;
+
   return (
     <button
       type="button"
@@ -33,15 +60,22 @@ export function ListingCard({
         )}
       >
         <div className="relative aspect-[4/3] overflow-hidden bg-stone-100">
-          {listing.images?.[0] ? (
+          {imageSrc ? (
             <>
               <Image
-                src={listing.images[0]}
+                src={imageSrc}
                 alt={listing.title}
                 fill
                 className="object-cover transition-transform duration-700 group-hover:scale-105"
                 sizes="(min-width: 1280px) 380px, (min-width: 768px) 50vw, 100vw"
               />
+              <div className="absolute right-3 top-3 z-10">
+                <FavoriteButton
+                  isFavorite={!!isFavorite}
+                  disabled={!!isFavoriteLoading}
+                  onClick={() => onToggleFavorite?.()}
+                />
+              </div>
               <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-black/0 to-transparent" />
             </>
           ) : (

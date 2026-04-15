@@ -38,7 +38,7 @@ export function AIRecommendation({
     setGeneratedImages([])
 
     try {
-      const response = await fetch("/api/generate-room-images", {
+      const response = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
