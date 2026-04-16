@@ -27,5 +27,13 @@ def csv_extractor(query: str, ):
 
 if __name__ == "__main__":
     "CSV 추출용 코드입니다."
-    query = "select * from items i inner join item_features t on i.item_id = t.item_id"
+    query = """select address, deposit, rent, manage_cost, service_type, room_type, floor, all_floors, area_m2, 
+                has_parking, has_elevator, bathroom_count, room_direction, movein_date, approve_date, has_air_con, 
+                has_fridge, has_washer, has_gas_stove, has_induction, has_microwave, has_desk, has_bed, has_closet, 
+                has_shoe_rack, dist_subway, dist_pharmacy, dist_conv, dist_bus, dist_mart, dist_laundry, dist_cafe, 
+                is_coupang, is_ssg, is_marketkurly, is_baemin, is_yogiyo, is_subway_area, is_convenient_area, 
+                is_park_area, is_school_area, has_bookcase, has_sink
+                from items i
+                inner join item_features t
+                on i.item_id = t.item_id;"""
     csv_extractor(query = query)
