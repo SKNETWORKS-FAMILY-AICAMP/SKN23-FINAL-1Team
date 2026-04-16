@@ -45,7 +45,6 @@ export function ListingPanel({
   const [activeTab, setActiveTab] = useState<PanelTab>("list");
   const currentTab = !isLoggedIn && activeTab === "wish" ? "list" : activeTab;
 
-  // 로그아웃 시 찜목록 탭에 있었으면 list로 강제 이동
   useEffect(() => {
     if (currentTab !== "list") return;
     if (!observerRef.current || !scrollContainerRef.current) return;
@@ -85,11 +84,9 @@ export function ListingPanel({
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white md:bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">
-      <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-4 pt-6 backdrop-blur-md">
+      <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-4 pt-6 backdrop-blur-md shrink-0">
         <div className="mb-4">
-          <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400">
-            Curated Space
-          </p>
+
           <div className="mt-1 text-xl font-bold tracking-tight text-stone-900">
             {headerTitle}
           </div>
@@ -127,7 +124,6 @@ export function ListingPanel({
             AI추천
           </button>
 
-          {/* 로그인 시에만 찜목록 탭 표시 */}
           {isLoggedIn && (
             <button
               type="button"
@@ -159,10 +155,7 @@ export function ListingPanel({
           >
             <div className="space-y-4">
               {listings.map((listing) => (
-                <div
-                  key={listing.id}
-                  className="cursor-pointer transition-transform duration-200"
-                >
+                <div key={listing.id} className="cursor-pointer transition-transform duration-200">
                   <ListingCard
                     listing={listing}
                     isSelected={selectedListing?.id === listing.id}
@@ -174,21 +167,17 @@ export function ListingPanel({
                 </div>
               ))}
             </div>
-
             <div ref={observerRef} className="h-10" />
-
             {isLoading && (
               <div className="py-6 text-center text-sm font-medium text-stone-500">
                 더 불러오는 중...
               </div>
             )}
-
             {!hasMore && listings.length > 0 && (
               <div className="py-6 text-center text-sm font-medium text-stone-400">
                 마지막 매물입니다.
               </div>
             )}
-
             {!isLoading && listings.length === 0 && (
               <div className="rounded-[24px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
                 표시할 매물이 없습니다.
@@ -205,7 +194,7 @@ export function ListingPanel({
               setActiveTab("list");
             }}
           />
-        )}
+        </div>
 
         {currentTab === "wish" && isLoggedIn && (
           <div className="h-full overflow-y-auto px-4 py-4">
@@ -216,10 +205,7 @@ export function ListingPanel({
             ) : (
               <div className="space-y-4">
                 {favoriteListings.map((listing) => (
-                  <div
-                    key={listing.id}
-                    className="cursor-pointer transition-transform duration-200"
-                  >
+                  <div key={listing.id} className="cursor-pointer transition-transform duration-200">
                     <ListingCard
                       listing={listing}
                       isSelected={selectedListing?.id === listing.id}
