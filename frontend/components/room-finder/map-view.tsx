@@ -78,16 +78,21 @@ const DEFAULT_CENTER = {
   lng: 126.978,
 };
 
+const BOUNDS_PRECISION = 5;
+
+function roundBoundsValue(value: number) {
+  return Number(value.toFixed(BOUNDS_PRECISION));
+}
+
 function boundsToKey(bounds: MapBounds) {
   return [
-    bounds.swLat,
-    bounds.swLng,
-    bounds.neLat,
-    bounds.neLng,
-    bounds.centerLat,
-    bounds.centerLng,
+    roundBoundsValue(bounds.swLat),
+    roundBoundsValue(bounds.swLng),
+    roundBoundsValue(bounds.neLat),
+    roundBoundsValue(bounds.neLng),
+    roundBoundsValue(bounds.centerLat),
+    roundBoundsValue(bounds.centerLng),
     bounds.level,
-    bounds.source,
   ].join(",");
 }
 
@@ -126,6 +131,7 @@ export function MapView({
   const mapInstanceRef = useRef<any>(null);
   const mapObjectsRef = useRef<any[]>([]);
   const infoWindowsRef = useRef<any[]>([]);
+  const mapItemsRef = useRef<MapItem[]>([]);
 
   const visibleListingIdsRef = useRef<string>("");
   const lastAppliedSearchRef = useRef<string>("");
@@ -160,12 +166,12 @@ export function MapView({
     pendingSourceRef.current = "user";
 
     const nextBounds: MapBounds = {
-      swLat: sw.getLat(),
-      swLng: sw.getLng(),
-      neLat: ne.getLat(),
-      neLng: ne.getLng(),
-      centerLat: center.getLat(),
-      centerLng: center.getLng(),
+      swLat: roundBoundsValue(sw.getLat()),
+      swLng: roundBoundsValue(sw.getLng()),
+      neLat: roundBoundsValue(ne.getLat()),
+      neLng: roundBoundsValue(ne.getLng()),
+      centerLat: roundBoundsValue(center.getLat()),
+      centerLng: roundBoundsValue(center.getLng()),
       level: typeof map.getLevel === "function" ? map.getLevel() : 4,
       source,
     };
@@ -176,18 +182,12 @@ export function MapView({
     lastBoundsKeyRef.current = nextKey;
 
     onBoundsChange?.(nextBounds);
-    console.log(
-      "current kakao level:",
-      nextBounds.level,
-      "source:",
-      nextBounds.source,
-    );
   };
 
   const updateVisibleListings = (map: any, kakao: any) => {
     if (!map) return;
 
-    const markerItems = mapItems.filter(isMarkerItem);
+    const markerItems = mapItemsRef.current.filter(isMarkerItem);
 
     if (!markerItems.length) {
       if (visibleListingIdsRef.current !== "") {
@@ -399,6 +399,10 @@ export function MapView({
   };
 
   useEffect(() => {
+    mapItemsRef.current = mapItems;
+  }, [mapItems]);
+
+  useEffect(() => {
     visibleListingIdsRef.current = "";
   }, [mapItems]);
 
@@ -441,7 +445,9 @@ export function MapView({
           if (isCancelled) return;
 
           hasMovedToCurrentLocationRef.current = true;
+          emitBounds(map);
           onInitialLocationResolved?.(coords);
+          return;
         }
 
         emitBounds(map);
@@ -483,7 +489,7 @@ export function MapView({
     return () => {
       kakao.maps.event.removeListener(map, "idle", handleIdle);
     };
-  }, [isMapReady, mapItems, onVisibleListingsChange, onBoundsChange]);
+  }, [isMapReady, onVisibleListingsChange, onBoundsChange]);
 
   useEffect(() => {
     if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;

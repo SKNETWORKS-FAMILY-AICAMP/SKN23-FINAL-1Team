@@ -20,6 +20,7 @@ interface ListingPanelProps {
   onToggleFavorite: (listingId: number) => void;
   favoriteListings?: Listing[];
   isLoggedIn?: boolean;
+  scrollResetKey?: number;
 }
 
 type PanelTab = "list" | "ai" | "wish";
@@ -37,19 +38,15 @@ export function ListingPanel({
   onToggleFavorite,
   favoriteListings = [],
   isLoggedIn = false,
+  scrollResetKey,
 }: ListingPanelProps) {
   const observerRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState<PanelTab>("list");
+  const currentTab = !isLoggedIn && activeTab === "wish" ? "list" : activeTab;
 
   useEffect(() => {
-    if (!isLoggedIn && activeTab === "wish") {
-      setActiveTab("list");
-    }
-  }, [isLoggedIn, activeTab]);
-
-  useEffect(() => {
-    if (activeTab !== "list") return;
+    if (currentTab !== "list") return;
     if (!observerRef.current || !scrollContainerRef.current) return;
     if (!onLoadMore || !hasMore) return;
 
@@ -69,13 +66,21 @@ export function ListingPanel({
 
     observer.observe(observerRef.current);
     return () => observer.disconnect();
-  }, [activeTab, hasMore, isLoading, onLoadMore]);
+  }, [currentTab, hasMore, isLoading, onLoadMore]);
+
+  useEffect(() => {
+    if (currentTab !== "list") return;
+    scrollContainerRef.current?.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }, [currentTab, scrollResetKey]);
 
   const headerTitle = useMemo(() => {
-    if (activeTab === "list") return "매물 목록";
-    if (activeTab === "ai") return "AI 추천";
+    if (currentTab === "list") return "매물 목록";
+    if (currentTab === "ai") return "AI 추천";
     return "찜 목록";
-  }, [activeTab]);
+  }, [currentTab]);
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white md:bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">
@@ -96,7 +101,7 @@ export function ListingPanel({
             onClick={() => setActiveTab("list")}
             className={cn(
               "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
-              activeTab === "list"
+              currentTab === "list"
                 ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                 : "text-stone-500 hover:text-stone-800",
             )}
@@ -110,7 +115,7 @@ export function ListingPanel({
             onClick={() => setActiveTab("ai")}
             className={cn(
               "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
-              activeTab === "ai"
+              currentTab === "ai"
                 ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                 : "text-stone-500 hover:text-stone-800",
             )}
@@ -125,7 +130,7 @@ export function ListingPanel({
               onClick={() => setActiveTab("wish")}
               className={cn(
                 "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
-                activeTab === "wish"
+                  currentTab === "wish"
                   ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                   : "text-stone-500 hover:text-stone-800",
               )}
@@ -142,10 +147,12 @@ export function ListingPanel({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
-        {/* 매물목록 */}
-        {activeTab === "list" && (
-          <div ref={scrollContainerRef} className="h-full overflow-y-auto px-4 py-4">
+      <div className="min-h-0 flex-1">
+        {currentTab === "list" && (
+          <div
+            ref={scrollContainerRef}
+            className="h-full overflow-y-auto px-4 py-4"
+          >
             <div className="space-y-4">
               {listings.map((listing) => (
                 <div key={listing.id} className="cursor-pointer transition-transform duration-200">
@@ -179,11 +186,7 @@ export function ListingPanel({
           </div>
         )}
 
-        {/* AI추천 — hidden으로 언마운트 방지, flex-col로 내부 스크롤 */}
-        <div className={cn(
-          "flex-1 min-h-0 flex flex-col overflow-hidden",
-          activeTab === "ai" ? "flex" : "hidden"
-        )}>
+        {currentTab === "ai" && (
           <AIRecommendation
             allListings={listings}
             onSimilarListingsFound={(similarListings) => {
@@ -193,8 +196,7 @@ export function ListingPanel({
           />
         </div>
 
-        {/* 찜목록 */}
-        {activeTab === "wish" && isLoggedIn && (
+        {currentTab === "wish" && isLoggedIn && (
           <div className="h-full overflow-y-auto px-4 py-4">
             {favoriteListings.length === 0 ? (
               <div className="rounded-[24px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
