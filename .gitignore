@@ -149,6 +149,8 @@ dist
 [Bb]in
 [Ii]nclude
 [Ll]ib
+!frontend/lib/
+!frontend/lib/**
 [Ll]ib64
 [Ll]ocal
 [Ss]cripts

@@ -10,7 +10,7 @@ import {
   type MapItem,
 } from "@/components/room-finder/map-view";
 import { ListingPanel } from "@/components/room-finder/listing-panel";
-import { fetchItems, fetchMapItems } from "@/app/api/rooms/route";
+import { fetchItems, fetchMapItems } from "@/lib/api/rooms";
 import { mapItemToListing } from "@/utils/roomMappers";
 import { ListingDetailPanel } from "@/components/room-finder/listing-detail-panel";
 import { useAuthStore } from "@/store/authStore";
@@ -18,7 +18,7 @@ import {
   fetchFavorites,
   addFavorite,
   removeFavorite,
-} from "@/app/api/favorites/route";
+} from "@/lib/api/favorites";
 
 const PAGE_SIZE = 20;
 
