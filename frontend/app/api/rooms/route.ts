@@ -13,6 +13,20 @@ function getApiBaseUrl() {
   return API_BASE_URL;
 }
 
+function isAbortError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.name === "AbortError" ||
+    error.name === "ResponseAborted" ||
+    error.message.includes("AbortError") ||
+    error.message.includes("ResponseAborted") ||
+    error.message.toLowerCase().includes("aborted")
+  );
+}
+
 async function jsonResponse(response: Response) {
   const text = await response.text();
 
@@ -51,7 +65,7 @@ async function postJsonWithRetry(
 
       return jsonResponse(response);
     } catch (error) {
-      if (signal?.aborted) {
+      if (signal?.aborted || isAbortError(error)) {
         throw error;
       }
 
@@ -87,6 +101,10 @@ export async function GET(request: NextRequest) {
 
     return jsonResponse(response);
   } catch (error) {
+    if (request.signal.aborted || isAbortError(error)) {
+      return new Response(null, { status: 499 });
+    }
+
     console.error("[rooms] GET failed", error);
     return NextResponse.json(
       { message: "Room detail request failed." },
@@ -107,6 +125,10 @@ export async function POST(request: NextRequest) {
       request.signal,
     );
   } catch (error) {
+    if (request.signal.aborted || isAbortError(error)) {
+      return new Response(null, { status: 499 });
+    }
+
     console.error("[rooms] POST failed", error);
     return NextResponse.json(
       { message: "Room search request failed." },
