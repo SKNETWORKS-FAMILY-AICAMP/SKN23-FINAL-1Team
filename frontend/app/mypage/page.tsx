@@ -11,7 +11,7 @@ import {
   fetchFavorites as apiFetchFavorites,
   addFavorite,
   removeFavorite,
-} from "@/app/api/favorites/route";
+} from "@/lib/api/favorites";
 
 type Section = "liked" | "recent" | "gallery" | "settings";
 type RoomTab = "all" | "oneroom" | "tworoom";
