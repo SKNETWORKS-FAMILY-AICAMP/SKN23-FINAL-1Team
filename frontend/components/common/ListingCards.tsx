@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import type { KeyboardEvent } from "react";
 import type { Listing } from "@/components/room-finder/map-view";
 import { FavoriteButton } from "@/components/common/Button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,11 +45,27 @@ export function ListingCard({
     ? listing.images[0]
     : null;
 
+  const handleSelect = () => {
+    onClick?.(listing);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (!onClick || (event.key !== "Enter" && event.key !== " ")) {
+      return;
+    }
+
+    event.preventDefault();
+    handleSelect();
+  };
+
   return (
-    <button
-      type="button"
-      onClick={() => onClick?.(listing)}
-      className="w-full text-left"
+    <article
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={handleSelect}
+      onKeyDown={handleKeyDown}
+      className={cn("w-full text-left", onClick && "cursor-pointer")}
+      aria-label={onClick ? `${listing.title} 상세 보기` : undefined}
     >
       <Card
         className={cn(
@@ -118,6 +135,6 @@ export function ListingCard({
           </div>
         </CardContent>
       </Card>
-    </button>
+    </article>
   );
 }
