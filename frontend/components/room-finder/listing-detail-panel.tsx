@@ -7,7 +7,7 @@ import type { Listing } from "@/components/room-finder/map-view";
 import {
   fetchRoomDetail,
   type ListingDetailResponse,
-} from "@/app/api/rooms/route";
+} from "@/lib/api/rooms";
 import {
   Carousel,
   CarouselContent,
