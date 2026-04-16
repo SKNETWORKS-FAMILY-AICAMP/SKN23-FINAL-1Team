@@ -86,16 +86,17 @@ export function ListingPanel({
     <div className="flex h-full flex-col overflow-hidden bg-white md:bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">
       <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-4 pt-6 backdrop-blur-md shrink-0">
         <div className="mb-4">
-
           <div className="mt-1 text-xl font-bold tracking-tight text-stone-900">
             {headerTitle}
           </div>
         </div>
 
-        <div className={cn(
-          "rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
-          isLoggedIn ? "grid grid-cols-3" : "grid grid-cols-2"
-        )}>
+        <div
+          className={cn(
+            "rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
+            isLoggedIn ? "grid grid-cols-3" : "grid grid-cols-2",
+          )}
+        >
           <button
             type="button"
             onClick={() => setActiveTab("list")}
@@ -130,7 +131,7 @@ export function ListingPanel({
               onClick={() => setActiveTab("wish")}
               className={cn(
                 "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
-                  currentTab === "wish"
+                currentTab === "wish"
                   ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                   : "text-stone-500 hover:text-stone-800",
               )}
@@ -155,14 +156,21 @@ export function ListingPanel({
           >
             <div className="space-y-4">
               {listings.map((listing) => (
-                <div key={listing.id} className="cursor-pointer transition-transform duration-200">
+                <div
+                  key={listing.id}
+                  className="cursor-pointer transition-transform duration-200"
+                >
                   <ListingCard
                     listing={listing}
                     isSelected={selectedListing?.id === listing.id}
                     onClick={onListingClick}
                     isFavorite={favoriteIds.includes(Number(listing.id))}
-                    isFavoriteLoading={favoriteLoadingIds.includes(Number(listing.id))}
-                    onToggleFavorite={() => onToggleFavorite(Number(listing.id))}
+                    isFavoriteLoading={favoriteLoadingIds.includes(
+                      Number(listing.id),
+                    )}
+                    onToggleFavorite={() =>
+                      onToggleFavorite(Number(listing.id))
+                    }
                   />
                 </div>
               ))}
@@ -194,7 +202,7 @@ export function ListingPanel({
               setActiveTab("list");
             }}
           />
-        </div>
+        )}
 
         {currentTab === "wish" && isLoggedIn && (
           <div className="h-full overflow-y-auto px-4 py-4">
@@ -205,14 +213,21 @@ export function ListingPanel({
             ) : (
               <div className="space-y-4">
                 {favoriteListings.map((listing) => (
-                  <div key={listing.id} className="cursor-pointer transition-transform duration-200">
+                  <div
+                    key={listing.id}
+                    className="cursor-pointer transition-transform duration-200"
+                  >
                     <ListingCard
                       listing={listing}
                       isSelected={selectedListing?.id === listing.id}
                       onClick={onListingClick}
                       isFavorite={true}
-                      isFavoriteLoading={favoriteLoadingIds.includes(Number(listing.id))}
-                      onToggleFavorite={() => onToggleFavorite(Number(listing.id))}
+                      isFavoriteLoading={favoriteLoadingIds.includes(
+                        Number(listing.id),
+                      )}
+                      onToggleFavorite={() =>
+                        onToggleFavorite(Number(listing.id))
+                      }
                     />
                   </div>
                 ))}
