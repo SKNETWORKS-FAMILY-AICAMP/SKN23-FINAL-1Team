@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Listing } from "@/components/room-finder/map-view";
 import { ListingCard } from "@/components/common/ListingCards";
 import { AIRecommendation } from "@/components/room-finder/ai-recommendation";
-import { Sparkles, House } from "lucide-react";
+import { Sparkles, House, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ListingPanelProps {
@@ -18,9 +18,11 @@ interface ListingPanelProps {
   favoriteIds: number[];
   favoriteLoadingIds: number[];
   onToggleFavorite: (listingId: number) => void;
+  favoriteListings?: Listing[];
+  isLoggedIn?: boolean;
 }
 
-type PanelTab = "list" | "ai";
+type PanelTab = "list" | "ai" | "wish";
 
 export function ListingPanel({
   listings,
@@ -33,10 +35,19 @@ export function ListingPanel({
   favoriteIds,
   favoriteLoadingIds,
   onToggleFavorite,
+  favoriteListings = [],
+  isLoggedIn = false,
 }: ListingPanelProps) {
   const observerRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState<PanelTab>("list");
+
+  // 로그아웃 시 찜목록 탭에 있었으면 list로 강제 이동
+  useEffect(() => {
+    if (!isLoggedIn && activeTab === "wish") {
+      setActiveTab("list");
+    }
+  }, [isLoggedIn, activeTab]);
 
   useEffect(() => {
     if (activeTab !== "list") return;
@@ -62,7 +73,9 @@ export function ListingPanel({
   }, [activeTab, hasMore, isLoading, onLoadMore]);
 
   const headerTitle = useMemo(() => {
-    return activeTab === "list" ? "매물 목록" : "AI 추천";
+    if (activeTab === "list") return "매물 목록";
+    if (activeTab === "ai") return "AI 추천";
+    return "찜 목록";
   }, [activeTab]);
 
   return (
@@ -77,12 +90,15 @@ export function ListingPanel({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+        <div className={cn(
+          "rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
+          isLoggedIn ? "grid grid-cols-3" : "grid grid-cols-2"
+        )}>
           <button
             type="button"
             onClick={() => setActiveTab("list")}
             className={cn(
-              "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
+              "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
               activeTab === "list"
                 ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                 : "text-stone-500 hover:text-stone-800",
@@ -96,7 +112,7 @@ export function ListingPanel({
             type="button"
             onClick={() => setActiveTab("ai")}
             className={cn(
-              "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
+              "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
               activeTab === "ai"
                 ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                 : "text-stone-500 hover:text-stone-800",
@@ -105,11 +121,33 @@ export function ListingPanel({
             <Sparkles className="h-4 w-4" />
             AI추천
           </button>
+
+          {/* 로그인 시에만 찜목록 탭 표시 */}
+          {isLoggedIn && (
+            <button
+              type="button"
+              onClick={() => setActiveTab("wish")}
+              className={cn(
+                "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
+                activeTab === "wish"
+                  ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
+                  : "text-stone-500 hover:text-stone-800",
+              )}
+            >
+              <Heart className="h-4 w-4" />
+              찜목록
+              {favoriteListings.length > 0 && (
+                <span className="ml-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600">
+                  {favoriteListings.length}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
       <div className="min-h-0 flex-1">
-        {activeTab === "list" ? (
+        {activeTab === "list" && (
           <div
             ref={scrollContainerRef}
             className="h-full overflow-y-auto px-4 py-4"
@@ -125,12 +163,8 @@ export function ListingPanel({
                     isSelected={selectedListing?.id === listing.id}
                     onClick={onListingClick}
                     isFavorite={favoriteIds.includes(Number(listing.id))}
-                    isFavoriteLoading={favoriteLoadingIds.includes(
-                      Number(listing.id),
-                    )}
-                    onToggleFavorite={() =>
-                      onToggleFavorite(Number(listing.id))
-                    }
+                    isFavoriteLoading={favoriteLoadingIds.includes(Number(listing.id))}
+                    onToggleFavorite={() => onToggleFavorite(Number(listing.id))}
                   />
                 </div>
               ))}
@@ -156,7 +190,9 @@ export function ListingPanel({
               </div>
             )}
           </div>
-        ) : (
+        )}
+
+        {activeTab === "ai" && (
           <AIRecommendation
             allListings={listings}
             onSimilarListingsFound={(similarListings) => {
@@ -164,6 +200,34 @@ export function ListingPanel({
               setActiveTab("list");
             }}
           />
+        )}
+
+        {activeTab === "wish" && isLoggedIn && (
+          <div className="h-full overflow-y-auto px-4 py-4">
+            {favoriteListings.length === 0 ? (
+              <div className="rounded-[24px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+                찜한 매물이 없습니다.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {favoriteListings.map((listing) => (
+                  <div
+                    key={listing.id}
+                    className="cursor-pointer transition-transform duration-200"
+                  >
+                    <ListingCard
+                      listing={listing}
+                      isSelected={selectedListing?.id === listing.id}
+                      onClick={onListingClick}
+                      isFavorite={true}
+                      isFavoriteLoading={favoriteLoadingIds.includes(Number(listing.id))}
+                      onToggleFavorite={() => onToggleFavorite(Number(listing.id))}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
