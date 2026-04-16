@@ -47,7 +47,6 @@ async function jsonResponse(response: Response) {
 async function postJsonWithRetry(
   url: string,
   body: Record<string, unknown>,
-  signal?: AbortSignal,
 ) {
   let lastError: unknown;
 
@@ -60,12 +59,11 @@ async function postJsonWithRetry(
         },
         body: JSON.stringify(body),
         cache: "no-store",
-        signal,
       });
 
       return jsonResponse(response);
     } catch (error) {
-      if (signal?.aborted || isAbortError(error)) {
+      if (isAbortError(error)) {
         throw error;
       }
 
@@ -96,7 +94,6 @@ export async function GET(request: NextRequest) {
     const response = await fetch(`${getApiBaseUrl()}/rooms/${itemId}`, {
       method: "GET",
       cache: "no-store",
-      signal: request.signal,
     });
 
     return jsonResponse(response);
@@ -122,7 +119,6 @@ export async function POST(request: NextRequest) {
     return postJsonWithRetry(
       `${getApiBaseUrl()}${path}`,
       body,
-      request.signal,
     );
   } catch (error) {
     if (request.signal.aborted || isAbortError(error)) {
