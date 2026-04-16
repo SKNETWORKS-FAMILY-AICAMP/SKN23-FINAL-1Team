@@ -21,6 +21,8 @@ import {
 } from "@/lib/api/favorites";
 
 const PAGE_SIZE = 20;
+const BOUNDS_PRECISION = 5;
+const MAP_BOUNDS_DEBOUNCE_MS = 350;
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000";
 
 const defaultFilters: Filters = {
@@ -33,18 +35,37 @@ const defaultFilters: Filters = {
   options: [],
 };
 
+function roundBoundsValue(value: number) {
+  return Number(value.toFixed(BOUNDS_PRECISION));
+}
+
+function normalizeBounds(bounds: MapBounds): MapBounds {
+  return {
+    ...bounds,
+    swLat: roundBoundsValue(bounds.swLat),
+    swLng: roundBoundsValue(bounds.swLng),
+    neLat: roundBoundsValue(bounds.neLat),
+    neLng: roundBoundsValue(bounds.neLng),
+    centerLat: roundBoundsValue(bounds.centerLat),
+    centerLng: roundBoundsValue(bounds.centerLng),
+  };
+}
+
+function getBoundsKey(bounds: MapBounds) {
+  return [
+    bounds.swLat,
+    bounds.swLng,
+    bounds.neLat,
+    bounds.neLng,
+    bounds.centerLat,
+    bounds.centerLng,
+    bounds.level,
+  ].join(",");
+}
+
 function isSameBounds(a: MapBounds | null, b: MapBounds | null) {
   if (!a || !b) return false;
-  return (
-    a.swLat === b.swLat &&
-    a.swLng === b.swLng &&
-    a.neLat === b.neLat &&
-    a.neLng === b.neLng &&
-    a.centerLat === b.centerLat &&
-    a.centerLng === b.centerLng &&
-    a.level === b.level &&
-    a.source === b.source
-  );
+  return getBoundsKey(a) === getBoundsKey(b);
 }
 
 function shouldReloadByBounds(source?: MapBounds["source"]) {
@@ -53,6 +74,17 @@ function shouldReloadByBounds(source?: MapBounds["source"]) {
     source === "user" ||
     source === "cluster" ||
     source === "search"
+  );
+}
+
+function isAbortError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.name === "AbortError" ||
+    error.message.toLowerCase().includes("aborted")
   );
 }
 
@@ -67,7 +99,6 @@ export function HomeContainer() {
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [mapItems, setMapItems] = useState<MapItem[]>([]);
-  const [visibleListings, setVisibleListings] = useState<Listing[]>([]);
   const [recommendedListings, setRecommendedListings] = useState<Listing[] | null>(null);
 
   const [offset, setOffset] = useState(0);
@@ -77,6 +108,10 @@ export function HomeContainer() {
   const [hasRequestFailed, setHasRequestFailed] = useState(false);
   const [isLocationReady, setIsLocationReady] = useState(false);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const [listScrollResetKey, setListScrollResetKey] = useState(0);
+  const boundsDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const user = useAuthStore((state) => state.user);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
@@ -125,30 +160,50 @@ export function HomeContainer() {
   useEffect(() => {
     if (prevRequestKeyRef.current === requestKey) return;
     prevRequestKeyRef.current = requestKey;
-    setListings([]);
-    setMapItems([]);
-    setVisibleListings([]);
     setRecommendedListings(null);
     setSelectedListing(null);
     setOffset(0);
     setHasMore(true);
     setHasRequestFailed(false);
-    setIsInitialLoading(true);
-  }, [requestKey]);
-
-  const handleVisibleListingsChange = useCallback((nextListings: Listing[]) => {
-    setVisibleListings(nextListings);
-  }, []);
+    setIsInitialLoading(listings.length === 0);
+  }, [requestKey, listings.length]);
 
   const handleInitialLocationResolved = useCallback(() => {
     setIsLocationReady((prev) => (prev ? prev : true));
   }, []);
 
   const handleBoundsChange = useCallback((nextBounds: MapBounds) => {
-    setMapBounds((prev) => {
-      if (isSameBounds(prev, nextBounds)) return prev;
-      return nextBounds;
-    });
+    const normalizedBounds = normalizeBounds(nextBounds);
+
+    if (boundsDebounceTimerRef.current) {
+      clearTimeout(boundsDebounceTimerRef.current);
+      boundsDebounceTimerRef.current = null;
+    }
+
+    const applyBounds = () => {
+      setMapBounds((prev) => {
+        if (isSameBounds(prev, normalizedBounds)) return prev;
+        return normalizedBounds;
+      });
+    };
+
+    if (normalizedBounds.source === "user") {
+      boundsDebounceTimerRef.current = setTimeout(
+        applyBounds,
+        MAP_BOUNDS_DEBOUNCE_MS,
+      );
+      return;
+    }
+
+    applyBounds();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (boundsDebounceTimerRef.current) {
+        clearTimeout(boundsDebounceTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -167,7 +222,7 @@ export function HomeContainer() {
     const loadPagedItems = async () => {
       if (!isLocationReady || !mapBounds) return;
       if (!shouldReloadByBounds(mapBounds.source)) return;
-      if (!hasMore || hasRequestFailed) return;
+      if (offset > 0 && (!hasMore || hasRequestFailed)) return;
 
       setIsLoading(true);
 
@@ -195,13 +250,15 @@ export function HomeContainer() {
 
         const mapped = data.items.map(mapItemToListing);
         setListings((prev) => (offset === 0 ? mapped : [...prev, ...mapped]));
+        if (offset === 0) {
+          setListScrollResetKey((prev) => prev + 1);
+        }
         setHasMore(data.has_more);
         setHasRequestFailed(false);
       } catch (error) {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || isAbortError(error)) return;
         console.error(error);
         setHasRequestFailed(true);
-        setHasMore(false);
       } finally {
         if (controller.signal.aborted) return;
         setIsLoading(false);
@@ -259,7 +316,7 @@ export function HomeContainer() {
 
         setMapItems(data.items);
       } catch (error) {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || isAbortError(error)) return;
         console.error(error);
       }
     };
@@ -292,10 +349,9 @@ export function HomeContainer() {
     if (!shouldReloadByBounds(mapBounds.source)) return;
     setOffset(0);
     setHasMore(true);
-    setListings([]);
-    setIsInitialLoading(true);
+    setIsInitialLoading(listings.length === 0);
     setHasRequestFailed(false);
-  }, [mapBounds]);
+  }, [mapBounds, listings.length]);
 
   const loadMore = useCallback(() => {
     if (isLoading || !hasMore || recommendedListings) return;
@@ -438,7 +494,6 @@ export function HomeContainer() {
             mapItems={mapItems}
             selectedListing={selectedListing}
             onMarkerClick={setSelectedListing}
-            onVisibleListingsChange={handleVisibleListingsChange}
             onInitialLocationResolved={handleInitialLocationResolved}
             onBoundsChange={handleBoundsChange}
           />
@@ -482,6 +537,7 @@ export function HomeContainer() {
               selectedListing={selectedListing}
               isLoading={isLoading}
               hasMore={recommendedListings ? false : hasMore}
+              scrollResetKey={listScrollResetKey}
               onLoadMore={loadMore}
               onListingClick={setSelectedListing}
               favoriteIds={favoriteIds}
@@ -509,7 +565,6 @@ export function HomeContainer() {
                 setSelectedListing(listing);
                 setMobileView("list");
               }}
-              onVisibleListingsChange={handleVisibleListingsChange}
               onInitialLocationResolved={handleInitialLocationResolved}
               onBoundsChange={handleBoundsChange}
             />
@@ -521,6 +576,7 @@ export function HomeContainer() {
               selectedListing={selectedListing}
               isLoading={isLoading}
               hasMore={recommendedListings ? false : hasMore}
+              scrollResetKey={listScrollResetKey}
               onLoadMore={loadMore}
               onListingClick={setSelectedListing}
               favoriteIds={favoriteIds}

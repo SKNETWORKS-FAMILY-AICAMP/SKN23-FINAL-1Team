@@ -155,6 +155,10 @@ async function requestJson<T>(url: string, options?: RequestInit): Promise<T> {
     credentials: "include",
   });
 
+  if (response.status === 499) {
+    throw new DOMException("Request aborted.", "AbortError");
+  }
+
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`Room request failed (${response.status}): ${text}`);
