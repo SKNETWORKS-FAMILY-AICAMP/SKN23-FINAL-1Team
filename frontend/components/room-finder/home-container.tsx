@@ -10,7 +10,7 @@ import {
   type MapItem,
 } from "@/components/room-finder/map-view";
 import { ListingPanel } from "@/components/room-finder/listing-panel";
-import { fetchItems, fetchMapItems } from "@/app/api/rooms/route";
+import { fetchItems, fetchMapItems } from "@/lib/api/rooms";
 import { mapItemToListing } from "@/utils/roomMappers";
 import { ListingDetailPanel } from "@/components/room-finder/listing-detail-panel";
 import { useAuthStore } from "@/store/authStore";
@@ -18,9 +18,10 @@ import {
   fetchFavorites,
   addFavorite,
   removeFavorite,
-} from "@/app/api/favorites/route";
+} from "@/lib/api/favorites";
 
 const PAGE_SIZE = 20;
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000";
 
 const defaultFilters: Filters = {
   transactionType: "all",
@@ -34,7 +35,6 @@ const defaultFilters: Filters = {
 
 function isSameBounds(a: MapBounds | null, b: MapBounds | null) {
   if (!a || !b) return false;
-
   return (
     a.swLat === b.swLat &&
     a.swLng === b.swLng &&
@@ -68,9 +68,7 @@ export function HomeContainer() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [mapItems, setMapItems] = useState<MapItem[]>([]);
   const [visibleListings, setVisibleListings] = useState<Listing[]>([]);
-  const [recommendedListings, setRecommendedListings] = useState<
-    Listing[] | null
-  >(null);
+  const [recommendedListings, setRecommendedListings] = useState<Listing[] | null>(null);
 
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -85,6 +83,9 @@ export function HomeContainer() {
 
   const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
   const [favoriteLoadingIds, setFavoriteLoadingIds] = useState<number[]>([]);
+
+  // listings와 분리된 찜 목록 상태 — 지도 이동해도 유지됨
+  const [favoriteListings, setFavoriteListings] = useState<Listing[]>([]);
 
   const panelListings = recommendedListings ?? listings;
 
@@ -116,7 +117,6 @@ export function HomeContainer() {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
     }, 500);
-
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -124,7 +124,6 @@ export function HomeContainer() {
 
   useEffect(() => {
     if (prevRequestKeyRef.current === requestKey) return;
-
     prevRequestKeyRef.current = requestKey;
     setListings([]);
     setMapItems([]);
@@ -147,21 +146,16 @@ export function HomeContainer() {
 
   const handleBoundsChange = useCallback((nextBounds: MapBounds) => {
     setMapBounds((prev) => {
-      if (isSameBounds(prev, nextBounds)) {
-        return prev;
-      }
-
+      if (isSameBounds(prev, nextBounds)) return prev;
       return nextBounds;
     });
   }, []);
 
   useEffect(() => {
     if (!selectedListing) return;
-
     const stillExistsInPanel = panelListings.some(
       (listing) => listing.id === selectedListing.id,
     );
-
     if (!stillExistsInPanel) {
       setSelectedListing(null);
     }
@@ -200,29 +194,23 @@ export function HomeContainer() {
         });
 
         const mapped = data.items.map(mapItemToListing);
-
         setListings((prev) => (offset === 0 ? mapped : [...prev, ...mapped]));
         setHasMore(data.has_more);
         setHasRequestFailed(false);
       } catch (error) {
         if (controller.signal.aborted) return;
-
         console.error(error);
         setHasRequestFailed(true);
         setHasMore(false);
       } finally {
         if (controller.signal.aborted) return;
-
         setIsLoading(false);
         setIsInitialLoading(false);
       }
     };
 
     loadPagedItems();
-
-    return () => {
-      controller.abort();
-    };
+    return () => { controller.abort(); };
   }, [
     isLocationReady,
     mapBounds,
@@ -277,10 +265,7 @@ export function HomeContainer() {
     };
 
     loadMapItems();
-
-    return () => {
-      controller.abort();
-    };
+    return () => { controller.abort(); };
   }, [
     isLocationReady,
     mapBounds,
@@ -300,14 +285,11 @@ export function HomeContainer() {
 
   useEffect(() => {
     if (!mapBounds) return;
-
     const prevBounds = prevBoundsRef.current;
     prevBoundsRef.current = mapBounds;
-
     if (!prevBounds) return;
     if (isSameBounds(prevBounds, mapBounds)) return;
     if (!shouldReloadByBounds(mapBounds.source)) return;
-
     setOffset(0);
     setHasMore(true);
     setListings([]);
@@ -320,6 +302,7 @@ export function HomeContainer() {
     setOffset((prev) => prev + PAGE_SIZE);
   }, [hasMore, isLoading, recommendedListings]);
 
+  // favoriteIds DB에서 로드
   useEffect(() => {
     if (!isLoggedIn || !user?.user_id) {
       setFavoriteIds([]);
@@ -339,7 +322,39 @@ export function HomeContainer() {
     };
 
     loadFavorites();
+    return () => controller.abort();
+  }, [isLoggedIn, user?.user_id]);
 
+  // favoriteListings DB에서 로드 — listings와 완전히 분리, 지도 이동해도 유지
+  useEffect(() => {
+    if (!isLoggedIn || !user?.user_id) {
+      setFavoriteListings([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const loadFavoriteListings = async () => {
+      try {
+        const data = await fetchFavorites(user.user_id!, controller.signal);
+        const ids = data.items.map((item) => item.item_id);
+
+        const details = await Promise.all(
+          ids.map((id) =>
+            fetch(`${BACKEND_URL}/rooms/${id}`)
+              .then((r) => r.json())
+              .then((d) => mapItemToListing(d.item))
+              .catch(() => null)
+          )
+        );
+
+        setFavoriteListings(details.filter(Boolean) as Listing[]);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error(error);
+      }
+    };
+
+    loadFavoriteListings();
     return () => controller.abort();
   }, [isLoggedIn, user?.user_id]);
 
@@ -353,16 +368,22 @@ export function HomeContainer() {
       if (favoriteLoadingIds.includes(listingId)) return;
 
       const isFavorite = favoriteIds.includes(listingId);
-
       setFavoriteLoadingIds((prev) => [...prev, listingId]);
 
       try {
         if (isFavorite) {
           await removeFavorite(listingId, user.user_id);
           setFavoriteIds((prev) => prev.filter((id) => id !== listingId));
+          // favoriteListings에서도 제거
+          setFavoriteListings((prev) => prev.filter((l) => Number(l.id) !== listingId));
         } else {
           await addFavorite(listingId, user.user_id);
           setFavoriteIds((prev) => [...prev, listingId]);
+          // favoriteListings에 추가 — listings에서 찾아서 추가
+          const newListing = listings.find((l) => Number(l.id) === listingId);
+          if (newListing) {
+            setFavoriteListings((prev) => [...prev, newListing]);
+          }
         }
       } catch (error) {
         console.error(error);
@@ -371,7 +392,7 @@ export function HomeContainer() {
         setFavoriteLoadingIds((prev) => prev.filter((id) => id !== listingId));
       }
     },
-    [favoriteIds, favoriteLoadingIds, isLoggedIn, user?.user_id],
+    [favoriteIds, favoriteLoadingIds, isLoggedIn, user?.user_id, listings],
   );
 
   return (
@@ -397,7 +418,6 @@ export function HomeContainer() {
           >
             지도
           </button>
-
           <button
             onClick={() => setMobileView("list")}
             className={`rounded-xl px-4 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200 ${
@@ -471,6 +491,8 @@ export function HomeContainer() {
                 setRecommendedListings(similar);
                 setSelectedListing(similar[0] ?? null);
               }}
+              favoriteListings={favoriteListings}
+              isLoggedIn={isLoggedIn}
             />
           </div>
         </aside>
@@ -508,6 +530,8 @@ export function HomeContainer() {
                 setRecommendedListings(similar);
                 setSelectedListing(similar[0] ?? null);
               }}
+              favoriteListings={favoriteListings}
+              isLoggedIn={isLoggedIn}
             />
           </aside>
         )}
