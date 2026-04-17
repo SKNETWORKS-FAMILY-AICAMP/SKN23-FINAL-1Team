@@ -19,7 +19,7 @@ def drop_three_room(df):
     df = df[df["room_type"] != "쓰리룸"]
     return df
 
-def find_gu(df):
+def find_district(df):
     df["district"] = df["address"].str.split().str[0]
     df.loc[df["district"].str.contains("서울시"), "district"] = df["address"].str.split().str[1]
     seoul_gu_set = {
@@ -36,6 +36,28 @@ def bathroom_count_jungsanghwa(df):
     df.loc[df['bathroom_count'] > 2, 'bathroom_count'] = 2
     return df
 
+def movein_date_processing(df):
+    df['movein_date'] = pd.to_datetime(df['movein_date'], errors='coerce')
+    df['first_crawled_at'] = pd.to_datetime(df['first_crawled_at'], errors='coerce')
+    today = pd.Timestamp('2026-04-17')
+    df['movein_date'] = df['movein_date'].fillna(today)
+    df['movein_date'] = (df['movein_date'] - df["first_crawled_at"]).dt.days
+    df['movein_date'] = df['movein_date'].clip(lower=0)
+    del df["first_crawled_at"]
+    return df
+
+def approve_date_processing(df):
+    df['approve_date'] = pd.to_datetime(df['approve_date'], errors='coerce').dt.year
+    df['approve_date_is_null'] = df['approve_date'].isnull()
+    df['approve_date'] = df.groupby('district')['approve_date'].transform(
+        lambda x: x.fillna(x.quantile(0.01))
+    )
+    df['approve_date'] = df['approve_date'].fillna(df['approve_date'].quantile(0.01))
+    df['building_age'] = 2026 - df['approve_date']
+    df['building_age'] = df['building_age'].astype(int)
+    del df["approve_date"]
+    return df
+
 def define_class(df):
     conditions = [
     (df['rent'] == 0),                                 
@@ -44,7 +66,6 @@ def define_class(df):
     ]
     choices = ['전세', '반전세', '월세']
     df['contract_class'] = np.select(conditions, choices, default='기타')
-
     return df
 
 def converting_monthly_rent(df):
@@ -77,7 +98,7 @@ def converting_monthly_rent(df):
     "기타": 5.5,
     }
     df['conversion_rate'] = df['district'].map(district_conversion_rate)
-    df['converted_monthly_rent'] = (df['deposit'] * df['conversion_rate'] / 12) + df['rent']
+    df['converted_monthly_rent'] = (df['deposit'] * df['conversion_rate'] / 1200) + df['rent']
     del df["conversion_rate"]
     del df["deposit"]
     del df["rent"]
@@ -95,14 +116,13 @@ def floor_processing(df):
     df.loc[df['floor'].str.contains('중', na=False), 'floor'] = (df['all_floors'] * 0.5).round().astype(int).astype(str)
     df.loc[df['floor'].str.contains('고', na=False), 'floor'] = (df['all_floors'] * 0.8).round().astype(int).astype(str)
     df['floor'] = pd.to_numeric(df['floor'], errors='coerce').astype(int)
-
     df.loc[df['floor'] == 0, 'floor'] = 1
     df["relative_floor"] = df["floor"] / df["all_floors"]
     return df
 
 def onehot_encoding(df):
     cols = ["room_type", "room_direction", "district", "contract_class"]
-    df = pd.get_dummies(df, columns = cols, drop_first = True)
+    df = pd.get_dummies(df, columns = cols, drop_first = False)
     return df
 
 if __name__ == "__main__":
@@ -112,8 +132,10 @@ if __name__ == "__main__":
     processed_df = (
         df.pipe(drop_fake_items)
         .pipe(drop_three_room)
-        .pipe(find_gu)
+        .pipe(find_district)
         .pipe(bathroom_count_jungsanghwa)
+        .pipe(movein_date_processing)
+        .pipe(approve_date_processing)
         .pipe(define_class)
         .pipe(converting_monthly_rent)
         .pipe(floor_processing)

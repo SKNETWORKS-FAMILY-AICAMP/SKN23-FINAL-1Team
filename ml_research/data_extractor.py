@@ -32,7 +32,7 @@ if __name__ == "__main__":
                 has_fridge, has_washer, has_gas_stove, has_induction, has_microwave, has_desk, has_bed, has_closet, 
                 has_shoe_rack, dist_subway, dist_pharmacy, dist_conv, dist_bus, dist_mart, dist_laundry, dist_cafe, 
                 is_coupang, is_ssg, is_marketkurly, is_baemin, is_yogiyo, is_subway_area, is_convenient_area, 
-                is_park_area, is_school_area, has_bookcase, has_sink
+                is_park_area, is_school_area, has_bookcase, has_sink, first_crawled_at
                 from items i
                 inner join item_features t
                 on i.item_id = t.item_id;"""
