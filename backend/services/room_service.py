@@ -1,4 +1,4 @@
-from sqlalchemy import select, func, or_, cast, Integer
+from sqlalchemy import select, func, or_, not_, cast, Integer
 from models.room import Room
 
 STRUCTURE_TO_ROOM_TYPE = {
@@ -76,6 +76,32 @@ def get_grid_size_by_level(level: int | None) -> float:
     return 0.025
 
 
+def normalize_structures(structure) -> list[str]:
+    if structure == "all" or structure is None:
+        return []
+
+    if isinstance(structure, str):
+        return [structure]
+
+    return [value for value in structure if value != "all"]
+
+
+def get_floor_number_expression():
+    return cast(
+        func.nullif(func.substring(Room.floor, "[-]?[0-9]+"), ""),
+        Integer,
+    )
+
+
+def get_basement_condition():
+    return or_(
+        Room.floor.ilike("%반지하%"),
+        Room.floor.ilike("%지하%"),
+        Room.floor.ilike("%b%"),
+        Room.floor.like("-%"),
+    )
+
+
 def apply_room_filters(stmt, req):
     stmt = stmt.where(Room.status == "ACTIVE")
 
@@ -98,10 +124,15 @@ def apply_room_filters(stmt, req):
     elif req.room_type == "투룸":
         stmt = stmt.where(Room.room_type.in_(TWO_ROOM_DB_VALUES))
 
-    if req.structure != "all" and req.room_type == "원룸":
-        mapped_room_type = STRUCTURE_TO_ROOM_TYPE.get(req.structure)
-        if mapped_room_type:
-            stmt = stmt.where(Room.room_type == mapped_room_type)
+    structures = normalize_structures(req.structure)
+    if structures and req.room_type == "원룸":
+        mapped_room_types = [
+            STRUCTURE_TO_ROOM_TYPE[structure]
+            for structure in structures
+            if structure in STRUCTURE_TO_ROOM_TYPE
+        ]
+        if mapped_room_types:
+            stmt = stmt.where(Room.room_type.in_(mapped_room_types))
 
     if req.deposit != "all":
         stmt = stmt.where(Room.deposit <= int(req.deposit))
@@ -114,6 +145,20 @@ def apply_room_filters(stmt, req):
         if req.size_unit == "pyeong":
             size_value = size_value * 3.3058
         stmt = stmt.where(Room.area_m2 <= size_value)
+
+    if req.floor != "all":
+        basement_condition = get_basement_condition()
+
+        if req.floor == "semi-basement":
+            stmt = stmt.where(basement_condition)
+        else:
+            floor_number = get_floor_number_expression()
+            stmt = stmt.where(Room.floor.isnot(None), not_(basement_condition))
+
+            if req.floor == "4plus":
+                stmt = stmt.where(floor_number >= 4)
+            else:
+                stmt = stmt.where(floor_number == int(req.floor))
 
     if req.sw_lat is not None and req.ne_lat is not None:
         stmt = stmt.where(Room.lat >= req.sw_lat, Room.lat <= req.ne_lat)
