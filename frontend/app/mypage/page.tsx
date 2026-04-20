@@ -3,7 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { cn } from "@/lib/utils";
-import { Heart, Clock, Sparkles, ChevronRight, ImageIcon, Settings, Menu, X } from "lucide-react";
+import {
+  Heart,
+  Clock,
+  Sparkles,
+  ChevronRight,
+  ImageIcon,
+  Settings,
+  Menu,
+  X,
+} from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Logo from "@/assets/Logo.png";
@@ -70,7 +79,8 @@ export default function MyPage() {
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000";
+  const BACKEND_URL =
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000";
 
   // 찜 목록 조회
   const loadFavorites = useCallback(async () => {
@@ -94,11 +104,13 @@ export default function MyPage() {
             title: item.title || "제목 없음",
             price: formatPrice(item.deposit, item.rent),
             address: item.address,
-            area: item.area_m2 ? `${parseFloat(item.area_m2).toFixed(2)}㎡` : "-",
+            area: item.area_m2
+              ? `${parseFloat(item.area_m2).toFixed(2)}㎡`
+              : "-",
             floor: item.floor || "-",
             type: getRoomType(item.room_type || ""),
           } as Property;
-        })
+        }),
       );
 
       setLikedProperties(properties.filter(Boolean) as Property[]);
@@ -121,7 +133,11 @@ export default function MyPage() {
     try {
       if (isLiked) {
         await removeFavorite(id, user.user_id);
-        setLikedIds((prev) => { const s = new Set(prev); s.delete(id); return s; });
+        setLikedIds((prev) => {
+          const s = new Set(prev);
+          s.delete(id);
+          return s;
+        });
         setLikedProperties((prev) => prev.filter((p) => p.id !== id));
       } else {
         await addFavorite(id, user.user_id);
@@ -141,7 +157,9 @@ export default function MyPage() {
   if (!user) {
     return (
       <div className="flex h-screen items-center justify-center bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)]">
-        <div className="text-sm font-medium text-stone-500">사용자 정보를 불러오는 중입니다.</div>
+        <div className="text-sm font-medium text-stone-500">
+          사용자 정보를 불러오는 중입니다.
+        </div>
       </div>
     );
   }
@@ -154,7 +172,7 @@ export default function MyPage() {
           className: "bg-[#FEE500] text-[#3C1E1E] border-[#FEE500]",
           icon: (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="#3C1E1E">
-              <path d="M12 3C6.477 3 2 6.477 2 10.5c0 2.542 1.574 4.778 3.938 6.112L4.5 21l4.986-2.697A11.3 11.3 0 0 0 12 18.5c5.523 0 10-3.477 10-7.5S17.523 3 12 3z"/>
+              <path d="M12 3C6.477 3 2 6.477 2 10.5c0 2.542 1.574 4.778 3.938 6.112L4.5 21l4.986-2.697A11.3 11.3 0 0 0 12 18.5c5.523 0 10-3.477 10-7.5S17.523 3 12 3z" />
             </svg>
           ),
         };
@@ -164,7 +182,7 @@ export default function MyPage() {
           className: "bg-[#03C75A] text-white border-[#03C75A]",
           icon: (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-              <path d="M16.273 12.845L7.376 0H0v24h7.727V11.155L16.624 24H24V0h-7.727z"/>
+              <path d="M16.273 12.845L7.376 0H0v24h7.727V11.155L16.624 24H24V0h-7.727z" />
             </svg>
           ),
         };
@@ -174,10 +192,22 @@ export default function MyPage() {
           className: "bg-white text-stone-600 border-stone-200",
           icon: (
             <svg width="14" height="14" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84z"/>
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84z"
+              />
             </svg>
           ),
         };
@@ -193,16 +223,16 @@ export default function MyPage() {
   const badge = getSocialBadge(user.social_type);
 
   const navItems = [
-    { id: "liked" as Section,    label: "찜한 매물",      icon: Heart },
-    { id: "recent" as Section,   label: "최근 본 매물",   icon: Clock },
-    { id: "gallery" as Section,  label: "AI 생성 갤러리", icon: Sparkles },
-    { id: "settings" as Section, label: "계정 설정",      icon: Settings },
+    { id: "liked" as Section, label: "찜한 매물", icon: Heart },
+    { id: "recent" as Section, label: "최근 본 매물", icon: Clock },
+    { id: "gallery" as Section, label: "AI 생성 갤러리", icon: Sparkles },
+    { id: "settings" as Section, label: "계정 설정", icon: Settings },
   ];
 
   const menuItems = [
-    { label: "닉네임 변경",     onClick: () => {} },
-    { label: "알림 설정",       onClick: () => {} },
-    { label: "소셜 계정 연동",  onClick: () => {} },
+    { label: "닉네임 변경", onClick: () => {} },
+    { label: "알림 설정", onClick: () => {} },
+    { label: "소셜 계정 연동", onClick: () => {} },
     { label: "서비스 이용약관", onClick: () => {} },
   ];
 
@@ -217,7 +247,11 @@ export default function MyPage() {
       <div className="overflow-hidden rounded-[20px] border border-stone-200/80 bg-white/80 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)]">
         <div className="relative h-36 w-full bg-stone-100 md:h-48">
           {property.image ? (
-            <img src={property.image} alt={property.title} className="h-full w-full object-cover" />
+            <img
+              src={property.image}
+              alt={property.title}
+              className="h-full w-full object-cover"
+            />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-stone-100">
               <ImageIcon className="h-8 w-8 text-stone-300 md:h-10 md:w-10" />
@@ -233,15 +267,21 @@ export default function MyPage() {
             <Heart
               className={cn(
                 "h-3.5 w-3.5 transition-colors duration-200 md:h-4 md:w-4",
-                isLiked ? "fill-red-500 text-red-500" : "text-stone-400"
+                isLiked ? "fill-red-500 text-red-500" : "text-stone-400",
               )}
             />
           </button>
         </div>
         <div className="p-2.5 md:p-3">
-          <p className="truncate text-xs font-semibold tracking-tight text-stone-700 md:text-sm">{property.title}</p>
-          <p className="mt-1 text-sm font-bold tracking-tight text-stone-900 md:text-base">{property.price}</p>
-          <p className="mt-1 truncate text-[11px] font-medium text-stone-400 md:text-xs">{property.address}</p>
+          <p className="truncate text-xs font-semibold tracking-tight text-stone-700 md:text-sm">
+            {property.title}
+          </p>
+          <p className="mt-1 text-sm font-bold tracking-tight text-stone-900 md:text-base">
+            {property.price}
+          </p>
+          <p className="mt-1 truncate text-[11px] font-medium text-stone-400 md:text-xs">
+            {property.address}
+          </p>
           <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-stone-400 md:mt-2 md:gap-2 md:text-xs">
             <span>{property.area}</span>
             <span className="text-stone-200">|</span>
@@ -260,11 +300,18 @@ export default function MyPage() {
             {user.nickname?.charAt(0) ?? "?"}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold tracking-tight text-stone-900">{user.nickname}</p>
+            <p className="truncate text-sm font-bold tracking-tight text-stone-900">
+              {user.nickname}
+            </p>
             <p className="truncate text-xs text-stone-400">{user.email}</p>
           </div>
         </div>
-        <div className={cn("mt-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold", badge.className)}>
+        <div
+          className={cn(
+            "mt-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+            badge.className,
+          )}
+        >
           {badge.icon}
           {badge.label}
         </div>
@@ -279,7 +326,7 @@ export default function MyPage() {
               "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold tracking-tight transition-all duration-200",
               activeSection === id
                 ? "border-stone-800 bg-stone-100/80 text-stone-900"
-                : "border-transparent text-stone-500 hover:bg-stone-50 hover:text-stone-800"
+                : "border-transparent text-stone-500 hover:bg-stone-50 hover:text-stone-800",
             )}
           >
             <Icon className="h-4 w-4 flex-shrink-0" />
@@ -292,14 +339,22 @@ export default function MyPage() {
 
   return (
     <div className="flex h-screen flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)]">
-
       <header className="border-b border-stone-200/80 bg-white/70 backdrop-blur-xl">
         <div className="flex h-16 items-center">
           <div className="flex h-full w-14 flex-shrink-0 items-center justify-center border-r border-stone-200/80 md:w-56">
-            <button onClick={() => setSidebarOpen(true)} className="flex items-center justify-center md:hidden">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="flex items-center justify-center md:hidden"
+            >
               <Menu className="h-5 w-5 text-stone-500" />
             </button>
-            <Image src={Logo} alt="로고" width={120} height={40} className="hidden object-contain md:block" />
+            <Image
+              src={Logo}
+              alt="로고"
+              width={120}
+              height={40}
+              className="hidden object-contain md:block"
+            />
           </div>
           <p className="flex-1 text-center text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400">
             My Page
@@ -317,19 +372,27 @@ export default function MyPage() {
       </header>
 
       <div className="relative flex flex-1 overflow-hidden">
-
         {sidebarOpen && (
-          <div className="absolute inset-0 z-20 bg-black/30 md:hidden" onClick={() => setSidebarOpen(false)} />
+          <div
+            className="absolute inset-0 z-20 bg-black/30 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
         )}
 
         <aside
           className={cn(
             "absolute z-30 flex h-full w-72 flex-shrink-0 flex-col border-r border-stone-200/80 bg-white/95 backdrop-blur-md transition-transform duration-300 md:relative md:w-56 md:translate-x-0 md:bg-white/70",
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+            sidebarOpen ? "translate-x-0" : "-translate-x-full",
           )}
         >
           <div className="flex items-center justify-between border-b border-stone-200/80 px-5 py-4 md:hidden">
-            <Image src={Logo} alt="로고" width={100} height={32} className="object-contain" />
+            <Image
+              src={Logo}
+              alt="로고"
+              width={100}
+              height={32}
+              className="object-contain"
+            />
             <button onClick={() => setSidebarOpen(false)}>
               <X className="h-5 w-5 text-stone-400" />
             </button>
@@ -338,7 +401,6 @@ export default function MyPage() {
         </aside>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
-
           {/* 찜한 매물 */}
           {activeSection === "liked" && (
             <div>
@@ -354,15 +416,21 @@ export default function MyPage() {
                       "rounded-full px-3 py-1.5 text-xs font-semibold tracking-tight transition-all duration-200 md:px-4 md:py-2 md:text-sm",
                       activeTab === tab
                         ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
-                        : "text-stone-500 hover:text-stone-800"
+                        : "text-stone-500 hover:text-stone-800",
                     )}
                   >
-                    {tab === "all" ? "전체" : tab === "oneroom" ? "원룸" : "투룸"}
+                    {tab === "all"
+                      ? "전체"
+                      : tab === "oneroom"
+                        ? "원룸"
+                        : "투룸"}
                   </button>
                 ))}
               </div>
               {isLoading ? (
-                <div className="py-10 text-center text-sm font-medium text-stone-400">불러오는 중...</div>
+                <div className="py-10 text-center text-sm font-medium text-stone-400">
+                  불러오는 중...
+                </div>
               ) : filteredLiked.length === 0 ? (
                 <div className="rounded-[20px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500">
                   찜한 매물이 없습니다.
@@ -405,11 +473,16 @@ export default function MyPage() {
               </p>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 {[...Array(5)].map((_, i) => (
-                  <div key={i} className="h-36 w-full rounded-2xl border border-stone-200/80 bg-stone-100/80 md:h-48" />
+                  <div
+                    key={i}
+                    className="h-36 w-full rounded-2xl border border-stone-200/80 bg-stone-100/80 md:h-48"
+                  />
                 ))}
                 <div className="flex h-36 w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-stone-200 bg-white/80 transition-colors hover:bg-stone-50 md:h-48">
                   <ImageIcon className="h-5 w-5 text-stone-300" />
-                  <span className="text-xs font-medium text-stone-400">새 검색</span>
+                  <span className="text-xs font-medium text-stone-400">
+                    새 검색
+                  </span>
                 </div>
               </div>
             </div>
@@ -428,7 +501,8 @@ export default function MyPage() {
                     onClick={item.onClick}
                     className={cn(
                       "flex w-full items-center justify-between py-4 text-sm font-semibold tracking-tight text-stone-700 transition-colors duration-200 hover:text-stone-900",
-                      idx < menuItems.length - 1 && "border-b border-stone-200/80"
+                      idx < menuItems.length - 1 &&
+                        "border-b border-stone-200/80",
                     )}
                   >
                     <span>{item.label}</span>
@@ -443,7 +517,6 @@ export default function MyPage() {
               </div>
             </div>
           )}
-
         </main>
       </div>
     </div>

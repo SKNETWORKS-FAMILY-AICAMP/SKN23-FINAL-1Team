@@ -14,6 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 import { ChevronDown } from "lucide-react";
 
 export interface Filters {
@@ -23,6 +24,7 @@ export interface Filters {
   structure: string[];
   size: number | "all";
   sizeUnit: "m2" | "pyeong";
+  floor: string;
   options: string[];
 }
 
@@ -37,8 +39,10 @@ interface FilterBarProps {
 const ONE_ROOM_MAX_DEPOSIT = 20000;
 const TWO_ROOM_MAX_DEPOSIT = 60000;
 const MAX_MONTHLY_RENT = 200;
-const MAX_SIZE_M2 = 66;
-const MAX_SIZE_PYEONG = 20;
+const ONE_ROOM_MAX_SIZE_M2 = 66;
+const TWO_ROOM_MAX_SIZE_M2 = 99;
+const ONE_ROOM_MAX_SIZE_PYEONG = 20;
+const TWO_ROOM_MAX_SIZE_PYEONG = 30;
 const SLIDER_DEBOUNCE_MS = 300;
 
 function getMaxDeposit(roomType: "oneroom" | "tworoom") {
@@ -49,6 +53,49 @@ function getDepositMarks(roomType: "oneroom" | "tworoom") {
   return roomType === "tworoom"
     ? [0, 10000, 20000, 40000, 60000]
     : [0, 5000, 10000, 15000, 20000];
+}
+
+function getMaxSize(
+  roomType: "oneroom" | "tworoom",
+  sizeUnit: "m2" | "pyeong",
+) {
+  if (sizeUnit === "m2") {
+    return roomType === "tworoom" ? TWO_ROOM_MAX_SIZE_M2 : ONE_ROOM_MAX_SIZE_M2;
+  }
+
+  return roomType === "tworoom"
+    ? TWO_ROOM_MAX_SIZE_PYEONG
+    : ONE_ROOM_MAX_SIZE_PYEONG;
+}
+
+function getSizeMarks(
+  roomType: "oneroom" | "tworoom",
+  sizeUnit: "m2" | "pyeong",
+) {
+  if (sizeUnit === "m2") {
+    return roomType === "tworoom" ? [0, 30, 60, 90, 99] : [0, 15, 30, 45, 66];
+  }
+
+  return roomType === "tworoom" ? [0, 10, 20, 25, 30] : [0, 5, 10, 15, 20];
+}
+
+function clampSize(value: number, max: number) {
+  if (!Number.isFinite(value)) return 0;
+
+  return Math.min(Math.max(value, 0), max);
+}
+
+function clampDeposit(value: number, max: number) {
+  if (!Number.isFinite(value)) return 0;
+
+  return Math.min(Math.max(Math.round(value), 0), max);
+}
+
+function parseDepositInput(value: string, max: number) {
+  const numericValue = value.replace(/[^\d]/g, "");
+  if (!numericValue) return 0;
+
+  return clampDeposit(Number(numericValue), max);
 }
 
 export function FilterBar({
@@ -144,7 +191,8 @@ export function FilterBar({
     return () => clearTimeout(timer);
   }, [sizeDraft, filters.sizeUnit]);
 
-  const sizeMax = filters.sizeUnit === "m2" ? MAX_SIZE_M2 : MAX_SIZE_PYEONG;
+  const sizeMax = getMaxSize(roomType, filters.sizeUnit);
+  const sizeMarks = getSizeMarks(roomType, filters.sizeUnit);
   const sizeStep = filters.sizeUnit === "m2" ? 1 : 0.5;
 
   const sizeLabel =
@@ -173,6 +221,15 @@ export function FilterBar({
     { label: "오픈형", value: "open" },
     { label: "분리형", value: "separated" },
     { label: "복층", value: "duplex" },
+  ];
+
+  const floorItems = [
+    { label: "층수", value: "all" },
+    { label: "반지하", value: "semi-basement" },
+    { label: "1층", value: "1" },
+    { label: "2층", value: "2" },
+    { label: "3층", value: "3" },
+    { label: "4층 이상", value: "4plus" },
   ];
 
   const structureLabel =
@@ -255,10 +312,10 @@ export function FilterBar({
   })();
 
   const selectTriggerClass =
-    "min-w-[140px] md:min-w-[160px] py-5 rounded-2xl border border-stone-200/80 bg-white/90 text-sm font-medium tracking-tight text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-stone-300 hover:bg-white";
+    "w-[160px] md:w-full py-5 rounded-2xl border border-stone-200/80 bg-white/90 text-sm font-medium tracking-tight text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-stone-300 hover:bg-white";
 
   const popoverTriggerClass =
-    "min-w-[140px] max-w-[240px] md:min-w-[160px] flex items-center justify-between rounded-2xl border border-stone-200/80 bg-white/90 px-4 py-2.5 text-sm font-medium tracking-tight text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-stone-300 hover:bg-white";
+    "w-[160px] md:w-full flex items-center justify-between rounded-2xl border border-stone-200/80 bg-white/90 px-4 py-2.5 text-sm font-medium tracking-tight text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-stone-300 hover:bg-white";
 
   const popoverContentClass =
     "border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,246,241,0.96)_100%)] p-5 shadow-[0_18px_40px_rgba(15,23,42,0.12)]";
@@ -312,9 +369,26 @@ export function FilterBar({
                   <span className="text-sm font-medium text-neutral-dark">
                     보증금
                   </span>
-                  <span className="text-sm text-neutral-muted">
-                    {depositDraft === 0 ? "전체" : formatDeposit(depositDraft)}
-                  </span>
+                  <div className="relative w-28">
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      value={depositDraft === 0 ? "" : String(depositDraft)}
+                      onChange={(event) =>
+                        setDepositDraft(
+                          parseDepositInput(event.target.value, depositMax),
+                        )
+                      }
+                      placeholder="전체"
+                      aria-label="보증금 직접 입력"
+                      className="h-8 pr-9 text-right text-sm text-neutral-muted"
+                    />
+                    {depositDraft !== 0 && (
+                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-neutral-muted">
+                        만원
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <Slider
@@ -322,7 +396,9 @@ export function FilterBar({
                   min={0}
                   max={depositMax}
                   step={100}
-                  onValueChange={(value) => setDepositDraft(value[0])}
+                  onValueChange={(value) =>
+                    setDepositDraft(clampDeposit(value[0], depositMax))
+                  }
                 />
 
                 <div className="flex justify-between text-xs text-neutral-muted">
@@ -484,7 +560,10 @@ export function FilterBar({
                     const nextSize =
                       sizeDraft === 0
                         ? 0
-                        : Number((sizeDraft / 3.3058).toFixed(1));
+                        : clampSize(
+                            Number((sizeDraft / 3.3058).toFixed(1)),
+                            getMaxSize(roomType, "pyeong"),
+                          );
 
                     onFiltersChange({
                       ...filters,
@@ -506,7 +585,12 @@ export function FilterBar({
                   type="button"
                   onClick={() => {
                     const nextSize =
-                      sizeDraft === 0 ? 0 : Math.round(sizeDraft * 3.3058);
+                      sizeDraft === 0
+                        ? 0
+                        : clampSize(
+                            Math.round(sizeDraft * 3.3058),
+                            getMaxSize(roomType, "m2"),
+                          );
 
                     onFiltersChange({
                       ...filters,
@@ -530,27 +614,19 @@ export function FilterBar({
                 min={0}
                 max={sizeMax}
                 step={sizeStep}
-                onValueChange={(value) => setSizeDraft(value[0])}
+                onValueChange={(value) =>
+                  setSizeDraft(clampSize(value[0], sizeMax))
+                }
               />
 
               <div className="flex justify-between text-xs text-neutral-muted">
-                {filters.sizeUnit === "m2" ? (
-                  <>
-                    <span>전체</span>
-                    <span>15</span>
-                    <span>30</span>
-                    <span>45</span>
-                    <span>66+</span>
-                  </>
-                ) : (
-                  <>
-                    <span>전체</span>
-                    <span>5</span>
-                    <span>10</span>
-                    <span>15</span>
-                    <span>20+</span>
-                  </>
-                )}
+                {sizeMarks.map((mark) => (
+                  <span key={mark}>
+                    {mark === 0
+                      ? "전체"
+                      : `${mark}${mark === sizeMax ? "+" : ""}`}
+                  </span>
+                ))}
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -572,6 +648,28 @@ export function FilterBar({
             </div>
           </PopoverContent>
         </Popover>
+
+        <Select
+          value={filters.floor}
+          onValueChange={(v) => updateFilter("floor", v)}
+        >
+          <SelectTrigger className={selectTriggerClass}>
+            <SelectValue placeholder="층수" />
+          </SelectTrigger>
+          <SelectContent
+            className={`w-[200px] md:w-[180px] lg:w-[220px] ${dropdownContentClass}`}
+          >
+            {floorItems.map((item) => (
+              <SelectItem
+                key={item.value}
+                value={item.value}
+                className={selectItemClass}
+              >
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <Popover open={optionsOpen} onOpenChange={setOptionsOpen}>
           <PopoverTrigger asChild>

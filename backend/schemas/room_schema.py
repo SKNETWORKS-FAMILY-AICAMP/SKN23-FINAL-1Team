@@ -8,6 +8,7 @@ RoomTypeLiteral = Literal["원룸", "투룸", "all"]
 StructureLiteral = Literal["all", "open", "separated", "duplex"]
 StructureFilter = StructureLiteral | list[StructureLiteral]
 SizeUnitLiteral = Literal["m2", "pyeong"]
+FloorFilterLiteral = Literal["all", "semi-basement", "1", "2", "3", "4plus"]
 
 
 class RoomSearchRequest(BaseModel):
@@ -23,6 +24,7 @@ class RoomSearchRequest(BaseModel):
     monthly_rent: int | str = "all"
     size: float | str = "all"
     size_unit: SizeUnitLiteral = "m2"
+    floor: FloorFilterLiteral = "all"
     options: list[str] = Field(default_factory=list)
 
     lat: float | None = None
@@ -43,6 +45,7 @@ class RoomMapSearchRequest(BaseModel):
     monthly_rent: int | str = "all"
     size: float | str = "all"
     size_unit: SizeUnitLiteral = "m2"
+    floor: FloorFilterLiteral = "all"
     options: list[str] = Field(default_factory=list)
 
     lat: float | None = None
@@ -94,6 +97,7 @@ class RoomListRequest(BaseModel):
     monthly_rent: int | str = "all"
     size: int | float | str = "all"
     size_unit: Literal["m2", "pyeong"] = "m2"
+    floor: FloorFilterLiteral = "all"
     options: list[str] = []
     lat: float | None = None
     lng: float | None = None

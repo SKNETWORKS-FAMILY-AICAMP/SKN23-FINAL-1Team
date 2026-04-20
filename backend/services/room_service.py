@@ -1,4 +1,4 @@
-from sqlalchemy import select, func, or_, cast, Integer
+from sqlalchemy import select, func, or_, not_, cast, Integer
 from models.room import Room
 
 STRUCTURE_TO_ROOM_TYPE = {
@@ -86,6 +86,22 @@ def normalize_structures(structure) -> list[str]:
     return [value for value in structure if value != "all"]
 
 
+def get_floor_number_expression():
+    return cast(
+        func.nullif(func.substring(Room.floor, "[-]?[0-9]+"), ""),
+        Integer,
+    )
+
+
+def get_basement_condition():
+    return or_(
+        Room.floor.ilike("%반지하%"),
+        Room.floor.ilike("%지하%"),
+        Room.floor.ilike("%b%"),
+        Room.floor.like("-%"),
+    )
+
+
 def apply_room_filters(stmt, req):
     stmt = stmt.where(Room.status == "ACTIVE")
 
@@ -129,6 +145,20 @@ def apply_room_filters(stmt, req):
         if req.size_unit == "pyeong":
             size_value = size_value * 3.3058
         stmt = stmt.where(Room.area_m2 <= size_value)
+
+    if req.floor != "all":
+        basement_condition = get_basement_condition()
+
+        if req.floor == "semi-basement":
+            stmt = stmt.where(basement_condition)
+        else:
+            floor_number = get_floor_number_expression()
+            stmt = stmt.where(Room.floor.isnot(None), not_(basement_condition))
+
+            if req.floor == "4plus":
+                stmt = stmt.where(floor_number >= 4)
+            else:
+                stmt = stmt.where(floor_number == int(req.floor))
 
     if req.sw_lat is not None and req.ne_lat is not None:
         stmt = stmt.where(Room.lat >= req.sw_lat, Room.lat <= req.ne_lat)

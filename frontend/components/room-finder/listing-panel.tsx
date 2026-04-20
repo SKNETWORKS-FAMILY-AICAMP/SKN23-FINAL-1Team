@@ -86,9 +86,9 @@ export function ListingPanel({
     <div className="flex h-full flex-col overflow-hidden bg-white md:bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">
       <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-4 pt-6 backdrop-blur-md shrink-0">
         <div className="mb-4">
-          <div className="mt-1 text-xl font-bold tracking-tight text-stone-900">
+          {/* <div className="mt-1 text-xl font-bold tracking-tight text-stone-900">
             {headerTitle}
-          </div>
+          </div> */}
         </div>
 
         <div

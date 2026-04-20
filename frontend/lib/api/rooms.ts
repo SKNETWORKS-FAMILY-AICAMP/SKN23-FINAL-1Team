@@ -11,6 +11,7 @@ export interface RoomSearchParams {
   monthlyRent?: number | "all";
   size?: number | "all";
   sizeUnit?: "m2" | "pyeong";
+  floor?: string;
   options?: string[];
   lat?: number;
   lng?: number;
@@ -137,6 +138,7 @@ function buildSearchBody(params: RoomSearchParams) {
     monthly_rent: params.monthlyRent ?? "all",
     size: params.size ?? "all",
     size_unit: params.sizeUnit ?? "m2",
+    floor: params.floor ?? "all",
     options: params.options ?? [],
     lat: params.lat ?? null,
     lng: params.lng ?? null,
