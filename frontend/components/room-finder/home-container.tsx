@@ -24,12 +24,18 @@ const PAGE_SIZE = 20;
 const BOUNDS_PRECISION = 5;
 const MAP_BOUNDS_DEBOUNCE_MS = 350;
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000";
+const ONE_ROOM_MAX_DEPOSIT = 20000;
+const TWO_ROOM_MAX_DEPOSIT = 60000;
+
+function getMaxDepositByRoomType(roomType: "oneroom" | "tworoom") {
+  return roomType === "tworoom" ? TWO_ROOM_MAX_DEPOSIT : ONE_ROOM_MAX_DEPOSIT;
+}
 
 const defaultFilters: Filters = {
   transactionType: "all",
   deposit: "all",
   monthlyRent: "all",
-  structure: "all",
+  structure: [],
   size: "all",
   sizeUnit: "m2",
   options: [],
@@ -451,15 +457,35 @@ export function HomeContainer() {
     [favoriteIds, favoriteLoadingIds, isLoggedIn, user?.user_id, listings],
   );
 
+  const handleRoomTypeChange = useCallback(
+    (nextRoomType: "oneroom" | "tworoom") => {
+      setRoomType(nextRoomType);
+      setFilters((prev) => {
+        const maxDeposit = getMaxDepositByRoomType(nextRoomType);
+
+        if (prev.deposit === "all" || prev.deposit <= maxDeposit) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          deposit: maxDeposit,
+        };
+      });
+    },
+    [],
+  );
+
   return (
     <div className="flex h-screen flex-col bg-ivory">
-      <Header roomType={roomType} onRoomTypeChange={setRoomType} />
+      <Header roomType={roomType} onRoomTypeChange={handleRoomTypeChange} />
 
       <FilterBar
         filters={filters}
         onFiltersChange={setFilters}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        roomType={roomType}
       />
 
       <div className="border-b border-stone-200/80 bg-white/70 px-4 py-2 backdrop-blur-md lg:hidden">

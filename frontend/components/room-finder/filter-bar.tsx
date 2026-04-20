@@ -20,7 +20,7 @@ export interface Filters {
   transactionType: string;
   deposit: number | "all";
   monthlyRent: number | "all";
-  structure: string;
+  structure: string[];
   size: number | "all";
   sizeUnit: "m2" | "pyeong";
   options: string[];
@@ -31,21 +31,35 @@ interface FilterBarProps {
   onFiltersChange: (filters: Filters) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  roomType: "oneroom" | "tworoom";
 }
 
-const MAX_DEPOSIT = 20000;
+const ONE_ROOM_MAX_DEPOSIT = 20000;
+const TWO_ROOM_MAX_DEPOSIT = 60000;
 const MAX_MONTHLY_RENT = 200;
 const MAX_SIZE_M2 = 66;
 const MAX_SIZE_PYEONG = 20;
 const SLIDER_DEBOUNCE_MS = 300;
+
+function getMaxDeposit(roomType: "oneroom" | "tworoom") {
+  return roomType === "tworoom" ? TWO_ROOM_MAX_DEPOSIT : ONE_ROOM_MAX_DEPOSIT;
+}
+
+function getDepositMarks(roomType: "oneroom" | "tworoom") {
+  return roomType === "tworoom"
+    ? [0, 10000, 20000, 40000, 60000]
+    : [0, 5000, 10000, 15000, 20000];
+}
 
 export function FilterBar({
   filters,
   onFiltersChange,
   searchQuery,
   onSearchChange,
+  roomType,
 }: FilterBarProps) {
   const [priceOpen, setPriceOpen] = useState(false);
+  const [structureOpen, setStructureOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [sizeOpen, setSizeOpen] = useState(false);
 
@@ -69,6 +83,9 @@ export function FilterBar({
 
     return `${value}만`;
   };
+
+  const depositMax = getMaxDeposit(roomType);
+  const depositMarks = getDepositMarks(roomType);
 
   useEffect(() => {
     setDepositDraft(filters.deposit === "all" ? 0 : filters.deposit);
@@ -152,6 +169,20 @@ export function FilterBar({
     { label: "옷장", value: "closet" },
   ];
 
+  const structureItems = [
+    { label: "오픈형", value: "open" },
+    { label: "분리형", value: "separated" },
+    { label: "복층", value: "duplex" },
+  ];
+
+  const structureLabel =
+    filters.structure.length === 0
+      ? "방 구조"
+      : structureItems
+          .filter((item) => filters.structure.includes(item.value))
+          .map((item) => item.label)
+          .join(", ");
+
   const optionsLabel =
     filters.options.length === 0 ? "옵션" : `옵션 ${filters.options.length}개`;
 
@@ -179,8 +210,20 @@ export function FilterBar({
     onFiltersChange({ ...filters, options: nextOptions });
   };
 
+  const toggleStructure = (value: string) => {
+    const nextStructure = filters.structure.includes(value)
+      ? filters.structure.filter((structure) => structure !== value)
+      : [...filters.structure, value];
+
+    onFiltersChange({ ...filters, structure: nextStructure });
+  };
+
   const resetOptions = () => {
     onFiltersChange({ ...filters, options: [] });
+  };
+
+  const resetStructure = () => {
+    onFiltersChange({ ...filters, structure: [] });
   };
 
   const priceLabel = (() => {
@@ -277,17 +320,17 @@ export function FilterBar({
                 <Slider
                   value={[depositDraft]}
                   min={0}
-                  max={MAX_DEPOSIT}
+                  max={depositMax}
                   step={100}
                   onValueChange={(value) => setDepositDraft(value[0])}
                 />
 
                 <div className="flex justify-between text-xs text-neutral-muted">
-                  <span>전체</span>
-                  <span>5000만</span>
-                  <span>1억</span>
-                  <span>1억 5000만</span>
-                  <span>2억+</span>
+                  {depositMarks.map((mark) => (
+                    <span key={mark}>
+                      {mark === 0 ? "전체" : formatDeposit(mark)}
+                    </span>
+                  ))}
                 </div>
               </div>
 
@@ -345,30 +388,68 @@ export function FilterBar({
           </PopoverContent>
         </Popover>
 
-        <Select
-          value={filters.structure}
-          onValueChange={(v) => updateFilter("structure", v)}
-        >
-          <SelectTrigger className={selectTriggerClass}>
-            <SelectValue placeholder="방 구조" />
-          </SelectTrigger>
-          <SelectContent
-            className={`w-[140px] md:w-[180px] lg:w-[220px] ${dropdownContentClass}`}
+        <Popover open={structureOpen} onOpenChange={setStructureOpen}>
+          <PopoverTrigger asChild>
+            <button type="button" className={popoverTriggerClass}>
+              <span className="truncate">{structureLabel}</span>
+              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
+            </button>
+          </PopoverTrigger>
+
+          <PopoverContent
+            align="start"
+            className={`w-[240px] md:w-[320px] lg:w-[380px] ${popoverContentClass}`}
           >
-            <SelectItem value="all" className={selectItemClass}>
-              구조
-            </SelectItem>
-            <SelectItem value="open" className={selectItemClass}>
-              오픈형
-            </SelectItem>
-            <SelectItem value="separated" className={selectItemClass}>
-              분리형
-            </SelectItem>
-            <SelectItem value="duplex" className={selectItemClass}>
-              복층
-            </SelectItem>
-          </SelectContent>
-        </Select>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-semibold text-neutral-dark">
+                  방 구조
+                </span>
+                <span className="text-sm text-neutral-muted">
+                  중복선택 가능
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                {structureItems.map((item) => {
+                  const isSelected = filters.structure.includes(item.value);
+
+                  return (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => toggleStructure(item.value)}
+                      className={`rounded-full border px-5 py-3 text-sm font-medium transition-colors ${
+                        isSelected
+                          ? "border-warm-brown bg-warm-brown text-white"
+                          : "border-border-warm bg-white text-neutral-dark hover:bg-neutral-50"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={resetStructure}
+                  className="rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
+                >
+                  초기화
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStructureOpen(false)}
+                  className="rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
+                >
+                  적용
+                </button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
 
         <Popover open={sizeOpen} onOpenChange={setSizeOpen}>
           <PopoverTrigger asChild>

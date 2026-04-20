@@ -76,6 +76,16 @@ def get_grid_size_by_level(level: int | None) -> float:
     return 0.025
 
 
+def normalize_structures(structure) -> list[str]:
+    if structure == "all" or structure is None:
+        return []
+
+    if isinstance(structure, str):
+        return [structure]
+
+    return [value for value in structure if value != "all"]
+
+
 def apply_room_filters(stmt, req):
     stmt = stmt.where(Room.status == "ACTIVE")
 
@@ -98,10 +108,15 @@ def apply_room_filters(stmt, req):
     elif req.room_type == "투룸":
         stmt = stmt.where(Room.room_type.in_(TWO_ROOM_DB_VALUES))
 
-    if req.structure != "all" and req.room_type == "원룸":
-        mapped_room_type = STRUCTURE_TO_ROOM_TYPE.get(req.structure)
-        if mapped_room_type:
-            stmt = stmt.where(Room.room_type == mapped_room_type)
+    structures = normalize_structures(req.structure)
+    if structures and req.room_type == "원룸":
+        mapped_room_types = [
+            STRUCTURE_TO_ROOM_TYPE[structure]
+            for structure in structures
+            if structure in STRUCTURE_TO_ROOM_TYPE
+        ]
+        if mapped_room_types:
+            stmt = stmt.where(Room.room_type.in_(mapped_room_types))
 
     if req.deposit != "all":
         stmt = stmt.where(Room.deposit <= int(req.deposit))

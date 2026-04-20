@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 TransactionType = Literal["all", "monthly", "jeonse"]
 RoomTypeLiteral = Literal["원룸", "투룸", "all"]
 StructureLiteral = Literal["all", "open", "separated", "duplex"]
+StructureFilter = StructureLiteral | list[StructureLiteral]
 SizeUnitLiteral = Literal["m2", "pyeong"]
 
 
@@ -16,7 +17,7 @@ class RoomSearchRequest(BaseModel):
     search: str = ""
     transaction_type: TransactionType = "all"
     room_type: RoomTypeLiteral = "all"
-    structure: StructureLiteral = "all"
+    structure: StructureFilter = "all"
 
     deposit: int | str = "all"
     monthly_rent: int | str = "all"
@@ -36,7 +37,7 @@ class RoomMapSearchRequest(BaseModel):
     search: str = ""
     transaction_type: TransactionType = "all"
     room_type: RoomTypeLiteral = "all"
-    structure: StructureLiteral = "all"
+    structure: StructureFilter = "all"
 
     deposit: int | str = "all"
     monthly_rent: int | str = "all"
@@ -88,7 +89,7 @@ class RoomListRequest(BaseModel):
     search: str = ""
     transaction_type: str = "all"
     room_type: str = "all"
-    structure: str = "all"
+    structure: str | list[str] = "all"
     deposit: int | str = "all"
     monthly_rent: int | str = "all"
     size: int | float | str = "all"

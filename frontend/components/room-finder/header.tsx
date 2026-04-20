@@ -3,7 +3,9 @@
 import LogoutButton from "@/components/common/LogoutButton";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
+import Logo from "@/assets/Logo.png";
 
 interface HeaderProps {
   roomType: "oneroom" | "tworoom";
@@ -11,11 +13,9 @@ interface HeaderProps {
 }
 
 const navButtonBase =
-  "relative shrink-0 whitespace-nowrap rounded-full px-2.5 py-2 text-[12px] sm:px-3.5 sm:py-2.5 sm:text-sm md:text-[15px] font-semibold tracking-tight transition-all duration-200";
-const navButtonActive =
-  "bg-white text-stone-900 shadow-[0_8px_24px_rgba(15,23,42,0.08)] ring-1 ring-stone-200/80";
-const navButtonInactive =
-  "text-stone-500 hover:bg-white/70 hover:text-stone-800";
+  "shrink-0 cursor-pointer whitespace-nowrap px-1 py-2 text-sm font-medium tracking-tight text-stone-500 transition-all duration-200 hover:text-stone-900 active:text-base active:font-bold sm:px-2 md:text-[15px] md:active:text-[17px]";
+const navButtonActive = "text-base font-bold text-stone-900 md:text-[17px]";
+const navButtonInactive = "text-stone-500";
 
 export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
   const router = useRouter();
@@ -23,9 +23,26 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
 
   return (
-    <header className="border-b border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)] px-3 py-3 backdrop-blur-xl sm:px-4 md:px-6 md:py-4">
-      <div className="flex min-w-0 items-center justify-between gap-2 rounded-full border border-stone-200/80 bg-white/65 px-2 py-1.5 shadow-[0_12px_32px_rgba(15,23,42,0.06)] backdrop-blur-md sm:gap-3 sm:px-3 sm:py-2">
-        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto scrollbar-hide sm:gap-2">
+    <header className="border-b border-stone-200/80 bg-white/70 backdrop-blur-xl">
+      <div className="flex h-12 items-center">
+        <div className="flex h-full w-28 shrink-0 items-center justify-center border-stone-200/80 px-3 sm:w-40 md:w-56 md:px-6">
+          <button
+            type="button"
+            onClick={() => onRoomTypeChange("oneroom")}
+            className="flex items-center"
+            aria-label="홈으로 이동"
+          >
+            <Image
+              src={Logo}
+              alt="로고"
+              width={120}
+              height={40}
+              className="object-contain"
+            />
+          </button>
+        </div>
+
+        <div className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto px-4 scrollbar-hide sm:gap-5 md:gap-7 md:px-6">
           <button
             onClick={() => onRoomTypeChange("oneroom")}
             className={cn(
@@ -46,16 +63,18 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
             투룸
           </button>
 
-          <button
-            onClick={() => router.push("/mypage")}
-            className={cn(navButtonBase, navButtonInactive)}
-          >
-            마이페이지
-          </button>
+          {isLoggedIn && user && (
+            <button
+              onClick={() => router.push("/mypage")}
+              className={cn(navButtonBase, navButtonInactive)}
+            >
+              마이페이지
+            </button>
+          )}
         </div>
 
         {isLoggedIn && user ? (
-          <div className="ml-2 flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <div className="flex w-28 shrink-0 items-center justify-end gap-1.5 px-3 sm:w-40 sm:gap-2 md:w-56 md:px-6">
             <span className="max-w-[72px] truncate text-[12px] font-semibold tracking-tight text-stone-800 sm:max-w-[120px] sm:text-sm md:max-w-none">
               {user.nickname}
             </span>
@@ -65,7 +84,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
         ) : (
           <button
             onClick={() => router.push("/login")}
-            className="ml-2 shrink-0 rounded-full px-2.5 py-2 text-[12px] font-semibold tracking-tight text-stone-800 transition-all duration-200 hover:bg-white/70 sm:px-4 sm:text-sm"
+            className="mr-3 shrink-0 cursor-pointer px-2.5 py-2 text-[12px] font-semibold tracking-tight text-stone-800 transition-all duration-200 hover:text-stone-500 sm:mr-4 sm:px-4 sm:text-sm md:mr-6"
           >
             로그인
           </button>

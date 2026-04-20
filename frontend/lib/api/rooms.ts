@@ -6,7 +6,7 @@ export interface RoomSearchParams {
   search?: string;
   transactionType?: string;
   roomType?: "원룸" | "투룸" | "all";
-  structure?: string;
+  structure?: string[];
   deposit?: number | "all";
   monthlyRent?: number | "all";
   size?: number | "all";
@@ -129,7 +129,10 @@ function buildSearchBody(params: RoomSearchParams) {
     search: params.search ?? "",
     transaction_type: params.transactionType ?? "all",
     room_type: params.roomType ?? "all",
-    structure: params.structure ?? "all",
+    structure:
+      params.structure && params.structure.length > 0
+        ? params.structure
+        : "all",
     deposit: params.deposit ?? "all",
     monthly_rent: params.monthlyRent ?? "all",
     size: params.size ?? "all",
