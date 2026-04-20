@@ -133,6 +133,7 @@ export function FilterBar({
 
   const depositMax = getMaxDeposit(roomType);
   const depositMarks = getDepositMarks(roomType);
+  const canFilterStructure = roomType === "oneroom";
 
   useEffect(() => {
     setDepositDraft(filters.deposit === "all" ? 0 : filters.deposit);
@@ -233,7 +234,7 @@ export function FilterBar({
   ];
 
   const structureLabel =
-    filters.structure.length === 0
+    !canFilterStructure || filters.structure.length === 0
       ? "방 구조"
       : structureItems
           .filter((item) => filters.structure.includes(item.value))
@@ -328,7 +329,11 @@ export function FilterBar({
 
   return (
     <div className="border-b border-stone-200/80 bg-white/70 px-4 py-4 backdrop-blur-md md:px-6">
-      <div className="flex gap-2 md:gap-4 overflow-x-auto pb-2 md:pb-0 md:grid md:grid-cols-6 scrollbar-hide">
+      <div
+        className={`flex gap-2 overflow-x-auto pb-2 md:grid md:gap-4 md:pb-0 ${
+          canFilterStructure ? "md:grid-cols-6" : "md:grid-cols-5"
+        } scrollbar-hide`}
+      >
         <Select
           value={filters.transactionType}
           onValueChange={(v) => updateFilter("transactionType", v)}
@@ -464,68 +469,70 @@ export function FilterBar({
           </PopoverContent>
         </Popover>
 
-        <Popover open={structureOpen} onOpenChange={setStructureOpen}>
-          <PopoverTrigger asChild>
-            <button type="button" className={popoverTriggerClass}>
-              <span className="truncate">{structureLabel}</span>
-              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
-            </button>
-          </PopoverTrigger>
+        {canFilterStructure && (
+          <Popover open={structureOpen} onOpenChange={setStructureOpen}>
+            <PopoverTrigger asChild>
+              <button type="button" className={popoverTriggerClass}>
+                <span className="truncate">{structureLabel}</span>
+                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
+              </button>
+            </PopoverTrigger>
 
-          <PopoverContent
-            align="start"
-            className={`w-[240px] md:w-[320px] lg:w-[380px] ${popoverContentClass}`}
-          >
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-semibold text-neutral-dark">
-                  방 구조
-                </span>
-                <span className="text-sm text-neutral-muted">
-                  중복선택 가능
-                </span>
+            <PopoverContent
+              align="start"
+              className={`w-[240px] md:w-[320px] lg:w-[380px] ${popoverContentClass}`}
+            >
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-semibold text-neutral-dark">
+                    방 구조
+                  </span>
+                  <span className="text-sm text-neutral-muted">
+                    중복선택 가능
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  {structureItems.map((item) => {
+                    const isSelected = filters.structure.includes(item.value);
+
+                    return (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => toggleStructure(item.value)}
+                        className={`rounded-full border px-5 py-3 text-sm font-medium transition-colors ${
+                          isSelected
+                            ? "border-warm-brown bg-warm-brown text-white"
+                            : "border-border-warm bg-white text-neutral-dark hover:bg-neutral-50"
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={resetStructure}
+                    className="rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
+                  >
+                    초기화
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStructureOpen(false)}
+                    className="rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
+                  >
+                    적용
+                  </button>
+                </div>
               </div>
-
-              <div className="flex flex-wrap gap-3">
-                {structureItems.map((item) => {
-                  const isSelected = filters.structure.includes(item.value);
-
-                  return (
-                    <button
-                      key={item.value}
-                      type="button"
-                      onClick={() => toggleStructure(item.value)}
-                      className={`rounded-full border px-5 py-3 text-sm font-medium transition-colors ${
-                        isSelected
-                          ? "border-warm-brown bg-warm-brown text-white"
-                          : "border-border-warm bg-white text-neutral-dark hover:bg-neutral-50"
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={resetStructure}
-                  className="rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
-                >
-                  초기화
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStructureOpen(false)}
-                  className="rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
-                >
-                  적용
-                </button>
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
+            </PopoverContent>
+          </Popover>
+        )}
 
         <Popover open={sizeOpen} onOpenChange={setSizeOpen}>
           <PopoverTrigger asChild>
