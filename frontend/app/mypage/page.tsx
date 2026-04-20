@@ -21,6 +21,8 @@ import {
   addFavorite,
   removeFavorite,
 } from "@/lib/api/favorites";
+import { useRecentStore } from "@/store/recentStore";
+import { usePendingListingStore } from "@/store/pendingListingStore";
 
 type Section = "liked" | "recent" | "gallery" | "settings";
 type RoomTab = "all" | "oneroom" | "tworoom";
@@ -37,19 +39,7 @@ interface Property {
   type: "oneroom" | "tworoom";
 }
 
-const DUMMY_RECENT: Property[] = [
-  {
-    id: 4,
-    image: "",
-    tag: "원룸",
-    title: "역세권 원룸, 보안 좋음",
-    price: "500/45",
-    address: "강남구 역삼동 78-9",
-    area: "26.40㎡",
-    floor: "7층",
-    type: "oneroom",
-  },
-];
+const DUMMY_RECENT: Property[] = [];
 
 function formatPrice(deposit: number, rent: number): string {
   const fmt = (v: number) => {
@@ -78,6 +68,8 @@ export default function MyPage() {
   const [likedProperties, setLikedProperties] = useState<Property[]>([]);
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
+  const recentListings = useRecentStore((state) => state.recentListings);
+  const setPendingListing = usePendingListingStore((state) => state.setPendingListing);
 
   const BACKEND_URL =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000";
@@ -452,14 +444,49 @@ export default function MyPage() {
               <p className="mb-3 text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400 md:mb-4">
                 최근 본 매물
               </p>
-              {DUMMY_RECENT.length === 0 ? (
+              {recentListings.length === 0 ? (
                 <div className="rounded-[20px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500">
                   최근 본 매물이 없습니다.
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3">
-                  {DUMMY_RECENT.map((property) => (
-                    <PropertyCard key={property.id} property={property} />
+                  {recentListings.map((listing) => (
+                    <div
+                      key={listing.id}
+                      className="cursor-pointer"
+                      onClick={() => {
+                        setPendingListing({
+                          id: listing.id,
+                          title: listing.title,
+                          price: listing.price,
+                          deposit: "",
+                          monthlyRent: "",
+                          address: listing.address,
+                          size: listing.size,
+                          floor: listing.floor,
+                          images: listing.images,
+                          lat: listing.lat,
+                          lng: listing.lng,
+                          structure: listing.structure,
+                          options: [],
+                        });
+                        router.push("/home");
+                      }}
+                    >
+                      <PropertyCard
+                        property={{
+                          id: Number(listing.id),
+                          image: listing.images?.[0] ?? "",
+                          tag: listing.structure ?? "매물",
+                          title: listing.title,
+                          price: listing.price,
+                          address: listing.address,
+                          area: listing.size ?? "-",
+                          floor: listing.floor ?? "-",
+                          type: listing.structure?.includes("투룸") ? "tworoom" : "oneroom",
+                        }}
+                      />
+                    </div>
                   ))}
                 </div>
               )}

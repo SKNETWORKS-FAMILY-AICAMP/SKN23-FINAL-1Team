@@ -6,6 +6,7 @@ import { ListingCard } from "@/components/common/ListingCards";
 import { AIRecommendation } from "@/components/room-finder/ai-recommendation";
 import { Sparkles, House, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRecentStore } from "@/store/recentStore";
 
 interface ListingPanelProps {
   listings: Listing[];
@@ -42,6 +43,40 @@ export function ListingPanel({
   isLoggedIn = false,
   onWishClick,
 }: ListingPanelProps) {
+  const addRecent = useRecentStore((state) => state.addRecent);
+
+  const handleListingClick = (listing: Listing) => {
+    addRecent({
+      id: listing.id,
+      title: listing.title,
+      price: listing.price,
+      address: listing.address,
+      images: listing.images,
+      structure: listing.structure,
+      size: listing.size,
+      floor: listing.floor,
+      lat: listing.lat,
+      lng: listing.lng,
+    });
+    onListingClick?.(listing);
+  };
+
+  const handleWishClick = (listing: Listing) => {
+    addRecent({
+      id: listing.id,
+      title: listing.title,
+      price: listing.price,
+      address: listing.address,
+      images: listing.images,
+      structure: listing.structure,
+      size: listing.size,
+      floor: listing.floor,
+      lat: listing.lat,
+      lng: listing.lng,
+    });
+    (onWishClick ?? onListingClick)?.(listing);
+  };
+
   const observerRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState<PanelTab>("list");
@@ -154,7 +189,7 @@ export function ListingPanel({
                   <ListingCard
                     listing={listing}
                     isSelected={selectedListing?.id === listing.id}
-                    onClick={onListingClick}
+                    onClick={handleListingClick}
                     isFavorite={favoriteIds.includes(Number(listing.id))}
                     isFavoriteLoading={favoriteLoadingIds.includes(
                       Number(listing.id),
@@ -213,7 +248,7 @@ export function ListingPanel({
                     <ListingCard
                       listing={listing}
                       isSelected={selectedListing?.id === listing.id}
-                      onClick={onWishClick ?? onListingClick}
+                      onClick={handleWishClick}
                       isFavorite={true}
                       isFavoriteLoading={favoriteLoadingIds.includes(
                         Number(listing.id),
