@@ -20,6 +20,7 @@ interface ListingPanelProps {
   onToggleFavorite: (listingId: number) => void;
   favoriteListings?: Listing[];
   isLoggedIn?: boolean;
+  onWishClick?: (listing: Listing) => void;
 }
 
 type PanelTab = "list" | "ai" | "wish";
@@ -37,6 +38,7 @@ export function ListingPanel({
   onToggleFavorite,
   favoriteListings = [],
   isLoggedIn = false,
+  onWishClick,
 }: ListingPanelProps) {
   const observerRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -207,7 +209,7 @@ export function ListingPanel({
                     <ListingCard
                       listing={listing}
                       isSelected={selectedListing?.id === listing.id}
-                      onClick={onListingClick}
+                      onClick={onWishClick ?? onListingClick}
                       isFavorite={true}
                       isFavoriteLoading={favoriteLoadingIds.includes(Number(listing.id))}
                       onToggleFavorite={() => onToggleFavorite(Number(listing.id))}

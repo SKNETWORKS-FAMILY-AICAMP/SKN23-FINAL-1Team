@@ -62,6 +62,7 @@ export function HomeContainer() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
   const [isPanelOpen, setIsPanelOpen] = useState(true);
 
@@ -153,13 +154,14 @@ export function HomeContainer() {
 
   useEffect(() => {
     if (!selectedListing) return;
-    const stillExistsInPanel = panelListings.some(
-      (listing) => listing.id === selectedListing.id,
-    );
+    const stillExistsInPanel =
+      panelListings.some((listing) => listing.id === selectedListing.id) ||
+      favoriteListings.some((listing) => listing.id === selectedListing.id);
     if (!stillExistsInPanel) {
       setSelectedListing(null);
+      setIsDetailOpen(false);
     }
-  }, [panelListings, selectedListing]);
+  }, [panelListings, favoriteListings, selectedListing]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -302,6 +304,18 @@ export function HomeContainer() {
     setOffset((prev) => prev + PAGE_SIZE);
   }, [hasMore, isLoading, recommendedListings]);
 
+  // 매물목록 클릭 → 지도 이동 + 상세패널 오픈
+  const handleListingClick = useCallback((listing: Listing) => {
+    setSelectedListing(listing);
+    setIsDetailOpen(true);
+  }, []);
+
+  // 찜목록 클릭 → 지도 이동 + 상세패널 오픈 (매물목록과 동일)
+  const handleWishClick = useCallback((listing: Listing) => {
+    setSelectedListing(listing);
+    setIsDetailOpen(true);
+  }, []);
+
   // favoriteIds DB에서 로드
   useEffect(() => {
     if (!isLoggedIn || !user?.user_id) {
@@ -437,7 +451,10 @@ export function HomeContainer() {
             searchQuery={debouncedSearchQuery}
             mapItems={mapItems}
             selectedListing={selectedListing}
-            onMarkerClick={setSelectedListing}
+            onMarkerClick={(listing) => {
+                setSelectedListing(listing);
+                setIsDetailOpen(true);
+              }}
             onVisibleListingsChange={handleVisibleListingsChange}
             onInitialLocationResolved={handleInitialLocationResolved}
             onBoundsChange={handleBoundsChange}
@@ -446,8 +463,8 @@ export function HomeContainer() {
 
         <ListingDetailPanel
           listing={selectedListing}
-          isOpen={!!selectedListing}
-          onClose={() => setSelectedListing(null)}
+          isOpen={isDetailOpen}
+          onClose={() => { setSelectedListing(null); setIsDetailOpen(false); }}
           listPanelOpen={isPanelOpen}
           favoriteIds={favoriteIds}
           favoriteLoadingIds={favoriteLoadingIds}
@@ -483,16 +500,18 @@ export function HomeContainer() {
               isLoading={isLoading}
               hasMore={recommendedListings ? false : hasMore}
               onLoadMore={loadMore}
-              onListingClick={setSelectedListing}
+              onListingClick={handleListingClick}
               favoriteIds={favoriteIds}
               favoriteLoadingIds={favoriteLoadingIds}
               onToggleFavorite={handleToggleFavorite}
               onSimilarListingsFound={(similar) => {
                 setRecommendedListings(similar);
                 setSelectedListing(similar[0] ?? null);
+                setIsDetailOpen(false);
               }}
               favoriteListings={favoriteListings}
               isLoggedIn={isLoggedIn}
+              onWishClick={handleWishClick}
             />
           </div>
         </aside>
@@ -522,16 +541,18 @@ export function HomeContainer() {
               isLoading={isLoading}
               hasMore={recommendedListings ? false : hasMore}
               onLoadMore={loadMore}
-              onListingClick={setSelectedListing}
+              onListingClick={handleListingClick}
               favoriteIds={favoriteIds}
               favoriteLoadingIds={favoriteLoadingIds}
               onToggleFavorite={handleToggleFavorite}
               onSimilarListingsFound={(similar) => {
                 setRecommendedListings(similar);
                 setSelectedListing(similar[0] ?? null);
+                setIsDetailOpen(false);
               }}
               favoriteListings={favoriteListings}
               isLoggedIn={isLoggedIn}
+              onWishClick={handleWishClick}
             />
           </aside>
         )}
