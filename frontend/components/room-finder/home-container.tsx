@@ -154,7 +154,7 @@ export function HomeContainer() {
       transactionType: filters.transactionType,
       deposit: filters.deposit,
       monthlyRent: filters.monthlyRent,
-      structure: filters.structure,
+      structure: roomType === "oneroom" ? filters.structure : [],
       size: filters.size,
       sizeUnit: filters.sizeUnit,
       floor: filters.floor,
@@ -259,7 +259,7 @@ export function HomeContainer() {
           search: debouncedSearchQuery,
           transactionType: filters.transactionType,
           roomType: roomType === "oneroom" ? "원룸" : "투룸",
-          structure: filters.structure,
+          structure: roomType === "oneroom" ? filters.structure : [],
           deposit: filters.deposit,
           monthlyRent: filters.monthlyRent,
           size: filters.size,
@@ -326,7 +326,7 @@ export function HomeContainer() {
           search: debouncedSearchQuery,
           transactionType: filters.transactionType,
           roomType: roomType === "oneroom" ? "원룸" : "투룸",
-          structure: filters.structure,
+          structure: roomType === "oneroom" ? filters.structure : [],
           deposit: filters.deposit,
           monthlyRent: filters.monthlyRent,
           size: filters.size,
@@ -495,8 +495,16 @@ export function HomeContainer() {
           prev.size !== "all" && Number(prev.size) > maxSize
             ? maxSize
             : prev.size;
+        const nextStructure =
+          nextRoomType === "tworoom" && prev.structure.length > 0
+            ? []
+            : prev.structure;
 
-        if (prev.deposit === nextDeposit && prev.size === nextSize) {
+        if (
+          prev.deposit === nextDeposit &&
+          prev.size === nextSize &&
+          prev.structure === nextStructure
+        ) {
           return prev;
         }
 
@@ -504,6 +512,7 @@ export function HomeContainer() {
           ...prev,
           deposit: nextDeposit,
           size: nextSize,
+          structure: nextStructure,
         };
       });
     },
