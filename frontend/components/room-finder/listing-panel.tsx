@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Listing } from "@/components/room-finder/map-view";
 import { ListingCard } from "@/components/common/ListingCards";
 import { AIRecommendation } from "@/components/room-finder/ai-recommendation";
@@ -14,6 +14,7 @@ interface ListingPanelProps {
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoading?: boolean;
+  scrollResetKey?: number;
   onSimilarListingsFound?: (listings: Listing[]) => void;
   favoriteIds: number[];
   favoriteLoadingIds: number[];
@@ -32,6 +33,7 @@ export function ListingPanel({
   onLoadMore,
   hasMore = false,
   isLoading = false,
+  scrollResetKey = 0,
   onSimilarListingsFound,
   favoriteIds,
   favoriteLoadingIds,
@@ -75,12 +77,6 @@ export function ListingPanel({
       behavior: "smooth",
     });
   }, [currentTab, scrollResetKey]);
-
-  const headerTitle = useMemo(() => {
-    if (currentTab === "list") return "매물 목록";
-    if (currentTab === "ai") return "AI 추천";
-    return "찜 목록";
-  }, [currentTab]);
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white md:bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">
