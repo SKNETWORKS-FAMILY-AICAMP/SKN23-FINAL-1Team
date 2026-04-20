@@ -123,6 +123,7 @@ export function HomeContainer() {
   const [isPanelOpen, setIsPanelOpen] = useState(true);
 
   const [listings, setListings] = useState<Listing[]>([]);
+  const [visibleListings, setVisibleListings] = useState<Listing[]>([]);
   const [mapItems, setMapItems] = useState<MapItem[]>([]);
   const [recommendedListings, setRecommendedListings] = useState<Listing[] | null>(null);
 
@@ -147,7 +148,9 @@ export function HomeContainer() {
   // listings와 분리된 찜 목록 상태 — 지도 이동해도 유지됨
   const [favoriteListings, setFavoriteListings] = useState<Listing[]>([]);
 
-  const panelListings = recommendedListings ?? listings;
+  const panelListings =
+    recommendedListings ??
+    (visibleListings.length > 0 ? visibleListings : listings);
 
   const requestKey = useMemo(() => {
     return JSON.stringify({
@@ -188,6 +191,7 @@ export function HomeContainer() {
     if (prevRequestKeyRef.current === requestKey) return;
     prevRequestKeyRef.current = requestKey;
     setRecommendedListings(null);
+    setVisibleListings([]);
     setSelectedListing(null);
     setOffset(0);
     setHasMore(true);
@@ -223,6 +227,10 @@ export function HomeContainer() {
     }
 
     applyBounds();
+  }, []);
+
+  const handleVisibleListingsChange = useCallback((nextListings: Listing[]) => {
+    setVisibleListings(nextListings);
   }, []);
 
   useEffect(() => {
@@ -645,6 +653,7 @@ export function HomeContainer() {
                 setSelectedListing(listing);
                 setMobileView("list");
               }}
+              onVisibleListingsChange={handleVisibleListingsChange}
               onInitialLocationResolved={handleInitialLocationResolved}
               onBoundsChange={handleBoundsChange}
             />
