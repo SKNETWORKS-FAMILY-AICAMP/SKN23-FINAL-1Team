@@ -1,5 +1,5 @@
 "use client"
-
+import Icon from "@/public/image_icon.png"
 import { useState, useRef, DragEvent } from "react"
 import Image from "next/image"
 import { Loader2 } from "lucide-react"
@@ -28,6 +28,101 @@ const QUICK_PROMPTS = [
 ]
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg"]
+
+// ✅ 컴포넌트 외부로 이동 — 렌더마다 재생성되지 않아 input focus 끊김 해결
+interface PromptInputWithUploadProps {
+  value: string
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  placeholder: string
+  inputSize?: "md" | "sm"
+  attachedFile: File | null
+  isDragging: boolean
+  fileError: string
+  onRemoveFile: () => void
+  onFileClick: () => void
+  fileInputRef: React.RefObject<HTMLInputElement>
+  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+}
+
+const PromptInputWithUpload = ({
+  value,
+  onChange,
+  onKeyDown,
+  placeholder,
+  inputSize = "md",
+  attachedFile,
+  isDragging,
+  fileError,
+  onRemoveFile,
+  onFileClick,
+  fileInputRef,
+  onFileChange,
+}: PromptInputWithUploadProps) => (
+  <div className="flex flex-col gap-1.5 w-full">
+    {attachedFile && (
+      <div className="flex items-center gap-2 px-2 py-1.5 bg-[#f5f0eb] border border-[#d6cfc8] rounded-lg">
+        <div className="relative w-7 h-7 rounded-md overflow-hidden flex-shrink-0">
+          <Image
+            src={URL.createObjectURL(attachedFile)}
+            alt={attachedFile.name}
+            fill
+            className="object-cover"
+          />
+        </div>
+        <span className="text-xs text-stone-600 flex-1 truncate">{attachedFile.name}</span>
+        <button
+          onClick={onRemoveFile}
+          className="text-stone-400 hover:text-stone-600 text-sm leading-none transition-colors"
+        >
+          ✕
+        </button>
+      </div>
+    )}
+
+    <div
+      className={cn(
+        "flex items-center w-full border rounded-xl overflow-hidden transition-all",
+        isDragging
+          ? "border-[#a8896c] ring-2 ring-[#a8896c]/30"
+          : "border-[#d6cfc8]"
+      )}
+    >
+      <button
+        type="button"
+        onClick={onFileClick}
+        className="flex items-center justify-center h-full px-3 bg-white border-r border-[#d6cfc8] hover:bg-stone-50 transition-colors flex-shrink-0"
+        style={{ minHeight: inputSize === "md" ? "42px" : "36px" }}
+        title="이미지 첨부 (PNG, JPEG)"
+      >
+        <Image src={Icon} width={20} height={10} className="object-contain" alt="" />
+      </button>
+      <input
+        type="text"
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        placeholder={isDragging ? "이미지를 여기에 놓으세요" : placeholder}
+        className={cn(
+          "flex-1 bg-[#faf7f4] text-stone-800 placeholder:text-stone-400 focus:outline-none focus:bg-white transition-colors",
+          inputSize === "md" ? "px-3 py-2.5 text-sm" : "px-3 py-2 text-xs"
+        )}
+      />
+    </div>
+
+    {fileError && (
+      <p className="text-[11px] text-red-500 pl-1">{fileError}</p>
+    )}
+
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/png,image/jpeg"
+      className="hidden"
+      onChange={onFileChange}
+    />
+  </div>
+)
 
 export function AIRecommendation({
   onSimilarListingsFound,
@@ -194,83 +289,16 @@ export function AIRecommendation({
     setFileError("")
   }
 
-  const PromptInputWithUpload = ({
-    value,
-    onChange,
-    onKeyDown,
-    placeholder,
-    inputSize = "md",
-  }: {
-    value: string
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
-    placeholder: string
-    inputSize?: "md" | "sm"
-  }) => (
-    <div className="flex flex-col gap-1.5 w-full">
-      {attachedFile && (
-        <div className="flex items-center gap-2 px-2 py-1.5 bg-[#f5f0eb] border border-[#d6cfc8] rounded-lg">
-          <div className="relative w-7 h-7 rounded-md overflow-hidden flex-shrink-0">
-            <Image
-              src={URL.createObjectURL(attachedFile)}
-              alt={attachedFile.name}
-              fill
-              className="object-cover"
-            />
-          </div>
-          <span className="text-xs text-stone-600 flex-1 truncate">{attachedFile.name}</span>
-          <button
-            onClick={removeFile}
-            className="text-stone-400 hover:text-stone-600 text-sm leading-none transition-colors"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      <div
-        className={cn(
-          "flex items-center w-full border rounded-xl overflow-hidden transition-all",
-          isDragging
-            ? "border-[#a8896c] ring-2 ring-[#a8896c]/30"
-            : "border-[#d6cfc8]"
-        )}
-      >
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="flex items-center justify-center h-full px-3 bg-white border-r border-[#d6cfc8] hover:bg-stone-50 transition-colors flex-shrink-0"
-          style={{ minHeight: inputSize === "md" ? "42px" : "36px" }}
-          title="이미지 첨부 (PNG, JPEG)"
-        >
-          <span style={{ fontSize: "16px", lineHeight: 1 }}>🖼</span>
-        </button>
-        <input
-          type="text"
-          value={value}
-          onChange={onChange}
-          onKeyDown={onKeyDown}
-          placeholder={isDragging ? "이미지를 여기에 놓으세요" : placeholder}
-          className={cn(
-            "flex-1 bg-[#faf7f4] text-stone-800 placeholder:text-stone-400 focus:outline-none focus:bg-white transition-colors",
-            inputSize === "md" ? "px-3 py-2.5 text-sm" : "px-3 py-2 text-xs"
-          )}
-        />
-      </div>
-
-      {fileError && (
-        <p className="text-[11px] text-red-500 pl-1">{fileError}</p>
-      )}
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/png,image/jpeg"
-        className="hidden"
-        onChange={handleFileChange}
-      />
-    </div>
-  )
+  // 공통 props — PromptInputWithUpload에 넘길 파일 관련 값들
+  const sharedFileProps = {
+    attachedFile,
+    isDragging,
+    fileError,
+    onRemoveFile: removeFile,
+    onFileClick: () => fileInputRef.current?.click(),
+    fileInputRef,
+    onFileChange: handleFileChange,
+  }
 
   if (compact) {
     return (
@@ -346,6 +374,7 @@ export function AIRecommendation({
               onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
               placeholder="예) 복층 구조에 채광 좋은 원룸..."
               inputSize="md"
+              {...sharedFileProps}
             />
             <button
               onClick={() => handleGenerate()}
@@ -429,6 +458,7 @@ export function AIRecommendation({
                   onKeyDown={(e) => e.key === "Enter" && handleGenerate(regenPrompt)}
                   placeholder="다른 스타일로 바꿔볼까요?"
                   inputSize="sm"
+                  {...sharedFileProps}
                 />
                 <button
                   onClick={() => handleGenerate(regenPrompt)}
@@ -454,7 +484,9 @@ export function AIRecommendation({
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-xs text-stone-700 leading-relaxed font-semibold">
                     조금 더 바꾸고 싶다면? 구체적일수록 잘 반영돼요<br />
-                    <span className="text-[10px] text-stone-400 font-normal">예) "창문을 크게", "더 밝은 느낌으로"</span>
+                    <span className="text-[10px] text-stone-400 font-normal">
+                      예) &quot;창문을 크게&quot;, &quot;더 밝은 느낌으로&quot;
+                    </span>
                   </p>
                   <button
                     onClick={() => { setSelectedImage(null); setEditPrompt("") }}
