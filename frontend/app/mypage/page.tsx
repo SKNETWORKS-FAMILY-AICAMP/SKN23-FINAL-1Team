@@ -353,7 +353,8 @@ export default function MyPage() {
               alt="로고"
               width={120}
               height={40}
-              className="hidden object-contain md:block"
+              className="hidden object-contain md:block hover:cursor-pointer"
+              onClick={() => router.push("/home")}
             />
           </div>
           <p className="flex-1 text-center text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400">
