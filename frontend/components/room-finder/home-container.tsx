@@ -14,6 +14,7 @@ import { fetchItems, fetchMapItems } from "@/lib/api/rooms";
 import { mapItemToListing } from "@/utils/roomMappers";
 import { ListingDetailPanel } from "@/components/room-finder/listing-detail-panel";
 import { useAuthStore } from "@/store/authStore";
+import { usePendingListingStore } from "@/store/pendingListingStore";
 import {
   fetchFavorites,
   addFavorite,
@@ -142,6 +143,20 @@ export function HomeContainer() {
   const user = useAuthStore((state) => state.user);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
 
+  const pendingListing = usePendingListingStore((state) => state.pendingListing);
+  const clearPendingListing = usePendingListingStore((state) => state.clearPendingListing);
+  const isPendingOpenRef = useRef(false);
+
+  // 마이페이지에서 넘어온 매물 → 상세패널 자동 오픈
+  useEffect(() => {
+    if (!pendingListing) return;
+    isPendingOpenRef.current = true;
+    setSelectedListing(pendingListing);
+    setIsDetailOpen(true);
+    setIsPanelOpen(false);
+    clearPendingListing();
+  }, [pendingListing, clearPendingListing]);
+
   const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
   const [favoriteLoadingIds, setFavoriteLoadingIds] = useState<number[]>([]);
 
@@ -192,7 +207,7 @@ export function HomeContainer() {
     prevRequestKeyRef.current = requestKey;
     setRecommendedListings(null);
     setVisibleListings([]);
-    setSelectedListing(null);
+    if (!isPendingOpenRef.current) setSelectedListing(null);
     setOffset(0);
     setHasMore(true);
     setHasRequestFailed(false);
@@ -243,6 +258,7 @@ export function HomeContainer() {
 
   useEffect(() => {
     if (!selectedListing) return;
+    if (isPendingOpenRef.current) return;  // pending으로 열린 매물은 스킵
     const stillExistsInPanel =
       panelListings.some((listing) => listing.id === selectedListing.id) ||
       favoriteListings.some((listing) => listing.id === selectedListing.id);
@@ -597,7 +613,7 @@ export function HomeContainer() {
         <ListingDetailPanel
           listing={selectedListing}
           isOpen={isDetailOpen}
-          onClose={() => { setSelectedListing(null); setIsDetailOpen(false); }}
+          onClose={() => { setSelectedListing(null); setIsDetailOpen(false); isPendingOpenRef.current = false; }}
           listPanelOpen={isPanelOpen}
           favoriteIds={favoriteIds}
           favoriteLoadingIds={favoriteLoadingIds}

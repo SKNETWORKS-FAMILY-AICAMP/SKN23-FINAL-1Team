@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useRecentStore } from "store/recentStore";
 
 type AuthUser = {
   user_id?: number;
@@ -26,9 +27,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       user,
       isLoggedIn: !!user,
     }),
-  clearUser: () =>
+  clearUser: () => {
+    useRecentStore.getState().clearRecent();
     set({
       user: null,
       isLoggedIn: false,
-    }),
+    });
+  },
 }));
