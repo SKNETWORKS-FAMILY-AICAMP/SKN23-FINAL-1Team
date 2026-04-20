@@ -484,7 +484,9 @@ export function AIRecommendation({
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-xs text-stone-700 leading-relaxed font-semibold">
                     조금 더 바꾸고 싶다면? 구체적일수록 잘 반영돼요<br />
-                    <span className="text-[10px] text-stone-400 font-normal">예) "창문을 크게", "더 밝은 느낌으로"</span>
+                    <span className="text-[10px] text-stone-400 font-normal">
+                      예) &quot;창문을 크게&quot;, &quot;더 밝은 느낌으로&quot;
+                    </span>
                   </p>
                   <button
                     onClick={() => { setSelectedImage(null); setEditPrompt("") }}
