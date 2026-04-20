@@ -6,11 +6,12 @@ export interface RoomSearchParams {
   search?: string;
   transactionType?: string;
   roomType?: "원룸" | "투룸" | "all";
-  structure?: string;
+  structure?: string[];
   deposit?: number | "all";
   monthlyRent?: number | "all";
   size?: number | "all";
   sizeUnit?: "m2" | "pyeong";
+  floor?: string;
   options?: string[];
   lat?: number;
   lng?: number;
@@ -129,11 +130,15 @@ function buildSearchBody(params: RoomSearchParams) {
     search: params.search ?? "",
     transaction_type: params.transactionType ?? "all",
     room_type: params.roomType ?? "all",
-    structure: params.structure ?? "all",
+    structure:
+      params.structure && params.structure.length > 0
+        ? params.structure
+        : "all",
     deposit: params.deposit ?? "all",
     monthly_rent: params.monthlyRent ?? "all",
     size: params.size ?? "all",
     size_unit: params.sizeUnit ?? "m2",
+    floor: params.floor ?? "all",
     options: params.options ?? [],
     lat: params.lat ?? null,
     lng: params.lng ?? null,
@@ -154,6 +159,10 @@ async function requestJson<T>(url: string, options?: RequestInit): Promise<T> {
     },
     credentials: "include",
   });
+
+  if (response.status === 499) {
+    throw new DOMException("Request aborted.", "AbortError");
+  }
 
   if (!response.ok) {
     const text = await response.text();

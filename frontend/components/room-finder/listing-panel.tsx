@@ -43,15 +43,10 @@ export function ListingPanel({
   const observerRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState<PanelTab>("list");
+  const currentTab = !isLoggedIn && activeTab === "wish" ? "list" : activeTab;
 
   useEffect(() => {
-    if (!isLoggedIn && activeTab === "wish") {
-      setActiveTab("list");
-    }
-  }, [isLoggedIn, activeTab]);
-
-  useEffect(() => {
-    if (activeTab !== "list") return;
+    if (currentTab !== "list") return;
     if (!observerRef.current || !scrollContainerRef.current) return;
     if (!onLoadMore || !hasMore) return;
 
@@ -71,34 +66,43 @@ export function ListingPanel({
 
     observer.observe(observerRef.current);
     return () => observer.disconnect();
-  }, [activeTab, hasMore, isLoading, onLoadMore]);
+  }, [currentTab, hasMore, isLoading, onLoadMore]);
+
+  useEffect(() => {
+    if (currentTab !== "list") return;
+    scrollContainerRef.current?.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }, [currentTab, scrollResetKey]);
 
   const headerTitle = useMemo(() => {
-    if (activeTab === "list") return "매물 목록";
-    if (activeTab === "ai") return "AI 추천";
+    if (currentTab === "list") return "매물 목록";
+    if (currentTab === "ai") return "AI 추천";
     return "찜 목록";
-  }, [activeTab]);
+  }, [currentTab]);
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white md:bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">
       <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-4 pt-6 backdrop-blur-md shrink-0">
         <div className="mb-4">
-
-          <div className="mt-1 text-xl font-bold tracking-tight text-stone-900">
+          {/* <div className="mt-1 text-xl font-bold tracking-tight text-stone-900">
             {headerTitle}
-          </div>
+          </div> */}
         </div>
 
-        <div className={cn(
-          "rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
-          isLoggedIn ? "grid grid-cols-3" : "grid grid-cols-2"
-        )}>
+        <div
+          className={cn(
+            "rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
+            isLoggedIn ? "grid grid-cols-3" : "grid grid-cols-2",
+          )}
+        >
           <button
             type="button"
             onClick={() => setActiveTab("list")}
             className={cn(
               "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
-              activeTab === "list"
+              currentTab === "list"
                 ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                 : "text-stone-500 hover:text-stone-800",
             )}
@@ -112,7 +116,7 @@ export function ListingPanel({
             onClick={() => setActiveTab("ai")}
             className={cn(
               "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
-              activeTab === "ai"
+              currentTab === "ai"
                 ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                 : "text-stone-500 hover:text-stone-800",
             )}
@@ -127,7 +131,7 @@ export function ListingPanel({
               onClick={() => setActiveTab("wish")}
               className={cn(
                 "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
-                activeTab === "wish"
+                currentTab === "wish"
                   ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                   : "text-stone-500 hover:text-stone-800",
               )}
@@ -156,8 +160,12 @@ export function ListingPanel({
                     isSelected={selectedListing?.id === listing.id}
                     onClick={onListingClick}
                     isFavorite={favoriteIds.includes(Number(listing.id))}
-                    isFavoriteLoading={favoriteLoadingIds.includes(Number(listing.id))}
-                    onToggleFavorite={() => onToggleFavorite(Number(listing.id))}
+                    isFavoriteLoading={favoriteLoadingIds.includes(
+                      Number(listing.id),
+                    )}
+                    onToggleFavorite={() =>
+                      onToggleFavorite(Number(listing.id))
+                    }
                   />
                 </div>
               ))}
@@ -211,8 +219,12 @@ export function ListingPanel({
                       isSelected={selectedListing?.id === listing.id}
                       onClick={onWishClick ?? onListingClick}
                       isFavorite={true}
-                      isFavoriteLoading={favoriteLoadingIds.includes(Number(listing.id))}
-                      onToggleFavorite={() => onToggleFavorite(Number(listing.id))}
+                      isFavoriteLoading={favoriteLoadingIds.includes(
+                        Number(listing.id),
+                      )}
+                      onToggleFavorite={() =>
+                        onToggleFavorite(Number(listing.id))
+                      }
                     />
                   </div>
                 ))}

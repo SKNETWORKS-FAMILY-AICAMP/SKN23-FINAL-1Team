@@ -161,6 +161,7 @@ export function AIRecommendation({
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
+  // 전체 영역 드래그 이벤트
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setIsDragging(true)
@@ -168,6 +169,7 @@ export function AIRecommendation({
 
   const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
+    // 자식 요소로 이동할 때 false 방지
     if (e.currentTarget.contains(e.relatedTarget as Node)) return
     setIsDragging(false)
   }
