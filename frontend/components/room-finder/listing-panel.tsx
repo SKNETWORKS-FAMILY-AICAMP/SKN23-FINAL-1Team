@@ -20,7 +20,7 @@ interface ListingPanelProps {
   onToggleFavorite: (listingId: number) => void;
   favoriteListings?: Listing[];
   isLoggedIn?: boolean;
-  scrollResetKey?: number;
+  onWishClick?: (listing: Listing) => void;
 }
 
 type PanelTab = "list" | "ai" | "wish";
@@ -38,7 +38,7 @@ export function ListingPanel({
   onToggleFavorite,
   favoriteListings = [],
   isLoggedIn = false,
-  scrollResetKey,
+  onWishClick,
 }: ListingPanelProps) {
   const observerRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -148,18 +148,13 @@ export function ListingPanel({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1">
-        {currentTab === "list" && (
-          <div
-            ref={scrollContainerRef}
-            className="h-full overflow-y-auto px-4 py-4"
-          >
+      <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
+        {/* 매물목록 */}
+        {activeTab === "list" && (
+          <div ref={scrollContainerRef} className="h-full overflow-y-auto px-4 py-4">
             <div className="space-y-4">
               {listings.map((listing) => (
-                <div
-                  key={listing.id}
-                  className="cursor-pointer transition-transform duration-200"
-                >
+                <div key={listing.id} className="cursor-pointer transition-transform duration-200">
                   <ListingCard
                     listing={listing}
                     isSelected={selectedListing?.id === listing.id}
@@ -194,7 +189,11 @@ export function ListingPanel({
           </div>
         )}
 
-        {currentTab === "ai" && (
+        {/* AI추천 — hidden으로 언마운트 방지, flex-col로 내부 스크롤 */}
+        <div className={cn(
+          "flex-1 min-h-0 flex flex-col overflow-hidden",
+          activeTab === "ai" ? "flex" : "hidden"
+        )}>
           <AIRecommendation
             allListings={listings}
             onSimilarListingsFound={(similarListings) => {
@@ -202,9 +201,10 @@ export function ListingPanel({
               setActiveTab("list");
             }}
           />
-        )}
+        </div>
 
-        {currentTab === "wish" && isLoggedIn && (
+        {/* 찜목록 */}
+        {activeTab === "wish" && isLoggedIn && (
           <div className="h-full overflow-y-auto px-4 py-4">
             {favoriteListings.length === 0 ? (
               <div className="rounded-[24px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
@@ -213,14 +213,11 @@ export function ListingPanel({
             ) : (
               <div className="space-y-4">
                 {favoriteListings.map((listing) => (
-                  <div
-                    key={listing.id}
-                    className="cursor-pointer transition-transform duration-200"
-                  >
+                  <div key={listing.id} className="cursor-pointer transition-transform duration-200">
                     <ListingCard
                       listing={listing}
                       isSelected={selectedListing?.id === listing.id}
-                      onClick={onListingClick}
+                      onClick={onWishClick ?? onListingClick}
                       isFavorite={true}
                       isFavoriteLoading={favoriteLoadingIds.includes(
                         Number(listing.id),
