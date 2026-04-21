@@ -1,30 +1,7 @@
 import psycopg2
 import os
 from dotenv import load_dotenv
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)
-load_dotenv(os.path.join(ROOT_DIR, ".env"))
-
-def get_db_connection():
-    RUN_ENV = os.getenv("ENV", "SERVER")
-    if RUN_ENV == "LOCAL":
-        return psycopg2.connect(
-            host="localhost",
-            database=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            port="15432"
-        )
-    
-    else:
-        return psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            database=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            port=os.getenv("DB_PORT")
-        )
+from psycopg2_db_connection import psycopg2_db_connection
 
 def update_bathroom_score(text_embedding_list):
     """
@@ -32,7 +9,7 @@ def update_bathroom_score(text_embedding_list):
     DB에 있는 이미지가 화장실의 사진인지 아닌지 점수를 매기는 함수.
     """
     print("DB 연결 중...")
-    conn = get_db_connection()
+    conn = psycopg2_db_connection()
     cur = conn.cursor()
     try:
         cur.execute("ALTER TABLE item_image_embeddings ADD COLUMN IF NOT EXISTS bathroom_score FLOAT;")
@@ -64,7 +41,7 @@ def update_bathroom_labels(threshold=0.263):
     매물별로 가장 높은 bathroom_score를 가진 사진 1장을 
     지정된 임계값 이상인 경우에만 is_bathroom=True로 라벨링합니다.
     """
-    conn = get_db_connection()
+    conn = psycopg2_db_connection()
     cur = conn.cursor()
     
     try:
