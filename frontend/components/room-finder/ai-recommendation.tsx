@@ -5,6 +5,7 @@ import Image from "next/image"
 import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Listing } from "./map-view"
+import { useAuthStore } from "@/store/authStore"
 
 interface AIRecommendationProps {
   onSimilarListingsFound: (listings: Listing[]) => void
@@ -246,11 +247,26 @@ export function AIRecommendation({
     }
   }
 
+  const user = useAuthStore((state) => state.user)
+
   const handleFindSimilar = async () => {
     if (!selectedImage || isFindingSimilar) return
 
     setIsFindingSimilar(true)
     try {
+      // 갤러리 저장 (로그인 상태일 때만)
+      if (user?.user_id) {
+        await fetch("/api/gallery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: user.user_id,
+            image_url: selectedImage.url,
+            prompt: selectedImage.prompt,
+          }),
+        })
+      }
+
       const response = await fetch("/api/find-similar-rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
