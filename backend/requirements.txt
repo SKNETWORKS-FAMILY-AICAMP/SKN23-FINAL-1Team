@@ -49,3 +49,4 @@ pillow
 torch
 open_clip_torch
 transformers
+openai

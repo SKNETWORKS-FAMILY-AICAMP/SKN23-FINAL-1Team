@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/api/backend-url";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE_URL = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL;
 const MAX_RETRIES = 1;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function getApiBaseUrl() {
   if (!API_BASE_URL) {
-    throw new Error("NEXT_PUBLIC_API_BASE_URL is not configured.");
+    throw new Error("BACKEND_URL or NEXT_PUBLIC_API_BASE_URL is not configured.");
   }
 
   return getBackendApiBaseUrl(API_BASE_URL);
