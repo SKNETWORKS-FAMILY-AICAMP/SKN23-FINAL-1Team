@@ -6,7 +6,7 @@ import os
 MODEL_TYPE = 'ViT-B-32'
 CHECKPOINT_PATH = 'model/ViT-B-32.pt'
 
-def main():
+def main(text_list):
     print(f"모델 로드 중... ({CHECKPOINT_PATH})")
     
     if not os.path.exists(CHECKPOINT_PATH):
@@ -25,7 +25,7 @@ def main():
         print("모델 로드 완료! 이제 텍스트를 벡터로 바꾼다?")
 
         # 3. 임베딩할 텍스트 준비
-        text_list = ["A clean and tidy room interior"]
+        text_list = text_list
         
         # 4. 토큰화 (텍스트를 숫자로 변환)
         text_tokens = tokenizer(text_list)
