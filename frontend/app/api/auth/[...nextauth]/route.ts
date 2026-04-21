@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import KakaoProvider from "next-auth/providers/kakao";
 import NaverProvider from "next-auth/providers/naver";
 import GoogleProvider from "next-auth/providers/google";
+import { buildBackendApiUrl } from "@/lib/api/backend-url";
 
 const BACKEND_URL = process.env.BACKEND_URL;
 
@@ -72,7 +73,7 @@ const handler = NextAuth({
           throw new Error("provider_id 추출 실패");
         }
 
-        const response = await fetch(`${BACKEND_URL}/auth/social-login`, {
+        const response = await fetch(buildBackendApiUrl(BACKEND_URL, "/auth/social-login"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { buildBackendApiUrl } from "@/lib/api/backend-url"
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000"
 
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const response = await fetch(`${BACKEND_URL}/api/generate-image`, {
+    const response = await fetch(buildBackendApiUrl(BACKEND_URL, "/generate-image"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -36,9 +37,10 @@ export async function POST(request: NextRequest) {
 
     const images = filePaths.map((filePath: string, index: number) => ({
       id: `${Date.now()}-${index}`,
-      url: `${BACKEND_URL}/api/images/${encodeURIComponent(
-        filePath.split(/[\\/]/).pop() ?? filePath
-      )}`,
+      url: buildBackendApiUrl(
+        BACKEND_URL,
+        `/images/${encodeURIComponent(filePath.split(/[\\/]/).pop() ?? filePath)}`
+      ),
       prompt,
     }))
 

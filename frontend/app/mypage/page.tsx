@@ -21,6 +21,7 @@ import {
   addFavorite,
   removeFavorite,
 } from "@/lib/api/favorites";
+import { getBackendApiBaseUrl } from "@/lib/api/backend-url";
 import { useRecentStore } from "@/store/recentStore";
 import { usePendingListingStore } from "@/store/pendingListingStore";
 
@@ -71,8 +72,9 @@ export default function MyPage() {
   const recentListings = useRecentStore((state) => state.recentListings);
   const setPendingListing = usePendingListingStore((state) => state.setPendingListing);
 
-  const BACKEND_URL =
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000";
+  const BACKEND_API_URL = getBackendApiBaseUrl(
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000",
+  );
 
   // 찜 목록 조회
   const loadFavorites = useCallback(async () => {
@@ -85,7 +87,7 @@ export default function MyPage() {
 
       const properties = await Promise.all(
         itemIds.map(async (itemId) => {
-          const r = await fetch(`${BACKEND_URL}/rooms/${itemId}`);
+          const r = await fetch(`${BACKEND_API_URL}/rooms/${itemId}`);
           if (!r.ok) return null;
           const detail = await r.json();
           const item = detail.item;
@@ -111,7 +113,7 @@ export default function MyPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.user_id]);
+  }, [BACKEND_API_URL, user?.user_id]);
 
   useEffect(() => {
     loadFavorites();
