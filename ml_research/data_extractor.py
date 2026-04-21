@@ -27,13 +27,66 @@ def csv_extractor(query: str, ):
 
 if __name__ == "__main__":
     "CSV 추출용 코드입니다."
-    query = """select address, deposit, rent, manage_cost, service_type, room_type, floor, all_floors, area_m2, 
-                has_parking, has_elevator, bathroom_count, room_direction, movein_date, approve_date, has_air_con, 
-                has_fridge, has_washer, has_gas_stove, has_induction, has_microwave, has_desk, has_bed, has_closet, 
-                has_shoe_rack, dist_subway, dist_pharmacy, dist_conv, dist_bus, dist_mart, dist_laundry, dist_cafe, 
-                is_coupang, is_ssg, is_marketkurly, is_baemin, is_yogiyo, is_subway_area, is_convenient_area, 
-                is_park_area, is_school_area, has_bookcase, has_sink, first_crawled_at
-                from items i
-                inner join item_features t
-                on i.item_id = t.item_id;"""
+    query = """
+   WITH room_agg AS(
+    SELECT img.item_id,
+    AVG(emb.normalized_room_score)as room_quality_score FROM item_images img JOIN item_image_embeddings emb ON img.id = emb.image_id WHERE emb.room_score >= 0.24-- 방이라고 판단되는 사진들만 평균냄 GROUP BY img.item_id
+),
+bath_agg AS(
+    SELECT img.item_id,
+    emb.normalized_bathroom_score as bath_clean_score FROM item_images img JOIN item_image_embeddings emb ON img.id = emb.image_id WHERE emb.is_bathroom = TRUE-- 우리가 아까 스크립트로 딱 1 장씩 박아둔 놈
+)
+SELECT
+i.item_id,
+i.address,
+i.deposit,
+i.rent,
+i.manage_cost,
+i.service_type,
+i.room_type,
+i.floor,
+i.all_floors,
+i.area_m2,
+t.has_parking,
+t.has_elevator,
+t.bathroom_count,
+t.room_direction,
+t.movein_date,
+t.approve_date,
+t.has_air_con,
+t.has_fridge,
+t.has_washer,
+t.has_gas_stove,
+t.has_induction,
+t.has_microwave,
+t.has_desk,
+t.has_bed,
+t.has_closet,
+t.has_shoe_rack,
+t.dist_subway,
+t.dist_pharmacy,
+t.dist_conv,
+t.dist_bus,
+t.dist_mart,
+t.dist_laundry,
+t.dist_cafe,
+t.is_coupang,
+t.is_ssg,
+t.is_marketkurly,
+t.is_baemin,
+t.is_yogiyo,
+t.is_subway_area,
+t.is_convenient_area,
+t.is_park_area,
+t.is_school_area,
+t.has_bookcase,
+t.has_sink,
+r.room_quality_score,
+--방 상태 점수(없으면 NULL)
+b.bath_clean_score-- 화장실 청결 점수(없으면 NULL)
+FROM items i
+INNER JOIN item_features t ON i.item_id = t.item_id
+LEFT JOIN room_agg r ON i.item_id = r.item_id
+LEFT JOIN bath_agg b ON i.item_id = b.item_id;
+"""
     csv_extractor(query = query)
