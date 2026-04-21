@@ -78,6 +78,28 @@ export default function MyPage() {
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000",
   );
 
+  const [galleryImages, setGalleryImages] = useState<{ id: number; image_url: string; prompt: string | null; created_at: string }[]>([]);
+  const [isGalleryLoading, setIsGalleryLoading] = useState(false);
+
+  const loadGallery = useCallback(async () => {
+    if (!user?.user_id) return;
+    setIsGalleryLoading(true);
+    try {
+      const r = await fetch(`${BACKEND_API_URL}/gallery?user_id=${user.user_id}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      setGalleryImages(data.items);
+    } catch (error) {
+      console.error("갤러리 조회 실패:", error);
+    } finally {
+      setIsGalleryLoading(false);
+    }
+  }, [BACKEND_API_URL, user?.user_id]);
+
+  useEffect(() => {
+    if (activeSection === "gallery") loadGallery();
+  }, [activeSection, loadGallery]);
+
   // 찜 목록 조회
   const loadFavorites = useCallback(async () => {
     if (!user?.user_id) return;
@@ -505,20 +527,43 @@ export default function MyPage() {
               <p className="mb-3 text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400 md:mb-4">
                 AI 생성 이미지 갤러리
               </p>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                {[...Array(5)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-36 w-full rounded-2xl border border-stone-200/80 bg-stone-100/80 md:h-48"
-                  />
-                ))}
-                <div className="flex h-36 w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-stone-200 bg-white/80 transition-colors hover:bg-stone-50 md:h-48">
-                  <ImageIcon className="h-5 w-5 text-stone-300" />
-                  <span className="text-xs font-medium text-stone-400">
-                    새 검색
-                  </span>
+              {isGalleryLoading ? (
+                <div className="py-10 text-center text-sm font-medium text-stone-400">
+                  불러오는 중...
                 </div>
-              </div>
+              ) : galleryImages.length === 0 ? (
+                <div className="rounded-[20px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500">
+                  저장된 AI 이미지가 없습니다.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                  {galleryImages.map((item) => (
+                    <div
+                      key={item.id}
+                      className="relative h-36 w-full overflow-hidden rounded-2xl border border-stone-200/80 md:h-48"
+                    >
+                      <Image
+                        src={item.image_url}
+                        alt={item.prompt ?? "AI 생성 이미지"}
+                        fill
+                        className="object-cover"
+                      />
+                      {item.prompt && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-2 py-1">
+                          <p className="truncate text-[10px] text-white">{item.prompt}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <div
+                    className="flex h-36 w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-stone-200 bg-white/80 transition-colors hover:bg-stone-50 md:h-48"
+                    onClick={() => router.push("/home")}
+                  >
+                    <ImageIcon className="h-5 w-5 text-stone-300" />
+                    <span className="text-xs font-medium text-stone-400">새 검색</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

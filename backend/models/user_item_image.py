@@ -1,0 +1,23 @@
+# DB 테이블 user_item_image를 python으로 표현한 class
+
+from sqlalchemy import Column, Integer, Text, TIMESTAMP, ForeignKey, func
+from sqlalchemy.orm import relationship
+from db.base import Base
+
+
+class UserItemImage(Base):
+    __tablename__ = "user_item_image"
+    __table_args__ = {"schema": "public"}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("public.user.user_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    image_url = Column(Text, nullable=False)
+    embedding = Column(Text, nullable=True)  # 임베딩 보류, 나중에 vector 타입으로 교체
+    prompt = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now(), nullable=True)
+
+    user = relationship("User", back_populates="gallery")
