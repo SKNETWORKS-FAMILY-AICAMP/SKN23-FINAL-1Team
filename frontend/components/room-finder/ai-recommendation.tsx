@@ -429,6 +429,7 @@ export function AIRecommendation({
                       src={image.url}
                       alt={image.prompt}
                       fill
+                      unoptimized
                       className="object-cover"
                     />
                     {isSelected && (
