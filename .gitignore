@@ -187,3 +187,6 @@ __pycache__/
 *.ico
 *.webp
 *.svg
+
+# Models
+*.pt
