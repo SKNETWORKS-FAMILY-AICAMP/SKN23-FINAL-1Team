@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { HomeFilters, PropertyItem } from "@/types/home";
-import { fetchProperties } from "@/lib/utils/homeApi";
+import { fetchProperties } from "@/lib/api/homeApi";
 
 export function usePropertySearch(filters: HomeFilters) {
   const [items, setItems] = useState<PropertyItem[]>([]);

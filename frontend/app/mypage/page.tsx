@@ -158,7 +158,7 @@ export default function MyPage() {
     );
   }
 
-  const getSocialBadge = (socialType: string) => {
+  const getSocialBadge = (socialType?: string) => {
     switch (socialType) {
       case "kakao":
         return {
@@ -207,7 +207,7 @@ export default function MyPage() {
         };
       default:
         return {
-          label: socialType,
+          label: socialType ?? "social",
           className: "bg-stone-100 text-stone-500 border-stone-200",
           icon: null,
         };
