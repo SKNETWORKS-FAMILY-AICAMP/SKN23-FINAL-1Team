@@ -25,9 +25,9 @@ app.add_middleware(
 )
 
 app.include_router(router)
-app.include_router(auth_router)
-app.include_router(rooms_router)
-app.include_router(room_detail_router)
+app.include_router(auth_router, prefix="/api")
+app.include_router(rooms_router, prefix="/api")
+app.include_router(room_detail_router, prefix="/api")
 app.include_router(ai_image_router)
-app.include_router(favorite_router)
+app.include_router(favorite_router, prefix="/api")
 

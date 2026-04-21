@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { buildBackendApiUrl } from "@/lib/api/backend-url"
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000"
 
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const response = await fetch(`${BACKEND_URL}/api/find-similar-rooms`, {
+    const response = await fetch(buildBackendApiUrl(BACKEND_URL, "/find-similar-rooms"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ image_url: imageUrl }),
