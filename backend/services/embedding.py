@@ -25,11 +25,11 @@ s3 = boto3.client(
 # DB 연결
 def get_conn():
     return psycopg2.connect(
-        host="127.0.0.1",
-        database="postgres",
-        user="postgres",
-        password="Enc0re!2026",
-        port=15432,
+        host=os.getenv("DB_HOST"),
+        database=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        port=os.getenv("DB_PORT"),
         sslmode="require",
         keepalives=1,
         keepalives_idle=30,
