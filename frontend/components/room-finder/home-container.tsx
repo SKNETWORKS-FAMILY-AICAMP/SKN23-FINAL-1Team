@@ -19,11 +19,14 @@ import {
   addFavorite,
   removeFavorite,
 } from "@/lib/api/favorites";
+import { getBackendApiBaseUrl } from "@/lib/api/backend-url";
 
 const PAGE_SIZE = 20;
 const BOUNDS_PRECISION = 5;
 const MAP_BOUNDS_DEBOUNCE_MS = 350;
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000";
+const BACKEND_API_URL = getBackendApiBaseUrl(
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000",
+);
 const ONE_ROOM_MAX_DEPOSIT = 20000;
 const TWO_ROOM_MAX_DEPOSIT = 60000;
 const ONE_ROOM_MAX_SIZE_M2 = 66;
@@ -426,7 +429,7 @@ export function HomeContainer() {
 
         const details = await Promise.all(
           ids.map((id) =>
-            fetch(`${BACKEND_URL}/rooms/${id}`)
+            fetch(`${BACKEND_API_URL}/rooms/${id}`)
               .then((r) => r.json())
               .then((d) => mapItemToListing(d.item))
               .catch(() => null)

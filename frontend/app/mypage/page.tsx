@@ -21,6 +21,7 @@ import {
   addFavorite,
   removeFavorite,
 } from "@/lib/api/favorites";
+import { getBackendApiBaseUrl } from "@/lib/api/backend-url";
 
 type Section = "liked" | "recent" | "gallery" | "settings";
 type RoomTab = "all" | "oneroom" | "tworoom";
@@ -79,8 +80,9 @@ export default function MyPage() {
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
 
-  const BACKEND_URL =
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000";
+  const BACKEND_API_URL = getBackendApiBaseUrl(
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000",
+  );
 
   // 찜 목록 조회
   const loadFavorites = useCallback(async () => {
@@ -93,7 +95,7 @@ export default function MyPage() {
 
       const properties = await Promise.all(
         itemIds.map(async (itemId) => {
-          const r = await fetch(`${BACKEND_URL}/rooms/${itemId}`);
+          const r = await fetch(`${BACKEND_API_URL}/rooms/${itemId}`);
           if (!r.ok) return null;
           const detail = await r.json();
           const item = detail.item;
@@ -119,7 +121,7 @@ export default function MyPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.user_id]);
+  }, [BACKEND_API_URL, user?.user_id]);
 
   useEffect(() => {
     loadFavorites();
