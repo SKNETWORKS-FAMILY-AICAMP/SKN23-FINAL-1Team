@@ -13,12 +13,6 @@ const remotePatterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [
     port: "8000",
     pathname: "/api/images/**",
   },
-  {
-    protocol: "http",
-    hostname: "3.37.97.17",
-    port: "8000",
-    pathname: "/api/images/**",
-  },
 ];
 
 if (s3Hostname) {
