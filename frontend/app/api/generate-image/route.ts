@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { buildBackendApiUrl } from "@/lib/api/backend-url"
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000"
-const PUBLIC_BACKEND_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,10 +37,7 @@ export async function POST(request: NextRequest) {
 
     const images = filePaths.map((filePath: string, index: number) => ({
       id: `${Date.now()}-${index}`,
-      url: buildBackendApiUrl(
-        PUBLIC_BACKEND_URL,
-        `/images/${encodeURIComponent(filePath.split(/[\\/]/).pop() ?? filePath)}`
-      ),
+      url: `/backend/api/images/${encodeURIComponent(filePath.split(/[\\/]/).pop() ?? filePath)}`,
       prompt,
     }))
 
