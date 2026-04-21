@@ -41,7 +41,7 @@ interface PromptInputWithUploadProps {
   fileError: string
   onRemoveFile: () => void
   onFileClick: () => void
-  fileInputRef: React.RefObject<HTMLInputElement>
+  fileInputRef: React.RefObject<HTMLInputElement | null>
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
 }
 
