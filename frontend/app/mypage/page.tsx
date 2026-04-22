@@ -22,7 +22,6 @@ import {
   removeFavorite,
 } from "@/lib/api/favorites";
 import { fetchRoomDetail } from "@/lib/api/rooms";
-import { getBackendApiBaseUrl } from "@/lib/api/backend-url";
 import { useRecentStore } from "@/store/recentStore";
 import { usePendingListingStore } from "@/store/pendingListingStore";
 
@@ -73,10 +72,6 @@ export default function MyPage() {
   const recentListings = useRecentStore((state) => state.recentListings);
   const setPendingListing = usePendingListingStore((state) => state.setPendingListing);
 
-  const BACKEND_API_URL = getBackendApiBaseUrl(
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000",
-  );
-
   const [galleryImages, setGalleryImages] = useState<{ id: number; image_url: string; prompt: string | null; created_at: string }[]>([]);
   const [isGalleryLoading, setIsGalleryLoading] = useState(false);
 
@@ -84,7 +79,7 @@ export default function MyPage() {
     if (!user?.user_id) return;
     setIsGalleryLoading(true);
     try {
-      const r = await fetch(`${BACKEND_API_URL}/gallery?user_id=${user.user_id}`);
+      const r = await fetch(`/api/gallery?user_id=${user.user_id}`);
       if (!r.ok) return;
       const data = await r.json();
       setGalleryImages(data.items);
@@ -93,7 +88,7 @@ export default function MyPage() {
     } finally {
       setIsGalleryLoading(false);
     }
-  }, [BACKEND_API_URL, user?.user_id]);
+  }, [user?.user_id]);
 
   useEffect(() => {
     if (activeSection === "gallery") loadGallery();
