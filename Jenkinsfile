@@ -63,8 +63,28 @@ pipeline {
           set -eu
           cd "$DEPLOY_DIR"
           docker compose -f "$COMPOSE_FILE" ps
-          curl -fsS http://127.0.0.1:3000 >/dev/null
-          curl -fsS http://127.0.0.1:8000/docs >/dev/null
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000 >/dev/null; then
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Frontend health check failed"
+              exit 1
+            fi
+            sleep 2
+          done
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/docs >/dev/null; then
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Backend health check failed"
+              exit 1
+            fi
+            sleep 2
+          done
         '''
       }
     }
