@@ -20,6 +20,7 @@ import {
   addFavorite,
   removeFavorite,
 } from "@/lib/api/favorites";
+import { useRecentStore } from "@/store/recentStore";
 
 const PAGE_SIZE = 20;
 const BOUNDS_PRECISION = 5;
@@ -141,6 +142,7 @@ export function HomeContainer() {
 
   const user = useAuthStore((state) => state.user);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const addRecent = useRecentStore((state) => state.addRecent);
 
   const pendingListing = usePendingListingStore((state) => state.pendingListing);
   const clearPendingListing = usePendingListingStore((state) => state.clearPendingListing);
@@ -413,17 +415,37 @@ export function HomeContainer() {
     setOffset((prev) => prev + PAGE_SIZE);
   }, [hasMore, isLoading, recommendedListings]);
 
+  const recordRecentListing = useCallback(
+    (listing: Listing) => {
+      addRecent({
+        id: listing.id,
+        title: listing.title,
+        price: listing.price,
+        address: listing.address,
+        images: listing.images,
+        structure: listing.structure,
+        size: listing.size,
+        floor: listing.floor,
+        lat: listing.lat,
+        lng: listing.lng,
+      });
+    },
+    [addRecent],
+  );
+
   // 매물목록 클릭 → 지도 이동 + 상세패널 오픈
   const handleListingClick = useCallback((listing: Listing) => {
+    recordRecentListing(listing);
     setSelectedListing(listing);
     setIsDetailOpen(true);
-  }, []);
+  }, [recordRecentListing]);
 
   // 찜목록 클릭 → 지도 이동 + 상세패널 오픈 (매물목록과 동일)
   const handleWishClick = useCallback((listing: Listing) => {
+    recordRecentListing(listing);
     setSelectedListing(listing);
     setIsDetailOpen(true);
-  }, []);
+  }, [recordRecentListing]);
 
   // favoriteIds DB에서 로드
   useEffect(() => {
@@ -599,6 +621,7 @@ export function HomeContainer() {
             mapItems={mapItems}
             selectedListing={selectedListing}
             onMarkerClick={(listing) => {
+                recordRecentListing(listing);
                 setSelectedListing(listing);
                 setIsDetailOpen(true);
               }}
@@ -673,6 +696,7 @@ export function HomeContainer() {
               mapItems={mapItems}
               selectedListing={selectedListing}
               onMarkerClick={(listing) => {
+                recordRecentListing(listing);
                 setSelectedListing(listing);
                 setMobileView("list");
               }}
