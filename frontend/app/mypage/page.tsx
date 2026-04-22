@@ -21,7 +21,7 @@ import {
   addFavorite,
   removeFavorite,
 } from "@/lib/api/favorites";
-import { getBackendApiBaseUrl } from "@/lib/api/backend-url";
+import { fetchRoomDetail } from "@/lib/api/rooms";
 import { useRecentStore } from "@/store/recentStore";
 import { usePendingListingStore } from "@/store/pendingListingStore";
 
@@ -74,10 +74,6 @@ export default function MyPage() {
     (state) => state.setPendingListing,
   );
 
-  const BACKEND_API_URL = getBackendApiBaseUrl(
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000",
-  );
-
   const [galleryImages, setGalleryImages] = useState<{ id: number; image_url: string; prompt: string | null; created_at: string }[]>([]);
   const [isGalleryLoading, setIsGalleryLoading] = useState(false);
 
@@ -85,7 +81,7 @@ export default function MyPage() {
     if (!user?.user_id) return;
     setIsGalleryLoading(true);
     try {
-      const r = await fetch(`${BACKEND_API_URL}/gallery?user_id=${user.user_id}`);
+      const r = await fetch(`/api/gallery?user_id=${user.user_id}`);
       if (!r.ok) return;
       const data = await r.json();
       setGalleryImages(data.items);
@@ -94,7 +90,7 @@ export default function MyPage() {
     } finally {
       setIsGalleryLoading(false);
     }
-  }, [BACKEND_API_URL, user?.user_id]);
+  }, [user?.user_id]);
 
   useEffect(() => {
     if (activeSection === "gallery") loadGallery();
@@ -111,9 +107,7 @@ export default function MyPage() {
 
       const properties = await Promise.all(
         itemIds.map(async (itemId) => {
-          const r = await fetch(`${BACKEND_API_URL}/rooms/${itemId}`);
-          if (!r.ok) return null;
-          const detail = await r.json();
+          const detail = await fetchRoomDetail(itemId);
           const item = detail.item;
           return {
             id: item.item_id,
@@ -122,9 +116,7 @@ export default function MyPage() {
             title: item.title || "제목 없음",
             price: formatPrice(item.deposit, item.rent),
             address: item.address,
-            area: item.area_m2
-              ? `${parseFloat(item.area_m2).toFixed(2)}㎡`
-              : "-",
+            area: item.area_m2 ? `${item.area_m2.toFixed(2)}㎡` : "-",
             floor: item.floor || "-",
             type: getRoomType(item.room_type || ""),
           } as Property;
@@ -137,7 +129,7 @@ export default function MyPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [BACKEND_API_URL, user?.user_id]);
+  }, [user?.user_id]);
 
   useEffect(() => {
     loadFavorites();
