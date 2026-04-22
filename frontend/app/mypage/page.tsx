@@ -40,8 +40,6 @@ interface Property {
   type: "oneroom" | "tworoom";
 }
 
-const DUMMY_RECENT: Property[] = [];
-
 function formatPrice(deposit: number, rent: number): string {
   const fmt = (v: number) => {
     if (v >= 10000) {
@@ -59,6 +57,14 @@ function getRoomType(roomType: string): "oneroom" | "tworoom" {
   return roomType.includes("투룸") ? "tworoom" : "oneroom";
 }
 
+function getGalleryImageSrc(imageUrl: string) {
+  if (imageUrl.startsWith("/api/images/")) {
+    return `/backend${imageUrl}`;
+  }
+
+  return imageUrl;
+}
+
 export default function MyPage() {
   const user = useAuthStore((state) => state.user);
   const router = useRouter();
@@ -70,9 +76,18 @@ export default function MyPage() {
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const recentListings = useRecentStore((state) => state.recentListings);
-  const setPendingListing = usePendingListingStore((state) => state.setPendingListing);
+  const setPendingListing = usePendingListingStore(
+    (state) => state.setPendingListing,
+  );
 
-  const [galleryImages, setGalleryImages] = useState<{ id: number; image_url: string; prompt: string | null; created_at: string }[]>([]);
+  const [galleryImages, setGalleryImages] = useState<
+    {
+      id: number;
+      image_url: string;
+      prompt: string | null;
+      created_at: string;
+    }[]
+  >([]);
   const [isGalleryLoading, setIsGalleryLoading] = useState(false);
 
   const loadGallery = useCallback(async () => {
@@ -172,7 +187,7 @@ export default function MyPage() {
     );
   }
 
-  const getSocialBadge = (socialType?: string) => {
+  const getSocialBadge = (socialType?: string | null) => {
     switch (socialType) {
       case "kakao":
         return {
@@ -228,7 +243,7 @@ export default function MyPage() {
     }
   };
 
-  const badge = getSocialBadge(user.social_type);
+  const badge = getSocialBadge(user.social_type ?? null);
 
   const navItems = [
     { id: "liked" as Section, label: "찜한 매물", icon: Heart },
@@ -499,7 +514,9 @@ export default function MyPage() {
                           address: listing.address,
                           area: listing.size ?? "-",
                           floor: listing.floor ?? "-",
-                          type: listing.structure?.includes("투룸") ? "tworoom" : "oneroom",
+                          type: listing.structure?.includes("투룸")
+                            ? "tworoom"
+                            : "oneroom",
                         }}
                       />
                     </div>
@@ -531,14 +548,17 @@ export default function MyPage() {
                       className="relative h-36 w-full overflow-hidden rounded-2xl border border-stone-200/80 md:h-48"
                     >
                       <Image
-                        src={item.image_url}
+                        src={getGalleryImageSrc(item.image_url)}
                         alt={item.prompt ?? "AI 생성 이미지"}
                         fill
+                        unoptimized
                         className="object-cover"
                       />
                       {item.prompt && (
                         <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-2 py-1">
-                          <p className="truncate text-[10px] text-white">{item.prompt}</p>
+                          <p className="truncate text-[10px] text-white">
+                            {item.prompt}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -548,7 +568,9 @@ export default function MyPage() {
                     onClick={() => router.push("/home")}
                   >
                     <ImageIcon className="h-5 w-5 text-stone-300" />
-                    <span className="text-xs font-medium text-stone-400">새 검색</span>
+                    <span className="text-xs font-medium text-stone-400">
+                      새 검색
+                    </span>
                   </div>
                 </div>
               )}
