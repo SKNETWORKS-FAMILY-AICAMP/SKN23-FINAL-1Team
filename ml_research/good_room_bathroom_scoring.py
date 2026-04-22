@@ -43,7 +43,7 @@ def calculate_normalized_score():
         cur.close()
         conn.close()
 
-def main():
+def good_room_bathroom_scoring():
     query_list = [
         {"query" : "a clean, bright, and well-maintained studio apartment room interior, modern furniture, tidy and organized",
          "update_query" : """
@@ -80,6 +80,5 @@ def main():
     calculate_normalized_score()
 
 if __name__ == "__main__":
-    #main()
-    calculate_normalized_score()
+    good_room_bathroom_scoring()
 

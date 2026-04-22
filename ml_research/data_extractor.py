@@ -25,7 +25,7 @@ def csv_extractor(query: str, ):
     print("csv 파일 작성 완료")
     engine.dispose()
 
-if __name__ == "__main__":
+def data_extractor():
     "CSV 추출용 코드입니다."
     query = """
     WITH room_agg AS (
@@ -46,8 +46,8 @@ if __name__ == "__main__":
         WHERE emb.is_bathroom = TRUE
     )
     SELECT
-        i.item_id, i.address, i.deposit, i.rent, i.manage_cost, i.service_type, i.room_type,
-        i.floor, i.all_floors, i.area_m2,
+        i.address, i.deposit, i.rent, i.manage_cost, i.service_type, i.room_type,
+        i.floor, i.all_floors, i.area_m2, i.first_crawled_at,
         t.has_parking, t.has_elevator, t.bathroom_count, t.room_direction,
         t.movein_date, t.approve_date, t.has_air_con, t.has_fridge, t.has_washer,
         t.has_gas_stove, t.has_induction, t.has_microwave, t.has_desk, t.has_bed,
@@ -64,3 +64,6 @@ if __name__ == "__main__":
     LEFT JOIN bath_agg b ON i.item_id = b.item_id;
     """
     csv_extractor(query = query)
+
+if __name__ == "__main__":
+    data_extractor()
