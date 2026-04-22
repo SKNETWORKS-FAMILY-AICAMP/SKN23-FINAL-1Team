@@ -10,8 +10,18 @@ const remotePatterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [
   {
     protocol: "http",
     hostname: "3.37.97.17",
+    pathname: "/backend/api/images/**",
+  },
+  {
+    protocol: "http",
+    hostname: "3.37.97.17",
     port: "8000",
     pathname: "/api/images/**",
+  },
+  {
+    protocol: "http",
+    hostname: "geumbang.duckdns.org",
+    pathname: "/backend/api/images/**",
   },
 ];
 

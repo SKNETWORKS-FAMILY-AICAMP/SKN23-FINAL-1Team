@@ -79,6 +79,8 @@ web_modules/
 
 # dotenv environment variable files
 .env
+.env.production
+**/.env.production
 .env.development.local
 .env.test.local
 .env.production.local
@@ -172,6 +174,13 @@ zigbang_crawling/data/
 *.csv
 *.json
 
+# ML model artifacts
+*.joblib
+*.pkl
+*.pt
+*.pth
+ml_research/**/models/
+
 # Python cache
 __pycache__/
 *.py[cod]
@@ -187,3 +196,6 @@ __pycache__/
 *.ico
 *.webp
 *.svg
+
+# Models
+*.pt

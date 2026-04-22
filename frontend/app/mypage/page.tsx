@@ -70,7 +70,9 @@ export default function MyPage() {
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const recentListings = useRecentStore((state) => state.recentListings);
-  const setPendingListing = usePendingListingStore((state) => state.setPendingListing);
+  const setPendingListing = usePendingListingStore(
+    (state) => state.setPendingListing,
+  );
 
   const [galleryImages, setGalleryImages] = useState<{ id: number; image_url: string; prompt: string | null; created_at: string }[]>([]);
   const [isGalleryLoading, setIsGalleryLoading] = useState(false);
@@ -89,6 +91,28 @@ export default function MyPage() {
       setIsGalleryLoading(false);
     }
   }, [user?.user_id]);
+
+  useEffect(() => {
+    if (activeSection === "gallery") loadGallery();
+  }, [activeSection, loadGallery]);
+
+  const [galleryImages, setGalleryImages] = useState<{ id: number; image_url: string; prompt: string | null; created_at: string }[]>([]);
+  const [isGalleryLoading, setIsGalleryLoading] = useState(false);
+
+  const loadGallery = useCallback(async () => {
+    if (!user?.user_id) return;
+    setIsGalleryLoading(true);
+    try {
+      const r = await fetch(`${BACKEND_API_URL}/gallery?user_id=${user.user_id}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      setGalleryImages(data.items);
+    } catch (error) {
+      console.error("갤러리 조회 실패:", error);
+    } finally {
+      setIsGalleryLoading(false);
+    }
+  }, [BACKEND_API_URL, user?.user_id]);
 
   useEffect(() => {
     if (activeSection === "gallery") loadGallery();
@@ -172,7 +196,7 @@ export default function MyPage() {
     );
   }
 
-  const getSocialBadge = (socialType?: string) => {
+  const getSocialBadge = (socialType?: string | null) => {
     switch (socialType) {
       case "kakao":
         return {
@@ -228,7 +252,7 @@ export default function MyPage() {
     }
   };
 
-  const badge = getSocialBadge(user.social_type);
+  const badge = getSocialBadge(user.social_type ?? null);
 
   const navItems = [
     { id: "liked" as Section, label: "찜한 매물", icon: Heart },
@@ -499,7 +523,9 @@ export default function MyPage() {
                           address: listing.address,
                           area: listing.size ?? "-",
                           floor: listing.floor ?? "-",
-                          type: listing.structure?.includes("투룸") ? "tworoom" : "oneroom",
+                          type: listing.structure?.includes("투룸")
+                            ? "tworoom"
+                            : "oneroom",
                         }}
                       />
                     </div>
