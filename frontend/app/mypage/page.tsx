@@ -40,8 +40,6 @@ interface Property {
   type: "oneroom" | "tworoom";
 }
 
-const DUMMY_RECENT: Property[] = [];
-
 function formatPrice(deposit: number, rent: number): string {
   const fmt = (v: number) => {
     if (v >= 10000) {
@@ -64,10 +62,6 @@ function getGalleryImageSrc(imageUrl: string) {
     return `/backend${imageUrl}`;
   }
 
-  if (imageUrl.startsWith("api/images/")) {
-    return `/backend/${imageUrl}`;
-  }
-
   return imageUrl;
 }
 
@@ -86,7 +80,14 @@ export default function MyPage() {
     (state) => state.setPendingListing,
   );
 
-  const [galleryImages, setGalleryImages] = useState<{ id: number; image_url: string; prompt: string | null; created_at: string }[]>([]);
+  const [galleryImages, setGalleryImages] = useState<
+    {
+      id: number;
+      image_url: string;
+      prompt: string | null;
+      created_at: string;
+    }[]
+  >([]);
   const [isGalleryLoading, setIsGalleryLoading] = useState(false);
 
   const loadGallery = useCallback(async () => {
@@ -555,7 +556,9 @@ export default function MyPage() {
                       />
                       {item.prompt && (
                         <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-2 py-1">
-                          <p className="truncate text-[10px] text-white">{item.prompt}</p>
+                          <p className="truncate text-[10px] text-white">
+                            {item.prompt}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -565,7 +568,9 @@ export default function MyPage() {
                     onClick={() => router.push("/home")}
                   >
                     <ImageIcon className="h-5 w-5 text-stone-300" />
-                    <span className="text-xs font-medium text-stone-400">새 검색</span>
+                    <span className="text-xs font-medium text-stone-400">
+                      새 검색
+                    </span>
                   </div>
                 </div>
               )}
