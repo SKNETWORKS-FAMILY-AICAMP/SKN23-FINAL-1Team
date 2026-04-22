@@ -22,7 +22,6 @@ import {
   removeFavorite,
 } from "@/lib/api/favorites";
 import { fetchRoomDetail } from "@/lib/api/rooms";
-import { getBackendApiBaseUrl } from "@/lib/api/backend-url";
 import { useRecentStore } from "@/store/recentStore";
 import { usePendingListingStore } from "@/store/pendingListingStore";
 
@@ -75,9 +74,27 @@ export default function MyPage() {
     (state) => state.setPendingListing,
   );
 
-  const BACKEND_API_URL = getBackendApiBaseUrl(
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000",
-  );
+  const [galleryImages, setGalleryImages] = useState<{ id: number; image_url: string; prompt: string | null; created_at: string }[]>([]);
+  const [isGalleryLoading, setIsGalleryLoading] = useState(false);
+
+  const loadGallery = useCallback(async () => {
+    if (!user?.user_id) return;
+    setIsGalleryLoading(true);
+    try {
+      const r = await fetch(`/api/gallery?user_id=${user.user_id}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      setGalleryImages(data.items);
+    } catch (error) {
+      console.error("갤러리 조회 실패:", error);
+    } finally {
+      setIsGalleryLoading(false);
+    }
+  }, [user?.user_id]);
+
+  useEffect(() => {
+    if (activeSection === "gallery") loadGallery();
+  }, [activeSection, loadGallery]);
 
   const [galleryImages, setGalleryImages] = useState<{ id: number; image_url: string; prompt: string | null; created_at: string }[]>([]);
   const [isGalleryLoading, setIsGalleryLoading] = useState(false);
