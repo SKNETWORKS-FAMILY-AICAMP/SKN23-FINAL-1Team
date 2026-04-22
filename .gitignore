@@ -79,6 +79,8 @@ web_modules/
 
 # dotenv environment variable files
 .env
+.env.production
+**/.env.production
 .env.development.local
 .env.test.local
 .env.production.local
@@ -187,3 +189,6 @@ __pycache__/
 *.ico
 *.webp
 *.svg
+
+# Models
+*.pt

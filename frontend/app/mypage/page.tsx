@@ -70,7 +70,9 @@ export default function MyPage() {
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const recentListings = useRecentStore((state) => state.recentListings);
-  const setPendingListing = usePendingListingStore((state) => state.setPendingListing);
+  const setPendingListing = usePendingListingStore(
+    (state) => state.setPendingListing,
+  );
 
   const BACKEND_API_URL = getBackendApiBaseUrl(
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000",
@@ -180,7 +182,7 @@ export default function MyPage() {
     );
   }
 
-  const getSocialBadge = (socialType?: string) => {
+  const getSocialBadge = (socialType?: string | null) => {
     switch (socialType) {
       case "kakao":
         return {
@@ -236,7 +238,7 @@ export default function MyPage() {
     }
   };
 
-  const badge = getSocialBadge(user.social_type);
+  const badge = getSocialBadge(user.social_type ?? null);
 
   const navItems = [
     { id: "liked" as Section, label: "찜한 매물", icon: Heart },
@@ -507,7 +509,9 @@ export default function MyPage() {
                           address: listing.address,
                           area: listing.size ?? "-",
                           floor: listing.floor ?? "-",
-                          type: listing.structure?.includes("투룸") ? "tworoom" : "oneroom",
+                          type: listing.structure?.includes("투룸")
+                            ? "tworoom"
+                            : "oneroom",
                         }}
                       />
                     </div>
