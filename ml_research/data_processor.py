@@ -11,8 +11,8 @@ def get_csv(filename: str):
     df = pd.read_csv(f"raw_data/{filename}")
     return df
 
-def drop_fake_items(df):
-    df = df.dropna(subset = ["address"])
+def drop_fake_items_and_no_room_score(df):
+    df = df.dropna(subset = ["room_quality_score"])
     return df
 
 def drop_three_room(df):
@@ -34,6 +34,10 @@ def find_district(df):
 def bathroom_count_jungsanghwa(df):
     df.loc[df['bathroom_count'] == 0, 'bathroom_count'] = 1
     df.loc[df['bathroom_count'] > 2, 'bathroom_count'] = 2
+    return df
+
+def bathroom_isna_processing(df):
+    df["bath_clean_score"] = df["bath_clean_score"].fillna(df["bath_clean_score"].mean())
     return df
 
 def movein_date_processing(df):
@@ -125,15 +129,16 @@ def onehot_encoding(df):
     df = pd.get_dummies(df, columns = cols, drop_first = False)
     return df
 
-if __name__ == "__main__":
+def data_processor():
     filename = get_last_csv()
     print(filename)
     df = get_csv(filename)
     processed_df = (
-        df.pipe(drop_fake_items)
+        df.pipe(drop_fake_items_and_no_room_score)
         .pipe(drop_three_room)
         .pipe(find_district)
         .pipe(bathroom_count_jungsanghwa)
+        .pipe(bathroom_isna_processing)
         .pipe(movein_date_processing)
         .pipe(approve_date_processing)
         .pipe(define_class)
@@ -145,3 +150,6 @@ if __name__ == "__main__":
     processed_df_oneroom = processed_df[processed_df["service_type"] == "원룸"].drop(columns = ["service_type"])
     processed_df_officetel.to_csv(f"processed_data/officetel_processed_{filename}", index = False, encoding = "utf-8-sig")
     processed_df_oneroom.to_csv(f"processed_data/oneroom_processed_{filename}", index = False, encoding = "utf-8-sig")
+
+if __name__ == "__main__":
+    data_processor()
