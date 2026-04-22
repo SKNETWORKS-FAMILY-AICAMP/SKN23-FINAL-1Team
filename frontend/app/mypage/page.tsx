@@ -59,6 +59,18 @@ function getRoomType(roomType: string): "oneroom" | "tworoom" {
   return roomType.includes("투룸") ? "tworoom" : "oneroom";
 }
 
+function getGalleryImageSrc(imageUrl: string) {
+  if (imageUrl.startsWith("/api/images/")) {
+    return `/backend${imageUrl}`;
+  }
+
+  if (imageUrl.startsWith("api/images/")) {
+    return `/backend/${imageUrl}`;
+  }
+
+  return imageUrl;
+}
+
 export default function MyPage() {
   const user = useAuthStore((state) => state.user);
   const router = useRouter();
@@ -535,9 +547,10 @@ export default function MyPage() {
                       className="relative h-36 w-full overflow-hidden rounded-2xl border border-stone-200/80 md:h-48"
                     >
                       <Image
-                        src={item.image_url}
+                        src={getGalleryImageSrc(item.image_url)}
                         alt={item.prompt ?? "AI 생성 이미지"}
                         fill
+                        unoptimized
                         className="object-cover"
                       />
                       {item.prompt && (
