@@ -96,28 +96,6 @@ export default function MyPage() {
     if (activeSection === "gallery") loadGallery();
   }, [activeSection, loadGallery]);
 
-  const [galleryImages, setGalleryImages] = useState<{ id: number; image_url: string; prompt: string | null; created_at: string }[]>([]);
-  const [isGalleryLoading, setIsGalleryLoading] = useState(false);
-
-  const loadGallery = useCallback(async () => {
-    if (!user?.user_id) return;
-    setIsGalleryLoading(true);
-    try {
-      const r = await fetch(`${BACKEND_API_URL}/gallery?user_id=${user.user_id}`);
-      if (!r.ok) return;
-      const data = await r.json();
-      setGalleryImages(data.items);
-    } catch (error) {
-      console.error("갤러리 조회 실패:", error);
-    } finally {
-      setIsGalleryLoading(false);
-    }
-  }, [BACKEND_API_URL, user?.user_id]);
-
-  useEffect(() => {
-    if (activeSection === "gallery") loadGallery();
-  }, [activeSection, loadGallery]);
-
   // 찜 목록 조회
   const loadFavorites = useCallback(async () => {
     if (!user?.user_id) return;
