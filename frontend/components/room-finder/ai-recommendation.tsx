@@ -256,7 +256,7 @@ export function AIRecommendation({
     try {
       // 갤러리 저장 (로그인 상태일 때만)
       if (user?.user_id) {
-        await fetch("/api/gallery", {
+        const galleryResponse = await fetch("/api/gallery", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -265,6 +265,11 @@ export function AIRecommendation({
             prompt: selectedImage.prompt,
           }),
         })
+
+        if (!galleryResponse.ok) {
+          const errorText = await galleryResponse.text()
+          console.error("Gallery save failed:", galleryResponse.status, errorText)
+        }
       }
 
       const response = await fetch("/api/find-similar-rooms", {

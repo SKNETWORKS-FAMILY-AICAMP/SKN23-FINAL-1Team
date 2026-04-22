@@ -13,5 +13,6 @@ class User(Base):
     social_type = Column(String(20), nullable=False)
     provider_id = Column(String(100), nullable=False)
     favorites = relationship("Favorite", back_populates="user", cascade="all, delete-orphan")
+    gallery = relationship("UserItemImage", back_populates="user", cascade="all, delete-orphan")
 
 
