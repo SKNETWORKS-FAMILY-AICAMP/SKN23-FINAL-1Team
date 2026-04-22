@@ -446,11 +446,10 @@ export function AIRecommendation({
                       isDimmed && "opacity-30"
                     )}
                   >
-                    <Image
+                    <img
                       src={image.url}
                       alt={image.prompt}
-                      fill
-                      className="object-cover"
+                      className="h-full w-full object-cover"
                     />
                     {isSelected && (
                       <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-stone-700 flex items-center justify-center">

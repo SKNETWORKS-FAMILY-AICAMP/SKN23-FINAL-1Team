@@ -37,10 +37,7 @@ export async function POST(request: NextRequest) {
 
     const images = filePaths.map((filePath: string, index: number) => ({
       id: `${Date.now()}-${index}`,
-      url: buildBackendApiUrl(
-        BACKEND_URL,
-        `/images/${encodeURIComponent(filePath.split(/[\\/]/).pop() ?? filePath)}`
-      ),
+      url: `/backend/api/images/${encodeURIComponent(filePath.split(/[\\/]/).pop() ?? filePath)}`,
       prompt,
     }))
 
