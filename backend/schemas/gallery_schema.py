@@ -13,6 +13,7 @@ class GalleryItemResponse(BaseModel):
     image_url: str
     prompt: str | None = None
     created_at: datetime | None = None
+    expires_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
