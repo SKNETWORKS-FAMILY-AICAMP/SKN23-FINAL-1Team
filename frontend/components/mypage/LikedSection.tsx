@@ -3,12 +3,14 @@
 import { useState, useCallback, useEffect } from "react";
 import { Heart, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 import {
   fetchFavorites as apiFetchFavorites,
   addFavorite,
   removeFavorite,
 } from "@/lib/api/favorites";
 import { fetchRoomDetail } from "@/lib/api/rooms";
+import { usePendingListingStore } from "@/store/pendingListingStore";
 
 type RoomTab = "all" | "oneroom" | "tworoom";
 
@@ -22,6 +24,11 @@ interface Property {
   area: string;
   floor: string;
   type: "oneroom" | "tworoom";
+  lat: number;
+  lng: number;
+  deposit: number;
+  rent: number;
+  structure: string;
 }
 
 function formatPrice(deposit: number, rent: number): string {
@@ -46,6 +53,8 @@ interface LikedSectionProps {
 }
 
 export function LikedSection({ userId }: LikedSectionProps) {
+  const router = useRouter();
+  const setPendingListing = usePendingListingStore((state) => state.setPendingListing);
   const [activeTab, setActiveTab] = useState<RoomTab>("all");
   const [likedProperties, setLikedProperties] = useState<Property[]>([]);
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
@@ -72,6 +81,11 @@ export function LikedSection({ userId }: LikedSectionProps) {
             area: item.area_m2 ? `${item.area_m2.toFixed(2)}㎡` : "-",
             floor: item.floor || "-",
             type: getRoomType(item.room_type || ""),
+            lat: Number(item.lat),
+            lng: Number(item.lng),
+            deposit: item.deposit,
+            rent: item.rent,
+            structure: item.room_type || "",
           } as Property;
         }),
       );
@@ -88,7 +102,8 @@ export function LikedSection({ userId }: LikedSectionProps) {
     loadFavorites();
   }, [loadFavorites]);
 
-  const toggleLike = async (id: number) => {
+  const toggleLike = async (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
     const isLiked = likedIds.has(id);
     try {
       if (isLiked) {
@@ -103,6 +118,25 @@ export function LikedSection({ userId }: LikedSectionProps) {
     } catch (error) {
       console.error("찜 토글 실패:", error);
     }
+  };
+
+  const handleCardClick = (property: Property) => {
+    setPendingListing({
+      id: String(property.id),
+      title: property.title,
+      price: property.price,
+      deposit: String(property.deposit),
+      monthlyRent: String(property.rent),
+      address: property.address,
+      size: property.area,
+      floor: property.floor,
+      images: property.image ? [property.image] : [],
+      lat: property.lat,
+      lng: property.lng,
+      structure: property.structure,
+      options: [],
+    });
+    router.push("/home");
   };
 
   const filteredLiked = likedProperties.filter((p) => {
@@ -144,7 +178,8 @@ export function LikedSection({ userId }: LikedSectionProps) {
           {filteredLiked.map((property) => (
             <div
               key={property.id}
-              className="overflow-hidden rounded-[20px] border border-stone-200/80 bg-white/80 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)]"
+              onClick={() => handleCardClick(property)}
+              className="cursor-pointer overflow-hidden rounded-[20px] border border-stone-200/80 bg-white/80 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)]"
             >
               <div className="relative h-36 w-full bg-stone-100 md:h-48">
                 {property.image ? (
@@ -158,7 +193,7 @@ export function LikedSection({ userId }: LikedSectionProps) {
                   {property.tag}
                 </span>
                 <button
-                  onClick={() => toggleLike(property.id)}
+                  onClick={(e) => toggleLike(e, property.id)}
                   className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm transition-all duration-200 hover:scale-110 md:h-8 md:w-8"
                 >
                   <Heart className={cn("h-3.5 w-3.5 transition-colors duration-200 md:h-4 md:w-4", likedIds.has(property.id) ? "fill-red-500 text-red-500" : "text-stone-400")} />
