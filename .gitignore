@@ -187,6 +187,7 @@ __pycache__/
 *$py.class
 
 # Images
+backend/create_image/*
 *.png
 *.jpg
 *.jpeg
