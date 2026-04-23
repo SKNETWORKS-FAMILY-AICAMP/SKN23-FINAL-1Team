@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from db.session import get_db
 from schemas.gallery_schema import GallerySaveRequest, GalleryItemResponse, GalleryListResponse
-from services.gallery_service import save_gallery_image, get_user_gallery
+from services.gallery_save_service import save_gallery_image, get_user_gallery
 
 router = APIRouter(prefix="/gallery", tags=["gallery"])
 
