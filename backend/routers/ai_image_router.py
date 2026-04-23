@@ -7,11 +7,13 @@
     app.include_router(ai_image_router)
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from db.session import get_db
+from schemas.room_schema import RoomListRequest
 from services.ai_image_service import generate_image
-from db.base import get_db
 from services.embedding_service import EmbeddingService
 from services.room_service import get_rooms_by_similarity
 import os
@@ -36,7 +38,7 @@ class GenerateImageResponse(BaseModel):
     file_paths: list[str]
 
 
-class FindSimilarRoomsRequest(BaseModel):
+class FindSimilarRoomsRequest(RoomListRequest):
     image_url: str
 
 
