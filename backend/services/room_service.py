@@ -1,4 +1,4 @@
-from sqlalchemy import select, func, or_, not_, cast, Integer
+from sqlalchemy import select, func, or_, not_, cast, Integer, text, column
 from models.room import Room
 
 STRUCTURE_TO_ROOM_TYPE = {
@@ -207,6 +207,48 @@ def get_rooms(db, req):
 
     return {
         "items": rows,
+        "total": total,
+        "has_more": req.offset + req.limit < total,
+    }
+
+
+def get_rooms_by_similarity(db: Session, req, embedding: list[float] | None = None):
+    """
+    기존 get_rooms 기능을 그대로 쓰되,
+    중복 없이 '가장 비슷한 이미지가 있는 방' 순서로 정렬함.
+    """
+    stmt = select(Room)
+    count_stmt = select(func.count(distinct(Room.item_id)))
+
+    if embedding:
+        vector_str = "[" + ",".join(map(str, embedding)) + "]"
+
+        # 조인: Room -> ItemImage -> item_image_embeddings
+        stmt = stmt.join(ItemImage, Room.item_id == ItemImage.item_id)
+        stmt = stmt.join(
+            text("public.item_image_embeddings"),
+            text("item_images.id = item_image_embeddings.image_id")
+        )
+
+        similarity_expr = func.min(text(f"(item_image_embeddings.embedding <#> '{vector_str}'::vector)"))
+
+        stmt = apply_room_filters(stmt, req)
+        count_stmt = apply_room_filters(count_stmt, req)
+
+        stmt = stmt.group_by(Room.item_id).order_by(similarity_expr)
+    else:
+        stmt = apply_room_filters(stmt, req)
+        count_stmt = apply_room_filters(count_stmt, req)
+        stmt = stmt.order_by(Room.updated_at.desc().nullslast(), Room.item_id.desc())
+
+    total = db.execute(count_stmt).scalar_one()
+
+    rows = db.execute(
+        stmt.offset(req.offset).limit(req.limit)
+    ).scalars().all()
+
+    return {
+        "items": [serialize_room_marker(r) for r in rows],
         "total": total,
         "has_more": req.offset + req.limit < total,
     }
