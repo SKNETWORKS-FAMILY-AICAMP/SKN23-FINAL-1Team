@@ -339,6 +339,18 @@ export function FilterBar({
 
   return (
     <div className="border-b border-stone-200/80 bg-white/70 px-4 py-4 backdrop-blur-md md:px-6">
+      <div className="relative mb-3">
+        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-muted pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="찾고자 하는 지역을 검색해 주세요."
+          className="w-full pl-10 pr-4 py-2.5 bg-stone-100 rounded-full border border-stone-200 text-neutral-dark placeholder:text-neutral-muted focus:outline-none focus:border-warm-brown text-sm"
+        />
+      </div>
       <div
         className={`flex gap-2 overflow-x-auto pb-2 md:grid md:gap-4 md:pb-0 ${
           canFilterStructure ? "md:grid-cols-6" : "md:grid-cols-5"
@@ -368,7 +380,7 @@ export function FilterBar({
 
         <Popover open={priceOpen} onOpenChange={setPriceOpen}>
           <PopoverTrigger asChild>
-            <button type="button" className={popoverTriggerClass(isPriceSelected)}>
+            <button type="button" className={popoverTriggerClass(isPriceSelected || priceOpen)}>
               <span className="truncate">{priceLabel}</span>
               <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
             </button>
@@ -482,7 +494,7 @@ export function FilterBar({
         {canFilterStructure && (
           <Popover open={structureOpen} onOpenChange={setStructureOpen}>
             <PopoverTrigger asChild>
-              <button type="button" className={popoverTriggerClass(isStructureSelected)}>
+              <button type="button" className={popoverTriggerClass(isStructureSelected || structureOpen)}>
                 <span className="truncate">{structureLabel}</span>
                 <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
               </button>
@@ -546,7 +558,7 @@ export function FilterBar({
 
         <Popover open={sizeOpen} onOpenChange={setSizeOpen}>
           <PopoverTrigger asChild>
-            <button type="button" className={popoverTriggerClass(isSizeSelected)}>
+            <button type="button" className={popoverTriggerClass(isSizeSelected || sizeOpen)}>
               <span className="truncate">{sizeLabel}</span>
               <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
             </button>
@@ -752,18 +764,7 @@ export function FilterBar({
         </Popover>
       </div>
 
-      <div className="relative mt-2">
-        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-muted pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="찾고자 하는 지역을 검색해 주세요."
-          className="w-full pl-10 pr-4 py-2.5 bg-stone-100 rounded-full border border-stone-200 text-neutral-dark placeholder:text-neutral-muted focus:outline-none focus:border-warm-brown text-sm"
-        />
-      </div>
+
     </div>
   );
 }
