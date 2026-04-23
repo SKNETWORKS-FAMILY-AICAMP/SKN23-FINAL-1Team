@@ -12,7 +12,7 @@ def get_csv(filename: str):
     return df
 
 def drop_fake_items_and_no_room_score(df):
-    df = df.dropna(subset = ["room_quality_score"])
+    df = df.dropna(subset = ["room_quality_score", "room_direction"])
     return df
 
 def drop_three_room(df):
@@ -129,6 +129,18 @@ def onehot_encoding(df):
     df = pd.get_dummies(df, columns = cols, drop_first = False)
     return df
 
+def remove_outlier(df):
+    df = pd.concat([df_office, df_oneroom], axis=0, ignore_index=True)
+
+    df = df.dropna(subset=['converted_monthly_rent'])
+    df.fillna(df.median(numeric_only=True), inplace=True)
+
+    Q1 = df['converted_monthly_rent'].quantile(0.01)
+    Q3 = df['converted_monthly_rent'].quantile(0.99)
+    df = df[(df['converted_monthly_rent'] >= Q1) & (df['converted_monthly_rent'] <= Q3)]
+    df = df[(df['area_m2'] > 0) & (df['area_m2'] < 200)]
+    df = df[(df['building_age'] >= 0) & (df['building_age'] < 100)]
+
 def data_processor():
     filename = get_last_csv()
     print(filename)
@@ -145,6 +157,7 @@ def data_processor():
         .pipe(converting_monthly_rent)
         .pipe(floor_processing)
         .pipe(onehot_encoding)
+        .pipe(remove_outlier)
     )
     processed_df_officetel = processed_df[processed_df["service_type"] == "오피스텔"].drop(columns = ["service_type"])
     processed_df_oneroom = processed_df[processed_df["service_type"] == "원룸"].drop(columns = ["service_type"])
