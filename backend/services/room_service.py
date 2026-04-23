@@ -1,4 +1,6 @@
-from sqlalchemy import select, func, or_, not_, cast, Integer
+from sqlalchemy import Integer, cast, column, distinct, func, not_, or_, select, table, text
+from sqlalchemy.orm import Session
+from models.item_image import ItemImage
 from models.room import Room
 
 STRUCTURE_TO_ROOM_TYPE = {
@@ -12,6 +14,13 @@ TWO_ROOM_DB_VALUES = [
 ]
 
 MAX_ZOOM_MARKER_LEVEL = 1
+
+ITEM_IMAGE_EMBEDDINGS = table(
+    "item_image_embeddings",
+    column("image_id", Integer),
+    column("embedding"),
+    schema="public",
+)
 
 
 def is_valid_image_value(value) -> bool:
@@ -207,6 +216,52 @@ def get_rooms(db, req):
 
     return {
         "items": rows,
+        "total": total,
+        "has_more": req.offset + req.limit < total,
+    }
+
+
+def get_rooms_by_similarity(db: Session, req, embedding: list[float] | None = None):
+    """
+    기존 get_rooms 기능을 그대로 쓰되,
+    중복 없이 '가장 비슷한 이미지가 있는 방' 순서로 정렬함.
+    """
+    stmt = select(Room)
+    count_stmt = select(func.count(distinct(Room.item_id)))
+
+    if embedding:
+        vector_str = "[" + ",".join(map(str, embedding)) + "]"
+
+        # 조인: Room -> ItemImage -> item_image_embeddings
+        stmt = stmt.join(ItemImage, Room.item_id == ItemImage.item_id)
+        stmt = stmt.join(ITEM_IMAGE_EMBEDDINGS, ItemImage.id == ITEM_IMAGE_EMBEDDINGS.c.image_id)
+        count_stmt = count_stmt.join(ItemImage, Room.item_id == ItemImage.item_id)
+        count_stmt = count_stmt.join(
+            ITEM_IMAGE_EMBEDDINGS,
+            ItemImage.id == ITEM_IMAGE_EMBEDDINGS.c.image_id,
+        )
+
+        similarity_expr = func.min(
+            ITEM_IMAGE_EMBEDDINGS.c.embedding.op("<#>")(text(f"'{vector_str}'::vector"))
+        )
+
+        stmt = apply_room_filters(stmt, req)
+        count_stmt = apply_room_filters(count_stmt, req)
+
+        stmt = stmt.group_by(Room.item_id).order_by(similarity_expr)
+    else:
+        stmt = apply_room_filters(stmt, req)
+        count_stmt = apply_room_filters(count_stmt, req)
+        stmt = stmt.order_by(Room.updated_at.desc().nullslast(), Room.item_id.desc())
+
+    total = db.execute(count_stmt).scalar_one()
+
+    rows = db.execute(
+        stmt.offset(req.offset).limit(req.limit)
+    ).scalars().all()
+
+    return {
+        "items": [serialize_room_marker(r) for r in rows],
         "total": total,
         "has_more": req.offset + req.limit < total,
     }
