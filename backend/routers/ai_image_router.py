@@ -7,11 +7,17 @@
     app.include_router(ai_image_router)
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from db.session import get_db
+from schemas.room_schema import RoomListRequest
 from services.ai_image_service import generate_image
+from services.embedding_service import EmbeddingService
+from services.room_service import get_rooms_by_similarity
 import os
+import requests
 
 router = APIRouter(prefix="/api")
 
@@ -32,7 +38,7 @@ class GenerateImageResponse(BaseModel):
     file_paths: list[str]
 
 
-class FindSimilarRoomsRequest(BaseModel):
+class FindSimilarRoomsRequest(RoomListRequest):
     image_url: str
 
 
@@ -42,7 +48,24 @@ class SimilarListing(BaseModel):
 
 
 class FindSimilarRoomsResponse(BaseModel):
-    similar_listings: list[SimilarListing]
+    # similar_listings: list[SimilarListing]
+    image_url: str
+    offset: int = 0
+    limit: int = 12  # 보통 한 번에 12개 정도 보여주는 게 국룰이지
+    # 나중에 프론트에서 필터(전세/월세 등)를 보내면 여기에 추가하면 돼
+    search: str = ""
+    transaction_type: str = "all"
+    room_type: str = "all"
+    structure: str | list[str] = "all"
+    deposit: str = "all"
+    monthly_rent: str = "all"
+    size: str = "all"
+    size_unit: str = "m2"
+    floor: str = "all"
+    sw_lat: float | None = None
+    ne_lat: float | None = None
+    sw_lng: float | None = None
+    ne_lng: float | None = None
 
 
 # ── 엔드포인트 ─────────────────────────────────────────────────────────────────
@@ -79,17 +102,33 @@ async def serve_image(filename: str):
     return FileResponse(file_path, media_type="image/png")
 
 
-@router.post("/find-similar-rooms", response_model=FindSimilarRoomsResponse)
-async def find_similar_rooms_endpoint(body: FindSimilarRoomsRequest):
+@router.post("/find-similar-rooms")
+async def find_similar_rooms_endpoint(body: FindSimilarRoomsRequest, db: Session = Depends(get_db)):
     """
-    TODO: 실제 유사 매물 검색 로직을 여기에 연결하세요.
-    현재는 find-similar-rooms 백엔드 함수를 받으면 바로 교체할 수 있도록
-    인터페이스만 맞춰둔 상태입니다.
+    1. 생성된 이미지 URL로 다운로드
+    2. 실시간 CLIP 임베딩 추출 (0.2초의 기적)
+    3. DB에서 유사도 정렬 + 필터 적용 검색
+    4. 무한 스크롤 지원 형식으로 반환
     """
-    # ↓↓↓ 여기에 기존 find_similar_rooms 함수 호출로 교체하세요 ↓↓↓
-    # from services.similarity_service import find_similar_rooms
-    # results = find_similar_rooms(image_url=body.image_url)
-    # return {"similar_listings": results}
-
-    # 임시: 빈 배열 반환 (프론트에서 allListings.slice(0,4) 로 폴백됨)
-    return {"similar_listings": []}
+    try:
+        print(f"[*] 이미지 다운로드 중: {body.image_url}")
+        img_res = requests.get(body.image_url, timeout=5)
+        if img_res.status_code != 200:
+            raise HTTPException(status_code=400, detail="이미지를 불러올 수 없습니다.")
+ 
+        image_data = img_res.content
+ 
+        print("[*] CLIP 임베딩 추출 중...")
+        embedding = EmbeddingService.get_image_embedding(image_data)
+        if not embedding:
+            raise HTTPException(status_code=500, detail="임베딩 추출에 실패했습니다.")
+ 
+        print("[*] 유사 매물 검색 시작...")
+        results = get_rooms_by_similarity(db, req=body, embedding=embedding)
+        return results
+ 
+    except Exception as e:
+        print(f"[ERROR] find-similar-rooms: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))

@@ -238,7 +238,7 @@ export function MapView({
           align-items:center;
           justify-content:center;
           border-radius:9999px;
-          background:rgba(168, 137, 108, 0.92);
+          background:rgba(74, 124, 111, 0.92);
           color:white;
           font-weight:700;
           box-shadow:0 10px 24px rgba(15,23,42,0.18);
