@@ -187,6 +187,7 @@ __pycache__/
 *$py.class
 
 # Images
+backend/create_image/*
 *.png
 *.jpg
 *.jpeg
@@ -199,3 +200,4 @@ __pycache__/
 
 # Models
 *.pt
+catboost_info/
