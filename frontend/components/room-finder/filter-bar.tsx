@@ -312,11 +312,21 @@ export function FilterBar({
     return `${depositText} / ${rentText}`;
   })();
 
-  const selectTriggerClass =
-    "w-[160px] md:w-full py-5 rounded-2xl border border-stone-200/80 bg-white/90 text-sm font-medium tracking-tight text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-stone-300 hover:bg-white";
+  const isTransactionSelected = filters.transactionType !== "all";
+  const isPriceSelected = filters.deposit !== "all" || filters.monthlyRent !== "all";
+  const isStructureSelected = filters.structure.length > 0;
+  const isSizeSelected = filters.size !== "all";
+  const isFloorSelected = filters.floor !== "all";
+  const isOptionsSelected = filters.options.length > 0;
 
-  const popoverTriggerClass =
-    "w-[160px] md:w-full flex items-center justify-between rounded-2xl border border-stone-200/80 bg-white/90 px-4 py-2.5 text-sm font-medium tracking-tight text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-stone-300 hover:bg-white";
+  const selectedStyle = "border-warm-brown bg-warm-brown !text-white hover:opacity-90 rounded-full";
+  const defaultStyle = "border-stone-200/80 bg-white/90 text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] hover:border-stone-300 hover:bg-white rounded-full";
+
+  const selectTriggerClass = (isSelected: boolean) =>
+    `w-[160px] md:w-full py-5 rounded-full border text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
+
+  const popoverTriggerClass = (isSelected: boolean) =>
+    `w-[160px] md:w-full flex items-center justify-between rounded-full border px-4 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
 
   const popoverContentClass =
     "border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,246,241,0.96)_100%)] p-5 shadow-[0_18px_40px_rgba(15,23,42,0.12)]";
@@ -338,7 +348,7 @@ export function FilterBar({
           value={filters.transactionType}
           onValueChange={(v) => updateFilter("transactionType", v)}
         >
-          <SelectTrigger className={selectTriggerClass}>
+          <SelectTrigger className={selectTriggerClass(isTransactionSelected)}>
             <SelectValue placeholder="거래 방식" />
           </SelectTrigger>
           <SelectContent
@@ -358,7 +368,7 @@ export function FilterBar({
 
         <Popover open={priceOpen} onOpenChange={setPriceOpen}>
           <PopoverTrigger asChild>
-            <button type="button" className={popoverTriggerClass}>
+            <button type="button" className={popoverTriggerClass(isPriceSelected)}>
               <span className="truncate">{priceLabel}</span>
               <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
             </button>
@@ -472,7 +482,7 @@ export function FilterBar({
         {canFilterStructure && (
           <Popover open={structureOpen} onOpenChange={setStructureOpen}>
             <PopoverTrigger asChild>
-              <button type="button" className={popoverTriggerClass}>
+              <button type="button" className={popoverTriggerClass(isStructureSelected)}>
                 <span className="truncate">{structureLabel}</span>
                 <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
               </button>
@@ -536,7 +546,7 @@ export function FilterBar({
 
         <Popover open={sizeOpen} onOpenChange={setSizeOpen}>
           <PopoverTrigger asChild>
-            <button type="button" className={popoverTriggerClass}>
+            <button type="button" className={popoverTriggerClass(isSizeSelected)}>
               <span className="truncate">{sizeLabel}</span>
               <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
             </button>
@@ -660,7 +670,7 @@ export function FilterBar({
           value={filters.floor}
           onValueChange={(v) => updateFilter("floor", v)}
         >
-          <SelectTrigger className={selectTriggerClass}>
+          <SelectTrigger className={selectTriggerClass(isFloorSelected)}>
             <SelectValue placeholder="층수" />
           </SelectTrigger>
           <SelectContent
@@ -680,7 +690,7 @@ export function FilterBar({
 
         <Popover open={optionsOpen} onOpenChange={setOptionsOpen}>
           <PopoverTrigger asChild>
-            <button type="button" className={popoverTriggerClass}>
+            <button type="button" className={popoverTriggerClass(isPriceSelected)}>
               <span className="truncate">{optionsLabel}</span>
               <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
             </button>
@@ -742,13 +752,18 @@ export function FilterBar({
         </Popover>
       </div>
 
-      <input
-        type="text"
-        value={searchQuery}
-        onChange={(e) => onSearchChange(e.target.value)}
-        placeholder="찾고자 하는 지역을 검색해 주세요."
-        className="w-full px-3 md:px-4 py-2 md:py-3 bg-transparent border-b border-border-warm text-neutral-dark placeholder:text-neutral-muted focus:outline-none focus:border-warm-brown text-sm md:text-base"
-      />
+      <div className="relative mt-2">
+        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-muted pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="찾고자 하는 지역을 검색해 주세요."
+          className="w-full pl-10 pr-4 py-2.5 bg-stone-100 rounded-full border border-stone-200 text-neutral-dark placeholder:text-neutral-muted focus:outline-none focus:border-warm-brown text-sm"
+        />
+      </div>
     </div>
   );
 }
