@@ -79,26 +79,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const url = new URL(request.url);
-    const pathParts = url.pathname.split("/");
-    const imageId = pathParts[pathParts.length - 1];
-    const userId = url.searchParams.get("user_id");
-
-    if (!userId) {
-      return NextResponse.json({ message: "user_id is required." }, { status: 400 });
-    }
-
-    return proxyGalleryRequest(request, `/gallery/${imageId}?user_id=${userId}`, {
-      method: "DELETE",
-    });
-  } catch (error) {
-    console.error("[gallery] DELETE failed", error);
-    return NextResponse.json(
-      { message: "Gallery delete request failed." },
-      { status: 500 },
-    );
-  }
-}
