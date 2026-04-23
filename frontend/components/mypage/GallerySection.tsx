@@ -91,7 +91,8 @@ export function GallerySection({ userId }: GallerySectionProps) {
           {galleryImages.map((item) => (
             <div
               key={item.id}
-              className="group relative h-36 w-full overflow-hidden rounded-2xl border border-stone-200/80 md:h-48"
+              className="group relative w-full overflow-hidden rounded-2xl border border-stone-200/80"
+              style={{ aspectRatio: "2/3" }}
             >
               <Image
                 src={getGalleryImageSrc(item.image_url)}
@@ -101,8 +102,11 @@ export function GallerySection({ userId }: GallerySectionProps) {
                 className="object-cover"
               />
 
+              {/* 호버 오버레이 */}
+              <div className="absolute inset-0 bg-black/40 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+
               {/* 우측 상단 확대/삭제 버튼 */}
-              <div className="absolute right-2 top-2 flex gap-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              <div className="absolute right-2 top-2 z-10 flex gap-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
                 <button
                   onClick={() => setSelectedImage(item)}
                   className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 transition-colors hover:bg-white"
@@ -125,7 +129,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
               </div>
 
               {/* 가운데 유사 매물 찾기 버튼 */}
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              <div className="absolute inset-0 z-10 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
                 <button
                   onClick={() => handleFindSimilar(item.image_url)}
                   className="rounded-full bg-[#5C8A62] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#4a7050]"
@@ -136,7 +140,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
 
               {/* 하단 프롬프트 */}
               {item.prompt && (
-                <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-2 py-1">
+                <div className="absolute bottom-0 left-0 right-0 z-10 bg-black/40 px-2 py-1">
                   <p className="truncate text-[10px] text-white">{item.prompt}</p>
                 </div>
               )}
@@ -145,7 +149,8 @@ export function GallerySection({ userId }: GallerySectionProps) {
 
           {/* 새 검색 버튼 */}
           <div
-            className="flex h-36 w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-stone-200 bg-white/80 transition-colors hover:bg-stone-50 md:h-48"
+            className="flex w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-stone-200 bg-white/80 transition-colors hover:bg-stone-50"
+            style={{ aspectRatio: "2/3" }}
             onClick={() => router.push("/home")}
           >
             <ImageIcon className="h-5 w-5 text-stone-300" />
