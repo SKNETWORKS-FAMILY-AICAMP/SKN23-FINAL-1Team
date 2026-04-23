@@ -52,7 +52,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
     if (deletingId) return;
     setDeletingId(id);
     try {
-      const r = await fetch(`/api/gallery/${id}`, { method: "DELETE" });
+      const r = await fetch(`/api/gallery/${id}?user_id=${userId}`, { method: "DELETE" });
       if (!r.ok) throw new Error();
       setGalleryImages((prev) => prev.filter((img) => img.id !== id));
       if (selectedImage?.id === id) setSelectedImage(null);
