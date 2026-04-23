@@ -275,21 +275,19 @@ export function AIRecommendation({
       const response = await fetch("/api/find-similar-rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl: selectedImage.url }),
+        body: JSON.stringify({ image_url: selectedImage.url }),
       })
-
+  
       if (!response.ok) throw new Error()
-
+  
       const data = await response.json()
-      const similarListings = data.similarListings
-        .map((item: { listingId: string; similarity: number }) =>
-          allListings.find((l) => l.id === item.listingId)
-        )
-        .filter(Boolean) as Listing[]
 
-      onSimilarListingsFound(
-        similarListings.length > 0 ? similarListings : allListings.slice(0, 4)
-      )
+      if (data.items && data.items.length > 0) {
+        onSimilarListingsFound(data.items as Listing[])
+      } else {
+        onSimilarListingsFound(allListings.slice(0, 4))
+      }
+  
     } catch (error) {
       console.error("Error finding similar rooms:", error)
       onSimilarListingsFound(allListings.slice(0, 4))
