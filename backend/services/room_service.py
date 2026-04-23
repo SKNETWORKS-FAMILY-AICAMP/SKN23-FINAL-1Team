@@ -1,4 +1,6 @@
-from sqlalchemy import select, func, or_, not_, cast, Integer, text, column
+from sqlalchemy import Integer, cast, column, distinct, func, not_, or_, select, table, text
+from sqlalchemy.orm import Session
+from models.item_image import ItemImage
 from models.room import Room
 
 STRUCTURE_TO_ROOM_TYPE = {
@@ -12,6 +14,13 @@ TWO_ROOM_DB_VALUES = [
 ]
 
 MAX_ZOOM_MARKER_LEVEL = 1
+
+ITEM_IMAGE_EMBEDDINGS = table(
+    "item_image_embeddings",
+    column("image_id", Integer),
+    column("embedding"),
+    schema="public",
+)
 
 
 def is_valid_image_value(value) -> bool:
@@ -225,12 +234,16 @@ def get_rooms_by_similarity(db: Session, req, embedding: list[float] | None = No
 
         # 조인: Room -> ItemImage -> item_image_embeddings
         stmt = stmt.join(ItemImage, Room.item_id == ItemImage.item_id)
-        stmt = stmt.join(
-            text("public.item_image_embeddings"),
-            text("item_images.id = item_image_embeddings.image_id")
+        stmt = stmt.join(ITEM_IMAGE_EMBEDDINGS, ItemImage.id == ITEM_IMAGE_EMBEDDINGS.c.image_id)
+        count_stmt = count_stmt.join(ItemImage, Room.item_id == ItemImage.item_id)
+        count_stmt = count_stmt.join(
+            ITEM_IMAGE_EMBEDDINGS,
+            ItemImage.id == ITEM_IMAGE_EMBEDDINGS.c.image_id,
         )
 
-        similarity_expr = func.min(text(f"(item_image_embeddings.embedding <#> '{vector_str}'::vector)"))
+        similarity_expr = func.min(
+            ITEM_IMAGE_EMBEDDINGS.c.embedding.op("<#>")(text(f"'{vector_str}'::vector"))
+        )
 
         stmt = apply_room_filters(stmt, req)
         count_stmt = apply_room_filters(count_stmt, req)
