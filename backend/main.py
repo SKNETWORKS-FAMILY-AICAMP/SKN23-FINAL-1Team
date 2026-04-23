@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from routers.ai_image_router import router as ai_image_router
 from routers.favorite import router as favorite_router
+from routers.gallery_router import router as gallery_router
 
 
 app = FastAPI()
@@ -30,4 +31,5 @@ app.include_router(rooms_router, prefix="/api")
 app.include_router(room_detail_router, prefix="/api")
 app.include_router(ai_image_router)
 app.include_router(favorite_router, prefix="/api")
+app.include_router(gallery_router, prefix="/api")
 

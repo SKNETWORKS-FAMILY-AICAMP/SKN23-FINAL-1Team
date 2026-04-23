@@ -21,7 +21,7 @@ import {
   addFavorite,
   removeFavorite,
 } from "@/lib/api/favorites";
-import { getBackendApiBaseUrl } from "@/lib/api/backend-url";
+import { fetchRoomDetail } from "@/lib/api/rooms";
 import { useRecentStore } from "@/store/recentStore";
 import { usePendingListingStore } from "@/store/pendingListingStore";
 
@@ -40,8 +40,6 @@ interface Property {
   type: "oneroom" | "tworoom";
 }
 
-const DUMMY_RECENT: Property[] = [];
-
 function formatPrice(deposit: number, rent: number): string {
   const fmt = (v: number) => {
     if (v >= 10000) {
@@ -59,6 +57,14 @@ function getRoomType(roomType: string): "oneroom" | "tworoom" {
   return roomType.includes("투룸") ? "tworoom" : "oneroom";
 }
 
+function getGalleryImageSrc(imageUrl: string) {
+  if (imageUrl.startsWith("/api/images/")) {
+    return `/backend${imageUrl}`;
+  }
+
+  return imageUrl;
+}
+
 export default function MyPage() {
   const user = useAuthStore((state) => state.user);
   const router = useRouter();
@@ -74,18 +80,21 @@ export default function MyPage() {
     (state) => state.setPendingListing,
   );
 
-  const BACKEND_API_URL = getBackendApiBaseUrl(
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://3.37.97.17:8000",
-  );
-
-  const [galleryImages, setGalleryImages] = useState<{ id: number; image_url: string; prompt: string | null; created_at: string }[]>([]);
+  const [galleryImages, setGalleryImages] = useState<
+    {
+      id: number;
+      image_url: string;
+      prompt: string | null;
+      created_at: string;
+    }[]
+  >([]);
   const [isGalleryLoading, setIsGalleryLoading] = useState(false);
 
   const loadGallery = useCallback(async () => {
     if (!user?.user_id) return;
     setIsGalleryLoading(true);
     try {
-      const r = await fetch(`${BACKEND_API_URL}/gallery?user_id=${user.user_id}`);
+      const r = await fetch(`/api/gallery?user_id=${user.user_id}`);
       if (!r.ok) return;
       const data = await r.json();
       setGalleryImages(data.items);
@@ -94,7 +103,7 @@ export default function MyPage() {
     } finally {
       setIsGalleryLoading(false);
     }
-  }, [BACKEND_API_URL, user?.user_id]);
+  }, [user?.user_id]);
 
   useEffect(() => {
     if (activeSection === "gallery") loadGallery();
@@ -111,9 +120,7 @@ export default function MyPage() {
 
       const properties = await Promise.all(
         itemIds.map(async (itemId) => {
-          const r = await fetch(`${BACKEND_API_URL}/rooms/${itemId}`);
-          if (!r.ok) return null;
-          const detail = await r.json();
+          const detail = await fetchRoomDetail(itemId);
           const item = detail.item;
           return {
             id: item.item_id,
@@ -122,9 +129,7 @@ export default function MyPage() {
             title: item.title || "제목 없음",
             price: formatPrice(item.deposit, item.rent),
             address: item.address,
-            area: item.area_m2
-              ? `${parseFloat(item.area_m2).toFixed(2)}㎡`
-              : "-",
+            area: item.area_m2 ? `${item.area_m2.toFixed(2)}㎡` : "-",
             floor: item.floor || "-",
             type: getRoomType(item.room_type || ""),
           } as Property;
@@ -137,7 +142,7 @@ export default function MyPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [BACKEND_API_URL, user?.user_id]);
+  }, [user?.user_id]);
 
   useEffect(() => {
     loadFavorites();
@@ -543,14 +548,17 @@ export default function MyPage() {
                       className="relative h-36 w-full overflow-hidden rounded-2xl border border-stone-200/80 md:h-48"
                     >
                       <Image
-                        src={item.image_url}
+                        src={getGalleryImageSrc(item.image_url)}
                         alt={item.prompt ?? "AI 생성 이미지"}
                         fill
+                        unoptimized
                         className="object-cover"
                       />
                       {item.prompt && (
                         <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-2 py-1">
-                          <p className="truncate text-[10px] text-white">{item.prompt}</p>
+                          <p className="truncate text-[10px] text-white">
+                            {item.prompt}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -560,7 +568,9 @@ export default function MyPage() {
                     onClick={() => router.push("/home")}
                   >
                     <ImageIcon className="h-5 w-5 text-stone-300" />
-                    <span className="text-xs font-medium text-stone-400">새 검색</span>
+                    <span className="text-xs font-medium text-stone-400">
+                      새 검색
+                    </span>
                   </div>
                 </div>
               )}

@@ -1,8 +1,17 @@
 # DB 테이블 user_item_image를 python으로 표현한 class
 
-from sqlalchemy import Column, Integer, Text, TIMESTAMP, ForeignKey, func
+from sqlalchemy import Column, ForeignKey, Integer, TIMESTAMP, Text, func
 from sqlalchemy.orm import relationship
+from sqlalchemy.types import UserDefinedType
+
 from db.base import Base
+
+
+class Vector(UserDefinedType):
+    cache_ok = True
+
+    def get_col_spec(self, **kw):
+        return "vector"
 
 
 class UserItemImage(Base):
@@ -16,7 +25,7 @@ class UserItemImage(Base):
         nullable=False,
     )
     image_url = Column(Text, nullable=False)
-    embedding = Column(Text, nullable=True)  # 임베딩 보류, 나중에 vector 타입으로 교체
+    embedding = Column(Vector, nullable=True)
     prompt = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=True)
 
