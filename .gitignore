@@ -192,3 +192,4 @@ __pycache__/
 
 # Models
 *.pt
+catboost_info/
