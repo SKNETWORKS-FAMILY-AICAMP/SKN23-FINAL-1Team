@@ -7,7 +7,6 @@ function getApiBaseUrl() {
   if (!API_BASE_URL) {
     throw new Error("BACKEND_URL or NEXT_PUBLIC_API_BASE_URL is not configured.");
   }
-
   return getBackendApiBaseUrl(API_BASE_URL);
 }
 
@@ -18,9 +17,7 @@ async function proxyGalleryRequest(
 ) {
   const headers = new Headers(options.headers);
   const cookie = request.headers.get("cookie");
-
   headers.set("Content-Type", "application/json");
-
   if (cookie) {
     headers.set("Cookie", cookie);
   }
@@ -30,8 +27,8 @@ async function proxyGalleryRequest(
     headers,
     cache: "no-store",
   });
-  const text = await response.text();
 
+  const text = await response.text();
   if (!text) {
     return new NextResponse(null, { status: response.status });
   }
@@ -39,21 +36,22 @@ async function proxyGalleryRequest(
   try {
     return NextResponse.json(JSON.parse(text), { status: response.status });
   } catch {
-    return NextResponse.json({ message: text }, { status: response.status });
+    return NextResponse.json(
+      { message: text },
+      { status: response.status },
+    );
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
     const userId = request.nextUrl.searchParams.get("user_id");
-
     if (!userId) {
       return NextResponse.json(
         { message: "user_id is required." },
         { status: 400 },
       );
     }
-
     return proxyGalleryRequest(request, `/gallery?user_id=${userId}`, {
       method: "GET",
     });
@@ -69,28 +67,37 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const userId = body.user_id;
-    const imageUrl = body.image_url;
-
-    if (!userId || !imageUrl) {
-      return NextResponse.json(
-        { message: "user_id and image_url are required." },
-        { status: 400 },
-      );
-    }
-
-    return proxyGalleryRequest(request, "/gallery", {
+    return proxyGalleryRequest(request, `/gallery`, {
       method: "POST",
-      body: JSON.stringify({
-        user_id: userId,
-        image_url: imageUrl,
-        prompt: body.prompt ?? null,
-      }),
+      body: JSON.stringify(body),
     });
   } catch (error) {
     console.error("[gallery] POST failed", error);
     return NextResponse.json(
       { message: "Gallery save request failed." },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const imageId = pathParts[pathParts.length - 1];
+    const userId = url.searchParams.get("user_id");
+
+    if (!userId) {
+      return NextResponse.json({ message: "user_id is required." }, { status: 400 });
+    }
+
+    return proxyGalleryRequest(request, `/gallery/${imageId}?user_id=${userId}`, {
+      method: "DELETE",
+    });
+  } catch (error) {
+    console.error("[gallery] DELETE failed", error);
+    return NextResponse.json(
+      { message: "Gallery delete request failed." },
       { status: 500 },
     );
   }
