@@ -78,7 +78,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
 
         {isLoggedIn && user ? (
           <div className="flex w-28 shrink-0 items-center justify-end gap-1.5 px-3 sm:w-40 sm:gap-2 md:w-56 md:px-6">
-            <span className="max-w-[72px] truncate text-[12px] font-semibold tracking-tight text-stone-800 sm:max-w-[120px] sm:text-sm md:max-w-none">
+            <span className="max-w-[100px] truncate text-[12px] font-semibold tracking-tight text-stone-800 sm:max-w-[150px] sm:text-sm md:max-w-none">
               {user.nickname}
             </span>
             <div className="h-4 w-px bg-stone-200 sm:h-5" />
@@ -86,7 +86,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
               onClick={openGuide}
               className="shrink-0 cursor-pointer text-[12px] font-semibold tracking-tight text-stone-500 transition-all duration-200 hover:text-stone-900 sm:text-sm hidden lg:block"
             >
-              가이드
+              도움말
             </button>
             <div className="h-4 w-px bg-stone-200 sm:h-5 hidden lg:block" />
             <LogoutButton />
