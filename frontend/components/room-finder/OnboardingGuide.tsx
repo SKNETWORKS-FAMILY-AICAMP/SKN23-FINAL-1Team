@@ -80,8 +80,8 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   const step = steps[currentStep];
 
   const highlightClass = {
-    search: "top-[49px] left-0 right-0 h-[42px]",
-    filter: "top-[91px] left-0 right-0 h-[86px]",
+    search: "top-[49px] left-0 right-0 h-[62px]",
+    filter: "top-[96px] left-0 right-0 h-[81px]",
     map: "top-[177px] left-0 right-[450px] bottom-0",
     panel: "top-[177px] right-0 w-[450px] bottom-0",
   };
@@ -89,7 +89,7 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   const tooltipPosition = {
     top: "bottom-8",
     bottom: "top-[180px]",
-    center: "top-1/2 -translate-y-1/2",
+    center: "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
   };
 
   return (
@@ -111,8 +111,10 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
       {/* 툴팁 */}
       <div
         className={cn(
-          "absolute left-1/2 -translate-x-1/2 w-[320px] bg-white rounded-2xl shadow-2xl p-5",
-          tooltipPosition[step.position]
+          "absolute w-[320px] bg-white rounded-2xl shadow-2xl p-5",
+          step.position === "center"
+            ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            : "left-1/2 -translate-x-1/2 " + tooltipPosition[step.position]
         )}
       >
         <div className="flex items-start justify-between mb-3">
