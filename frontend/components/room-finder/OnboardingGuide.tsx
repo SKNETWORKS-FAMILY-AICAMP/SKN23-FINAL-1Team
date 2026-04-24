@@ -13,25 +13,25 @@ interface Step {
 
 const steps: Step[] = [
   {
-    title: "지역 검색",
+    title: "🔍 지역 검색",
     description: "찾고자 하는 지역을 검색해보세요. 원하는 동네나 지하철역을 입력하면 해당 지역으로 이동해요.",
     position: "bottom",
     highlight: "search",
   },
   {
-    title: "필터 설정",
+    title: "🎛️ 필터 설정",
     description: "전/월세, 보증금, 방 구조 등 원하는 조건으로 매물을 필터링할 수 있어요.",
     position: "bottom",
     highlight: "filter",
   },
   {
-    title: "지도에서 탐색",
+    title: "🗺️ 지도에서 탐색",
     description: "지도의 클러스터를 클릭하면 해당 지역 매물을 확인할 수 있어요. 숫자가 클수록 매물이 많아요.",
     position: "center",
     highlight: "map",
   },
   {
-    title: "AI 이미지 검색",
+    title: "✨ AI 이미지 검색",
     description: "AI 추천 탭에서 원하는 방 스타일을 텍스트로 입력하면 AI가 이미지를 생성하고 유사한 매물을 찾아드려요.",
     position: "top",
     highlight: "panel",
