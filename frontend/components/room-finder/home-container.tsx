@@ -150,14 +150,24 @@ export function HomeContainer() {
   const isPendingOpenRef = useRef(false);
 
   // 마이페이지에서 넘어온 매물 → 상세패널 자동 오픈
+  const pendingListingRef = useRef<Listing | null>(null);
+
   useEffect(() => {
     if (!pendingListing) return;
+    pendingListingRef.current = pendingListing;
     isPendingOpenRef.current = true;
-    setSelectedListing(pendingListing);
     setIsDetailOpen(true);
     setIsPanelOpen(false);
     clearPendingListing();
   }, [pendingListing, clearPendingListing]);
+
+  // 지도 준비되면 pendingListing 위치로 이동
+  useEffect(() => {
+    if (!isLocationReady || !pendingListingRef.current) return;
+    const listing = pendingListingRef.current;
+    pendingListingRef.current = null;
+    setSelectedListing(listing);
+  }, [isLocationReady]);
 
   const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
   const [favoriteLoadingIds, setFavoriteLoadingIds] = useState<number[]>([]);
