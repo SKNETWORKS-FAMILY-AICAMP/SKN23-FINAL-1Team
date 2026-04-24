@@ -159,7 +159,7 @@ export function HomeContainer() {
     setIsDetailOpen(true);
     setIsPanelOpen(false);
     setIsInitialLoading(false);
-    setIsLocationReady(true);  // ← 추가
+    setIsLocationReady(true);
     clearPendingListing();
   }, [pendingListing, clearPendingListing]);
 
@@ -746,7 +746,7 @@ export function HomeContainer() {
         )}
       </main>
 
-      {(!isLocationReady || isInitialLoading) && (
+      {(!isLocationReady || isInitialLoading) && !isPendingOpenRef.current && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/10">
           <div className="rounded-lg bg-white px-4 py-3 shadow-md">
             현재 위치 기준 매물 불러오는 중...
