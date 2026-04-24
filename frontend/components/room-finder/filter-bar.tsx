@@ -367,7 +367,7 @@ export function FilterBar({
             <SelectValue placeholder="거래 방식" />
           </SelectTrigger>
           <SelectContent
-            className={`w-[200px] md:w-[180px] lg:w-[220px] ${dropdownContentClass}`}
+            className={`w-[160px] ${dropdownContentClass}`}
           >
             <SelectItem value="all" className={selectItemClass}>
               전/월세
@@ -690,7 +690,7 @@ export function FilterBar({
             <SelectValue placeholder="층수" />
           </SelectTrigger>
           <SelectContent
-            className={`w-[200px] md:w-[180px] lg:w-[220px] ${dropdownContentClass}`}
+            className={`w-[160px] ${dropdownContentClass}`}
           >
             {floorItems.map((item) => (
               <SelectItem
