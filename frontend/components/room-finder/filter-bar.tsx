@@ -108,6 +108,8 @@ export function FilterBar({
   const [priceOpen, setPriceOpen] = useState(false);
   const [structureOpen, setStructureOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [transactionOpen, setTransactionOpen] = useState(false);
+  const [floorOpen, setFloorOpen] = useState(false);
   const [sizeOpen, setSizeOpen] = useState(false);
 
   const [depositDraft, setDepositDraft] = useState<number>(
@@ -359,8 +361,9 @@ export function FilterBar({
         <Select
           value={filters.transactionType}
           onValueChange={(v) => updateFilter("transactionType", v)}
+          onOpenChange={(open) => setTransactionOpen(open)}
         >
-          <SelectTrigger className={selectTriggerClass(isTransactionSelected)}>
+          <SelectTrigger className={selectTriggerClass(isTransactionSelected || transactionOpen)}>
             <SelectValue placeholder="거래 방식" />
           </SelectTrigger>
           <SelectContent
@@ -702,7 +705,7 @@ export function FilterBar({
 
         <Popover open={optionsOpen} onOpenChange={setOptionsOpen}>
           <PopoverTrigger asChild>
-            <button type="button" className={popoverTriggerClass(isPriceSelected)}>
+            <button type="button" className={popoverTriggerClass(isOptionsSelected || optionsOpen)}>
               <span className="truncate">{optionsLabel}</span>
               <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
             </button>
