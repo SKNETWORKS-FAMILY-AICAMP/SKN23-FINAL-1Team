@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Logo from "@/assets/Logo.png";
+import { useOnboardingStore } from "@/store/onboardingStore";
 
 interface HeaderProps {
   roomType: "oneroom" | "tworoom";
@@ -21,6 +22,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const openGuide = useOnboardingStore((state) => state.openGuide);
 
   return (
     <header className="border-b border-stone-200/80 bg-white/70 backdrop-blur-xl">
@@ -71,6 +73,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
               마이페이지
             </button>
           )}
+
         </div>
 
         {isLoggedIn && user ? (
@@ -79,6 +82,13 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
               {user.nickname}
             </span>
             <div className="h-4 w-px bg-stone-200 sm:h-5" />
+            <button
+              onClick={openGuide}
+              className="shrink-0 cursor-pointer text-[12px] font-semibold tracking-tight text-stone-500 transition-all duration-200 hover:text-stone-900 sm:text-sm hidden lg:block"
+            >
+              가이드
+            </button>
+            <div className="h-4 w-px bg-stone-200 sm:h-5 hidden lg:block" />
             <LogoutButton />
           </div>
         ) : (
