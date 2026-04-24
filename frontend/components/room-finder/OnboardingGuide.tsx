@@ -80,10 +80,10 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   const step = steps[currentStep];
 
   const highlightClass = {
-    search: "top-[49px] left-0 right-0 h-[42px]",
-    filter: "top-[91px] left-0 right-0 h-[42px]",
-    map: "top-[133px] left-0 right-[400px] bottom-0",
-    panel: "top-[133px] right-0 w-[400px] bottom-0",
+    search: "top-[16px] left-0 right-0 h-[54px]",
+    filter: "top-[70px] left-0 right-0 h-[107px]",
+    map: "top-[177px] left-0 right-[450px] bottom-0",
+    panel: "top-[177px] right-0 w-[450px] bottom-0",
   };
 
   const tooltipPosition = {
