@@ -477,6 +477,23 @@ export function MapView({
           const coords = await moveToCurrentLocation(map, kakao);
           if (isCancelled) return;
 
+          const selectedCoordsAfterLocation = getListingCoords(selectedListingRef.current);
+
+          if (selectedCoordsAfterLocation) {
+            const selectedPos = new kakao.maps.LatLng(
+              selectedCoordsAfterLocation.lat,
+              selectedCoordsAfterLocation.lng,
+            );
+
+            pendingSourceRef.current = "selection";
+            map.setCenter(selectedPos);
+            map.setLevel(4);
+            hasMovedToCurrentLocationRef.current = true;
+            emitBounds(map);
+            onInitialLocationResolved?.(selectedCoordsAfterLocation);
+            return;
+          }
+
           hasMovedToCurrentLocationRef.current = true;
           emitBounds(map);
           onInitialLocationResolved?.(coords);
@@ -548,13 +565,17 @@ export function MapView({
     const lat = Number(selectedListing.lat);
     const lng = Number(selectedListing.lng);
 
-    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      console.log("[MapView] invalid selectedListing coords", selectedListing);
+      return;
+    }
 
     const map = mapInstanceRef.current;
     const kakao = window.kakao;
     const position = new kakao.maps.LatLng(lat, lng);
 
-    // 선택 이동은 목록 갱신 트리거가 아니어야 함
+    console.log("[MapView] panTo selectedListing", { id: selectedListing.id, lat, lng, title: selectedListing.title });
+    // Selection move should not be treated as a list refresh trigger
     pendingSourceRef.current = "selection";
     map.panTo(position);
   }, [selectedListing, isMapReady]);
@@ -578,7 +599,7 @@ export function MapView({
     <div className="relative h-full min-h-[400px] w-full">
       {!isMapReady && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-100">
-          <div className="text-sm text-gray-500">지도 로딩 중.</div>
+          {"\uC9C0\uB3C4 \uB85C\uB529 \uC911."}
         </div>
       )}
 

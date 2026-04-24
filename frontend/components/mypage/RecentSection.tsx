@@ -13,11 +13,11 @@ export function RecentSection() {
   return (
     <div>
       <p className="mb-3 text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400 md:mb-4">
-        최근 본 매물
+        {"\uCD5C\uADFC \uBCF8 \uB9E4\uBB3C"}
       </p>
       {recentListings.length === 0 ? (
         <div className="rounded-[20px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500">
-          최근 본 매물이 없습니다.
+          {"\uCD5C\uADFC \uBCF8 \uB9E4\uBB3C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4."}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3">
@@ -26,6 +26,7 @@ export function RecentSection() {
               key={listing.id}
               className="cursor-pointer overflow-hidden rounded-[20px] border border-stone-200/80 bg-white/80 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-200 hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)]"
               onClick={() => {
+                console.log("[RecentSection] click listing", { id: listing.id, lat: listing.lat, lng: listing.lng, title: listing.title });
                 setPendingListing({
                   id: listing.id,
                   title: listing.title,
@@ -53,7 +54,7 @@ export function RecentSection() {
                   </div>
                 )}
                 <span className="absolute left-2.5 top-2.5 rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-sm md:text-[11px]">
-                  {listing.structure ?? "매물"}
+                  {listing.structure ?? "\uB9E4\uBB3C"}
                 </span>
               </div>
               <div className="p-2.5 md:p-3">
