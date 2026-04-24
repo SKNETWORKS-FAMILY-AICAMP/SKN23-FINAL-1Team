@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
@@ -78,10 +80,10 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   const step = steps[currentStep];
 
   const highlightClass = {
-    search: "top-[52px] left-0 right-0 h-[52px]",
-    filter: "top-[104px] left-0 right-0 h-[60px]",
-    map: "top-[164px] left-0 right-[360px] bottom-0",
-    panel: "top-[164px] right-0 w-[360px] bottom-0",
+    search: "top-[49px] left-0 right-0 h-[42px]",
+    filter: "top-[91px] left-0 right-0 h-[42px]",
+    map: "top-[133px] left-0 right-[400px] bottom-0",
+    panel: "top-[133px] right-0 w-[400px] bottom-0",
   };
 
   const tooltipPosition = {
@@ -91,7 +93,7 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[100] hidden lg:block">
       {/* 어두운 오버레이 */}
       <div className="absolute inset-0 bg-black/50" />
 
