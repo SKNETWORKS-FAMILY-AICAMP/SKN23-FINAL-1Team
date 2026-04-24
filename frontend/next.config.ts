@@ -1,29 +1,35 @@
 import type { NextConfig } from "next";
 
 const s3Hostname = process.env.NEXT_IMAGE_S3_HOSTNAME;
+const appImageHosts = [
+  "3.37.97.17",
+  "52.78.235.88",
+  "127.0.0.1",
+  "geumbang.duckdns.org",
+];
 
 const remotePatterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [
   {
     protocol: "https",
     hostname: "ic.zigbang.com",
   },
-  {
-    protocol: "http",
-    hostname: "3.37.97.17",
-    pathname: "/backend/api/images/**",
-  },
-  {
-    protocol: "http",
-    hostname: "3.37.97.17",
-    port: "8000",
-    pathname: "/api/images/**",
-  },
-  {
-    protocol: "http",
-    hostname: "geumbang.duckdns.org",
-    pathname: "/backend/api/images/**",
-  },
 ];
+
+for (const hostname of appImageHosts) {
+  remotePatterns.push(
+    {
+      protocol: "http",
+      hostname,
+      pathname: "/backend/api/images/**",
+    },
+    {
+      protocol: "http",
+      hostname,
+      port: "8000",
+      pathname: "/api/images/**",
+    },
+  );
+}
 
 if (s3Hostname) {
   remotePatterns.push({
