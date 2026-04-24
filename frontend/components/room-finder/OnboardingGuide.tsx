@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
@@ -11,25 +13,25 @@ interface Step {
 
 const steps: Step[] = [
   {
-    title: "지역 검색",
+    title: "🔍 지역 검색",
     description: "찾고자 하는 지역을 검색해보세요. 원하는 동네나 지하철역을 입력하면 해당 지역으로 이동해요.",
     position: "bottom",
     highlight: "search",
   },
   {
-    title: "필터 설정",
+    title: "🎛️ 필터 설정",
     description: "전/월세, 보증금, 방 구조 등 원하는 조건으로 매물을 필터링할 수 있어요.",
     position: "bottom",
     highlight: "filter",
   },
   {
-    title: "지도에서 탐색",
+    title: "🗺️ 지도에서 탐색",
     description: "지도의 클러스터를 클릭하면 해당 지역 매물을 확인할 수 있어요. 숫자가 클수록 매물이 많아요.",
     position: "center",
     highlight: "map",
   },
   {
-    title: "AI 이미지 검색",
+    title: "✨ AI 이미지 검색",
     description: "AI 추천 탭에서 원하는 방 스타일을 텍스트로 입력하면 AI가 이미지를 생성하고 유사한 매물을 찾아드려요.",
     position: "top",
     highlight: "panel",
@@ -78,10 +80,10 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   const step = steps[currentStep];
 
   const highlightClass = {
-    search: "top-[52px] left-0 right-0 h-[52px]",
-    filter: "top-[104px] left-0 right-0 h-[60px]",
-    map: "top-[164px] left-0 right-[360px] bottom-0",
-    panel: "top-[164px] right-0 w-[360px] bottom-0",
+    search: "top-[49px] left-0 right-0 h-[42px]",
+    filter: "top-[91px] left-0 right-0 h-[42px]",
+    map: "top-[133px] left-0 right-[400px] bottom-0",
+    panel: "top-[133px] right-0 w-[400px] bottom-0",
   };
 
   const tooltipPosition = {
@@ -91,7 +93,7 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[100] hidden lg:block">
       {/* 어두운 오버레이 */}
       <div className="absolute inset-0 bg-black/50" />
 
