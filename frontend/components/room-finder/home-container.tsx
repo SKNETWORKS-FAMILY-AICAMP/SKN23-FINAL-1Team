@@ -158,6 +158,7 @@ export function HomeContainer() {
     isPendingOpenRef.current = true;
     setIsDetailOpen(true);
     setIsPanelOpen(false);
+    setIsInitialLoading(false);
     clearPendingListing();
   }, [pendingListing, clearPendingListing]);
 
