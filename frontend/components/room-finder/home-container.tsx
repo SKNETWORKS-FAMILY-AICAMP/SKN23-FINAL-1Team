@@ -159,6 +159,7 @@ export function HomeContainer() {
     setIsDetailOpen(true);
     setIsPanelOpen(false);
     setIsInitialLoading(false);
+    setIsLocationReady(true);  // ← 추가
     clearPendingListing();
   }, [pendingListing, clearPendingListing]);
 
