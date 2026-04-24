@@ -684,8 +684,9 @@ export function FilterBar({
         <Select
           value={filters.floor}
           onValueChange={(v) => updateFilter("floor", v)}
+          onOpenChange={(open) => setFloorOpen(open)}
         >
-          <SelectTrigger className={selectTriggerClass(isFloorSelected)}>
+          <SelectTrigger className={selectTriggerClass(isFloorSelected || floorOpen)}>
             <SelectValue placeholder="층수" />
           </SelectTrigger>
           <SelectContent
