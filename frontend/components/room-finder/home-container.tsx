@@ -21,6 +21,7 @@ import {
   removeFavorite,
 } from "@/lib/api/favorites";
 import { useRecentStore } from "@/store/recentStore";
+import { OnboardingGuide } from "@/components/room-finder/OnboardingGuide";
 
 const PAGE_SIZE = 20;
 const BOUNDS_PRECISION = 5;
@@ -578,6 +579,8 @@ export function HomeContainer() {
   );
 
   return (
+    <>
+    {isLoggedIn && user && <OnboardingGuide userId={user.user_id!} />}
     <div className="flex h-screen flex-col bg-ivory">
       <Header roomType={roomType} onRoomTypeChange={handleRoomTypeChange} />
 
@@ -739,5 +742,6 @@ export function HomeContainer() {
         </div>
       )}
     </div>
+    </>
   );
 }
