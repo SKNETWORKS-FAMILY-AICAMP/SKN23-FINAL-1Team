@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+import os
 from routers.router import router
 from routers.auth import router as auth_router
 from routers.rooms import router as rooms_router
@@ -12,10 +13,19 @@ from routers.gallery_router import router as gallery_router
 
 app = FastAPI()
 
-origins = [
+default_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://3.37.97.17",
+    "http://52.78.235.88",
 ]
+
+configured_origins = os.getenv("FRONTEND_ORIGINS", "")
+origins = [
+    origin.strip()
+    for origin in configured_origins.split(",")
+    if origin.strip()
+] or default_origins
 
 app.add_middleware(
     CORSMiddleware,
