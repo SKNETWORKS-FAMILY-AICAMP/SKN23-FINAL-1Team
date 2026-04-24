@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useOnboardingStore } from "@/store/onboardingStore";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
