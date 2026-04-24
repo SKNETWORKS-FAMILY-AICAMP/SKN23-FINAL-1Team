@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useOnboardingStore } from "@/store/onboardingStore";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
@@ -46,15 +47,26 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   const [visible, setVisible] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
+  const isOpen = useOnboardingStore((state) => state.isOpen);
+  const closeGuide = useOnboardingStore((state) => state.closeGuide);
+
   useEffect(() => {
     const key = `hasSeenGuide_${userId}`;
     const seen = localStorage.getItem(key);
     if (!seen) {
-      // 약간 딜레이 후 표시 (지도 로딩 후)
       const timer = setTimeout(() => setVisible(true), 1500);
       return () => clearTimeout(timer);
     }
   }, [userId]);
+
+  // 헤더 가이드 버튼 클릭 시
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentStep(0);
+      setVisible(true);
+      closeGuide();
+    }
+  }, [isOpen, closeGuide]);
 
   const handleClose = () => {
     localStorage.setItem(`hasSeenGuide_${userId}`, "true");
