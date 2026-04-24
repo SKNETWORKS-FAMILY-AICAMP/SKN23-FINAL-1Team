@@ -137,10 +137,26 @@ export function MapView({
   const lastAppliedSearchRef = useRef<string>("");
   const hasMovedToCurrentLocationRef = useRef(false);
   const lastBoundsKeyRef = useRef<string>("");
+  const selectedListingRef = useRef<Listing | null>(selectedListing ?? null);
 
   const pendingSourceRef = useRef<MapBounds["source"]>("initial");
 
   const [isMapReady, setIsMapReady] = useState(false);
+
+  useEffect(() => {
+    selectedListingRef.current = selectedListing ?? null;
+  }, [selectedListing]);
+
+  const getListingCoords = (listing: Listing | null) => {
+    if (!listing) return null;
+
+    const lat = Number(listing.lat);
+    const lng = Number(listing.lng);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+
+    return { lat, lng };
+  };
 
   const clearMapObjects = () => {
     mapObjectsRef.current.forEach((object) => {
@@ -441,6 +457,23 @@ export function MapView({
         setIsMapReady(true);
 
         if (!hasMovedToCurrentLocationRef.current) {
+          const initialSelectedCoords = getListingCoords(selectedListingRef.current);
+
+          if (initialSelectedCoords) {
+            const selectedPos = new kakao.maps.LatLng(
+              initialSelectedCoords.lat,
+              initialSelectedCoords.lng,
+            );
+
+            pendingSourceRef.current = "selection";
+            map.setCenter(selectedPos);
+            map.setLevel(4);
+            hasMovedToCurrentLocationRef.current = true;
+            emitBounds(map);
+            onInitialLocationResolved?.(initialSelectedCoords);
+            return;
+          }
+
           const coords = await moveToCurrentLocation(map, kakao);
           if (isCancelled) return;
 

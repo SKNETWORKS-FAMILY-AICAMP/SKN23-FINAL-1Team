@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useOnboardingStore } from "@/store/onboardingStore";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
@@ -55,6 +56,18 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
       return () => clearTimeout(timer);
     }
   }, [userId]);
+
+  const isOpen = useOnboardingStore((state) => state.isOpen);
+  const closeGuide = useOnboardingStore((state) => state.closeGuide);
+
+  // 도움말 버튼 클릭 시
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentStep(0);
+      setVisible(true);
+      closeGuide();
+    }
+  }, [isOpen, closeGuide]);
 
   const handleClose = () => {
     localStorage.setItem(`hasSeenGuide_${userId}`, "true");
