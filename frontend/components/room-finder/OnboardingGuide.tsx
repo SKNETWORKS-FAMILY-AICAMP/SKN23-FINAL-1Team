@@ -13,25 +13,25 @@ interface Step {
 
 const steps: Step[] = [
   {
-    title: "🔍 지역 검색",
+    title: "지역 검색",
     description: "찾고자 하는 지역을 검색해보세요. 원하는 동네나 지하철역을 입력하면 해당 지역으로 이동해요.",
     position: "bottom",
     highlight: "search",
   },
   {
-    title: "🎛️ 필터 설정",
+    title: "필터 설정",
     description: "전/월세, 보증금, 방 구조 등 원하는 조건으로 매물을 필터링할 수 있어요.",
     position: "bottom",
     highlight: "filter",
   },
   {
-    title: "🗺️ 지도에서 탐색",
+    title: "지도에서 탐색",
     description: "지도의 클러스터를 클릭하면 해당 지역 매물을 확인할 수 있어요. 숫자가 클수록 매물이 많아요.",
     position: "center",
     highlight: "map",
   },
   {
-    title: "✨ AI 이미지 검색",
+    title: "AI 이미지 검색",
     description: "AI 추천 탭에서 원하는 방 스타일을 텍스트로 입력하면 AI가 이미지를 생성하고 유사한 매물을 찾아드려요.",
     position: "top",
     highlight: "panel",
@@ -80,8 +80,8 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   const step = steps[currentStep];
 
   const highlightClass = {
-    search: "top-[49px] left-0 right-0 h-[42px]",
-    filter: "top-[91px] left-0 right-0 h-[86px]",
+    search: "top-[49px] left-0 right-0 h-[62px]",
+    filter: "top-[96px] left-0 right-0 h-[81px]",
     map: "top-[177px] left-0 right-[450px] bottom-0",
     panel: "top-[177px] right-0 w-[450px] bottom-0",
   };
@@ -89,7 +89,7 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   const tooltipPosition = {
     top: "bottom-8",
     bottom: "top-[180px]",
-    center: "top-1/2 -translate-y-1/2",
+    center: "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
   };
 
   return (
@@ -111,8 +111,10 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
       {/* 툴팁 */}
       <div
         className={cn(
-          "absolute left-1/2 -translate-x-1/2 w-[320px] bg-white rounded-2xl shadow-2xl p-5",
-          tooltipPosition[step.position]
+          "absolute w-[320px] bg-white rounded-2xl shadow-2xl p-5",
+          step.position === "center"
+            ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            : "left-1/2 -translate-x-1/2 " + tooltipPosition[step.position]
         )}
       >
         <div className="flex items-start justify-between mb-3">
