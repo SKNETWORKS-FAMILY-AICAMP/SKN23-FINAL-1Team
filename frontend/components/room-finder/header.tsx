@@ -78,10 +78,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
 
         {isLoggedIn && user ? (
           <div className="flex w-28 shrink-0 items-center justify-end gap-1.5 px-3 sm:w-40 sm:gap-2 md:w-56 md:px-6">
-            <span className="text-[12px] font-semibold tracking-tight text-stone-800 sm:text-sm">
-
-              {user.nickname}
-            </span>
+            <span className="text-[12px] font-semibold tracking-tight text-stone-800 sm:text-sm">{user.nickname}</span>
             <div className="h-4 w-px bg-stone-200 sm:h-5" />
             <button
               onClick={openGuide}
