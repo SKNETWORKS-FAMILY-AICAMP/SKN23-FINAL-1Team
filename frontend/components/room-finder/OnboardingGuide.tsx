@@ -44,7 +44,7 @@ const steps: Step[] = [
 ];
 
 interface OnboardingGuideProps {
-  userId: number;
+  userId?: number;
 }
 
 export function OnboardingGuide({ userId }: OnboardingGuideProps) {
@@ -55,7 +55,7 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   const closeGuide = useOnboardingStore((state) => state.closeGuide);
 
   useEffect(() => {
-    const key = `hasSeenGuide_${userId}`;
+    const key = userId ? `hasSeenGuide_${userId}` : "hasSeenGuide_guest";
     const seen = localStorage.getItem(key);
 
     if (!seen) {
@@ -73,7 +73,8 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   }, [isOpen, closeGuide]);
 
   const handleClose = () => {
-    localStorage.setItem(`hasSeenGuide_${userId}`, "true");
+    const key = userId ? `hasSeenGuide_${userId}` : "hasSeenGuide_guest";
+    localStorage.setItem(key, "true");
     setVisible(false);
   };
 

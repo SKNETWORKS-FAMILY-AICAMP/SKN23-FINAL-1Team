@@ -30,8 +30,11 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
         <div className="flex h-full w-28 shrink-0 items-center justify-center border-stone-200/80 px-3 sm:w-40 md:w-56 md:px-6">
           <button
             type="button"
-            onClick={() => onRoomTypeChange("oneroom")}
-            className="flex items-center"
+            onClick={() => {
+              onRoomTypeChange("oneroom");
+              window.location.reload();
+            }}
+            className="flex cursor-pointer items-center"
             aria-label="홈으로 이동"
           >
             <Image
@@ -81,11 +84,11 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
             <div className="h-4 w-px bg-stone-200 sm:h-5" />
             <button
               onClick={openGuide}
-              className="shrink-0 cursor-pointer text-[12px] font-semibold tracking-tight text-stone-500 transition-all duration-200 hover:text-stone-900 sm:text-sm hidden lg:block"
+              className="hidden shrink-0 cursor-pointer text-[12px] font-semibold tracking-tight text-stone-500 transition-all duration-200 hover:text-stone-900 sm:text-sm lg:block"
             >
               도움말
             </button>
-            <div className="h-4 w-px bg-stone-200 sm:h-5 hidden lg:block" />
+            <div className="hidden h-4 w-px bg-stone-200 sm:h-5 lg:block" />
             <LogoutButton />
           </div>
         ) : (

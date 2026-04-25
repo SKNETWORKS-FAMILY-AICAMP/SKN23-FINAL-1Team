@@ -592,7 +592,7 @@ export function HomeContainer() {
 
   return (
     <>
-    {isLoggedIn && user && <OnboardingGuide userId={user.user_id!} />}
+    <OnboardingGuide userId={user?.user_id} />
     <div className="flex h-screen flex-col bg-ivory">
       <Header roomType={roomType} onRoomTypeChange={handleRoomTypeChange} />
 
