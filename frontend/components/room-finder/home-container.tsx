@@ -649,7 +649,7 @@ export function HomeContainer() {
         <ListingDetailPanel
           listing={selectedListing}
           isOpen={isDetailOpen}
-          onClose={() => { setSelectedListing(null); setIsDetailOpen(false); isPendingOpenRef.current = false; }}
+          onClose={() => { setSelectedListing(null); setIsDetailOpen(false); isPendingOpenRef.current = false; setIsInitialLoading(false); setIsLocationReady(true);}}
           listPanelOpen={isPanelOpen}
           favoriteIds={favoriteIds}
           favoriteLoadingIds={favoriteLoadingIds}
