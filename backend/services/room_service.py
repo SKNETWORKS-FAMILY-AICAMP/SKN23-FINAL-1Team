@@ -208,10 +208,22 @@ def get_rooms(db, req):
     count_stmt = apply_room_filters(count_stmt, req)
 
     total = db.execute(count_stmt).scalar_one()
+
+    sort = getattr(req, "sort", "latest")
+    if sort == "price_asc":
+        order_expr = (Room.deposit + Room.rent * 100).asc()
+    elif sort == "price_desc":
+        order_expr = (Room.deposit + Room.rent * 100).desc()
+    else:
+        order_expr = None
+
+    if order_expr is not None:
+        stmt = stmt.order_by(order_expr)
+    else:
+        stmt = stmt.order_by(Room.first_crawled_at.desc().nullslast(), Room.item_id.desc())
+
     rows = db.execute(
-        stmt.order_by(Room.updated_at.desc().nullslast(), Room.item_id.desc())
-        .offset(req.offset)
-        .limit(req.limit)
+        stmt.offset(req.offset).limit(req.limit)
     ).scalars().all()
 
     return {
@@ -252,7 +264,7 @@ def get_rooms_by_similarity(db: Session, req, embedding: list[float] | None = No
     else:
         stmt = apply_room_filters(stmt, req)
         count_stmt = apply_room_filters(count_stmt, req)
-        stmt = stmt.order_by(Room.updated_at.desc().nullslast(), Room.item_id.desc())
+        stmt = stmt.order_by(Room.first_crawled_at.desc().nullslast(), Room.item_id.desc())
 
     total = db.execute(count_stmt).scalar_one()
 
@@ -320,7 +332,7 @@ def get_map_items(db, req):
     # level 1일 때만 개별 마커
     rows = db.execute(
         base_stmt.order_by(
-            Room.updated_at.desc().nullslast(),
+            Room.first_crawled_at.desc().nullslast(),
             Room.item_id.desc(),
         ).limit(1000)
     ).scalars().all()
