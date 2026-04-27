@@ -11,6 +11,21 @@ type EditImageRequestBody = {
   editCount?: number;
 };
 
+function parseJsonSafely(rawBody: string) {
+  if (!rawBody) return null;
+
+  try {
+    return JSON.parse(rawBody) as {
+      detail?: string;
+      error?: string;
+      file_paths?: string[];
+      images?: string[];
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const {
@@ -56,11 +71,14 @@ export async function POST(request: NextRequest) {
       },
     );
 
+    const rawBody = await response.text();
+
     if (!response.ok) {
-      const errorBody = await response.json().catch(() => null);
+      const errorBody = parseJsonSafely(rawBody);
       const errorMessage =
         errorBody?.detail ??
         errorBody?.error ??
+        rawBody ??
         "이미지 수정에 실패했습니다.";
       return NextResponse.json(
         { error: errorMessage },
@@ -68,8 +86,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data = await response.json();
+    if (!rawBody) {
+      return NextResponse.json(
+        { error: "이미지 수정 결과를 받아오지 못했습니다." },
+        { status: 502 },
+      );
+    }
+
+    const data = parseJsonSafely(rawBody);
+    if (!data) {
+      return NextResponse.json(
+        { error: "이미지 수정 응답 형식을 읽을 수 없습니다." },
+        { status: 502 },
+      );
+    }
+
     const filePaths: string[] = data.file_paths ?? data.images ?? [];
+
+    if (!Array.isArray(filePaths) || filePaths.length === 0) {
+      return NextResponse.json(
+        { error: "수정된 이미지 결과가 비어 있습니다." },
+        { status: 502 },
+      );
+    }
 
     const images = filePaths.map((filePath: string, index: number) => ({
       id: `${Date.now()}-${index}`,
@@ -82,7 +121,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[edit-image] Error:", error);
     return NextResponse.json(
-      { error: "이미지 수정에 실패했습니다. 다시 시도해주세요." },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "이미지 수정에 실패했습니다. 다시 시도해주세요.",
+      },
       { status: 500 },
     );
   }
