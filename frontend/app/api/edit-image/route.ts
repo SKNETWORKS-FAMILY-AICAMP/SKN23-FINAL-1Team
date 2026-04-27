@@ -4,30 +4,37 @@ import { buildBackendApiUrl } from "@/lib/api/backend-url";
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
 const MAX_AI_EDIT_COUNT = 2;
 
-type GenerateImageRequestBody = {
-  prompt?: string;
-  mode?: "generate" | "edit";
+type EditImageRequestBody = {
+  sourceImageUrl?: string;
+  basePrompt?: string;
+  editPrompt?: string;
   editCount?: number;
 };
 
 export async function POST(request: NextRequest) {
   try {
     const {
-      prompt = "",
-      mode = "generate",
+      sourceImageUrl = "",
+      basePrompt = "",
+      editPrompt = "",
       editCount = 0,
-    } = (await request.json()) as GenerateImageRequestBody;
+    } = (await request.json()) as EditImageRequestBody;
 
-    const trimmedPrompt = prompt.trim();
-
-    if (!trimmedPrompt) {
+    if (!sourceImageUrl.trim()) {
       return NextResponse.json(
-        { error: "프롬프트를 입력해주세요." },
+        { error: "수정할 원본 이미지가 필요합니다." },
         { status: 400 },
       );
     }
 
-    if (mode === "edit" && editCount >= MAX_AI_EDIT_COUNT) {
+    if (!editPrompt.trim()) {
+      return NextResponse.json(
+        { error: "수정 프롬프트를 입력해주세요." },
+        { status: 400 },
+      );
+    }
+
+    if (editCount >= MAX_AI_EDIT_COUNT) {
       return NextResponse.json(
         { error: "이미지 수정은 최대 2번까지 가능합니다." },
         { status: 400 },
@@ -35,23 +42,30 @@ export async function POST(request: NextRequest) {
     }
 
     const response = await fetch(
-      buildBackendApiUrl(BACKEND_URL, "/generate-image"),
+      buildBackendApiUrl(BACKEND_URL, "/edit-image"),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_prompt: trimmedPrompt,
+          source_image_url: sourceImageUrl,
+          base_prompt: basePrompt,
+          edit_prompt: editPrompt,
           size: "1024x1024",
           quality: "standard",
-          n: 4,
         }),
       },
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[generate-room-images] Python backend error:", errorText);
-      throw new Error(`Python backend error: ${response.status}`);
+      const errorBody = await response.json().catch(() => null);
+      const errorMessage =
+        errorBody?.detail ??
+        errorBody?.error ??
+        "이미지 수정에 실패했습니다.";
+      return NextResponse.json(
+        { error: errorMessage },
+        { status: response.status },
+      );
     }
 
     const data = await response.json();
@@ -66,9 +80,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ images });
   } catch (error) {
-    console.error("[generate-room-images] Error:", error);
+    console.error("[edit-image] Error:", error);
     return NextResponse.json(
-      { error: "이미지 생성에 실패했습니다. 다시 시도해주세요." },
+      { error: "이미지 수정에 실패했습니다. 다시 시도해주세요." },
       { status: 500 },
     );
   }
