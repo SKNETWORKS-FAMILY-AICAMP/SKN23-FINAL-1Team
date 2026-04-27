@@ -377,7 +377,6 @@ export function HomeContainer() {
           sizeUnit: filters.sizeUnit,
           floor: filters.floor,
           options: filters.options,
-          sort,
           lat: mapBounds.centerLat,
           lng: mapBounds.centerLng,
           swLat: mapBounds.swLat,
