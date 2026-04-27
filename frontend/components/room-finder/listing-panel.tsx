@@ -122,7 +122,7 @@ export function ListingPanel({
       <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-2 pt-0 backdrop-blur-md shrink-0">
         <div
           className={cn(
-            "rounded-2xl border mt-4 border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
+            "rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
             isLoggedIn ? "grid grid-cols-3" : "grid grid-cols-2",
           )}
         >
@@ -187,24 +187,22 @@ export function ListingPanel({
             >
               등록순
             </button>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => onSortChange(
-                  sort === "latest" ? "price_desc" :
-                  sort === "price_desc" ? "price_asc" : "latest"
-                )}
-                className={cn(
-                  "text-xs tracking-tight transition-colors duration-200",
-                  sort !== "latest" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
-                )}
-              >
-                {sort === "price_desc" ? "높은 가격순" : sort === "price_asc" ? "낮은 가격순" : "가격순"}
-              </button>
-              <div className="relative group">
-                <span className="text-[10px] text-stone-400 border border-stone-300 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center cursor-default">i</span>
-                <div className="absolute bottom-5 right-0 bg-stone-800 text-white text-[11px] px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
-                  보증금 + 월세 × 100 기준
-                </div>
+            <button
+              onClick={() => onSortChange(
+                sort === "latest" ? "price_desc" :
+                sort === "price_desc" ? "price_asc" : "latest"
+              )}
+              className={cn(
+                "text-xs tracking-tight transition-colors duration-200",
+                sort !== "latest" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
+              )}
+            >
+              {sort === "price_desc" ? "높은 가격순" : sort === "price_asc" ? "낮은 가격순" : "가격순"}
+            </button>
+            <div className="relative group">
+              <span className="text-[10px] text-stone-400 border border-stone-300 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center cursor-default">i</span>
+              <div className="absolute bottom-5 right-0 bg-stone-800 text-white text-[11px] px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                보증금 + 월세 × 100 기준
               </div>
             </div>
             <button
