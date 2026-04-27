@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { useRecentStore } from "store/recentStore";
+import { useAIImageSessionStore } from "@/store/aiImageSessionStore";
 
 type AuthUser = {
   user_id?: number;
@@ -29,6 +30,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }),
   clearUser: () => {
     useRecentStore.getState().clearRecent();
+    useAIImageSessionStore.getState().resetSession();
     set({
       user: null,
       isLoggedIn: false,
