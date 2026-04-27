@@ -42,6 +42,7 @@ class EditImageRequest(BaseModel):
     base_prompt: str
     edit_prompt: str
     size: str = "1024x1024"
+    n: int = 4
 
 
 class ImageResponse(BaseModel):
@@ -80,11 +81,12 @@ async def edit_image_endpoint(body: EditImageRequest):
     수정 프롬프트를 반영한 새 이미지를 생성하고 경로를 반환합니다.
     """
     try:
-        file_path = edit_image(
+        file_paths = edit_image(
             source_image_url=body.source_image_url,
             base_prompt=body.base_prompt,
             edit_prompt=body.edit_prompt,
             size=body.size,
+            n=body.n,
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -107,7 +109,10 @@ async def edit_image_endpoint(body: EditImageRequest):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    return {"file_paths": [file_path]}
+    if not file_paths:
+        raise HTTPException(status_code=500, detail="이미지 수정에 실패했습니다.")
+
+    return {"file_paths": file_paths}
 
 
 @router.get("/images/{filename}")
