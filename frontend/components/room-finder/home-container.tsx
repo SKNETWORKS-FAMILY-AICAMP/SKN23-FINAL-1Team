@@ -123,6 +123,7 @@ export function HomeContainer() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
   const [isPanelOpen, setIsPanelOpen] = useState(true);
+  const [sort, setSort] = useState<"latest" | "price_asc" | "price_desc">("latest");
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [visibleListings, setVisibleListings] = useState<Listing[]>([]);
@@ -193,6 +194,7 @@ export function HomeContainer() {
       floor: filters.floor,
       options: filters.options,
       roomType,
+      sort,
     });
   }, [
     debouncedSearchQuery,
@@ -205,6 +207,7 @@ export function HomeContainer() {
     filters.floor,
     filters.options,
     roomType,
+    sort,
   ]);
 
   useEffect(() => {
@@ -306,6 +309,7 @@ export function HomeContainer() {
           sizeUnit: filters.sizeUnit,
           floor: filters.floor,
           options: filters.options,
+          sort,
           lat: mapBounds.centerLat,
           lng: mapBounds.centerLng,
           swLat: mapBounds.swLat,
@@ -406,6 +410,7 @@ export function HomeContainer() {
     filters.floor,
     filters.options,
     roomType,
+    sort,
   ]);
 
   const prevBoundsRef = useRef<MapBounds | null>(null);
@@ -698,6 +703,8 @@ export function HomeContainer() {
               favoriteListings={favoriteListings}
               isLoggedIn={isLoggedIn}
               onWishClick={handleWishClick}
+              sort={sort}
+              onSortChange={setSort}
             />
           </div>
         </aside>
