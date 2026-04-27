@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -13,15 +14,12 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 dotenv_path = os.path.join(BASE_DIR, ".env")
 load_dotenv(dotenv_path)
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-GEN_GPT_MODEL = os.getenv("IMAGE_GEN_GPT_MODEL", "gpt-4o")
-GEN_DALLE_MODEL = os.getenv("IMAGE_GEN_DALLE_MODEL", "dall-e-3")
-EDIT_IMAGE_MODEL = (
-    os.getenv("IMAGE_EDIT_GPT_MODEL")
-    or os.getenv("IMAGE_EDIT_DALLE_MODEL")
-    or os.getenv("IMAGE_EDIT_MODEL")
-    or "gpt-image-1"
-)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+client = OpenAI(api_key=OPENAI_API_KEY)
+GEN_PROMPT_MODEL = os.getenv("IMAGE_GEN_GPT_MODEL", "gpt-4o")
+GEN_IMAGE_MODEL = os.getenv("IMAGE_GEN_IMAGE_MODEL") or "gpt-image-1"
+EDIT_PROMPT_MODEL = os.getenv("IMAGE_EDIT_GPT_MODEL") or GEN_PROMPT_MODEL
+EDIT_IMAGE_MODEL = os.getenv("IMAGE_EDIT_IMAGE_MODEL") or "gpt-image-1"
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CREATE_IMAGE_DIR = os.path.join(BACKEND_DIR, "create_image")
@@ -55,7 +53,15 @@ def _refine_prompt(user_prompt: str, model: str, system_role: str):
 
 def _save_remote_image(image_url: str, file_summary: str, prefix: str = ""):
     image_data = requests.get(image_url, timeout=30).content
+    return _save_image_bytes(image_data, file_summary, prefix=prefix)
 
+
+def _save_base64_image(image_base64: str, file_summary: str, prefix: str = ""):
+    image_data = base64.b64decode(image_base64)
+    return _save_image_bytes(image_data, file_summary, prefix=prefix)
+
+
+def _save_image_bytes(image_data: bytes, file_summary: str, prefix: str = ""):
     timestamp = datetime.now().strftime("%H%M%S")
     random_suffix = os.urandom(2).hex()
     safe_prefix = f"{prefix}_" if prefix else ""
@@ -72,9 +78,9 @@ def _build_generate_system_role():
     return """
         You are a Korean real estate photographer.
 
-        Create a DALL-E 3 prompt for a realistic Korean studio apartment (one-room).
+        Create a GPT Image prompt for a realistic Korean studio apartment (one-room).
         Return a JSON object with two keys:
-        - "prompt": the detailed DALL-E prompt in English
+        - "prompt": the detailed image generation prompt in English
         - "summary": a short English filename summary (snake_case, max 30 chars)
 
         ## CORE OBJECTIVE ##
@@ -130,22 +136,22 @@ def _generate_single(user_prompt: str, size: str, quality: str, index: int):
     try:
         refined_prompt, file_summary = _refine_prompt(
             user_prompt,
-            GEN_GPT_MODEL,
+            GEN_PROMPT_MODEL,
             _build_generate_system_role(),
         )
 
         print(f"[generate_image] Generating image {index + 1} for: {file_summary}")
         response = client.images.generate(
-            model=GEN_DALLE_MODEL,
+            model=GEN_IMAGE_MODEL,
             prompt=refined_prompt,
             size=size,
             quality=quality,
             n=1,
-            response_format="url",
+            response_format="b64_json",
         )
 
-        image_url = response.data[0].url
-        return _save_remote_image(image_url, file_summary)
+        image_base64 = response.data[0].b64_json
+        return _save_base64_image(image_base64, file_summary)
     except Exception as exc:
         print(f"[generate_image] Error on image {index + 1}: {exc}")
         return None
@@ -197,9 +203,45 @@ def _build_edit_prompt(base_prompt: str, edit_prompt: str):
 
     return _refine_prompt(
         combined_prompt,
-        GEN_GPT_MODEL,
+        EDIT_PROMPT_MODEL,
         _build_edit_system_role(),
     )
+
+
+def _upload_image_file_to_openai(image_path: str):
+    """로컬 원본 이미지를 OpenAI Files API에 업로드하고 file_id를 반환"""
+    with open(image_path, "rb") as image_file:
+        uploaded_file = client.files.create(
+            file=image_file,
+            purpose="vision",
+        )
+
+    return uploaded_file.id
+
+
+def _request_gpt_image_edit(file_id: str, prompt: str, size: str):
+    """file_id 기반 GPT Image 편집 요청을 전송하고 base64 이미지를 반환"""
+    response = requests.post(
+        "https://api.openai.com/v1/images/edits",
+        headers={
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": EDIT_IMAGE_MODEL,
+            "images": [{"file_id": file_id}],
+            "prompt": prompt,
+            "size": size,
+            "n": 1,
+            "response_format": "b64_json",
+        },
+        timeout=180,
+    )
+    response.raise_for_status()
+
+    response_body = response.json()
+    image_base64 = response_body["data"][0]["b64_json"]
+    return image_base64
 
 
 def edit_image(
@@ -214,16 +256,18 @@ def edit_image(
     """
     image_path = resolve_saved_image_path(source_image_url)
     refined_prompt, file_summary = _build_edit_prompt(base_prompt, edit_prompt)
+    uploaded_file_id = _upload_image_file_to_openai(image_path)
 
-    with open(image_path, "rb") as image_file:
-        response = client.images.edit(
-            model=EDIT_IMAGE_MODEL,
-            image=image_file,
+    try:
+        image_base64 = _request_gpt_image_edit(
+            file_id=uploaded_file_id,
             prompt=refined_prompt,
             size=size,
-            n=1,
-            response_format="url",
         )
+    finally:
+        try:
+            client.files.delete(uploaded_file_id)
+        except Exception as exc:
+            print(f"[edit_image] Failed to delete uploaded source file: {exc}")
 
-    image_url = response.data[0].url
-    return _save_remote_image(image_url, file_summary, prefix="edit")
+    return _save_base64_image(image_base64, file_summary, prefix="edit")
