@@ -16,7 +16,12 @@ load_dotenv(dotenv_path)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 GEN_GPT_MODEL = os.getenv("IMAGE_GEN_GPT_MODEL", "gpt-4o")
 GEN_DALLE_MODEL = os.getenv("IMAGE_GEN_DALLE_MODEL", "dall-e-3")
-EDIT_IMAGE_MODEL = os.getenv("IMAGE_EDIT_MODEL", "gpt-image-1")
+EDIT_IMAGE_MODEL = (
+    os.getenv("IMAGE_EDIT_GPT_MODEL")
+    or os.getenv("IMAGE_EDIT_DALLE_MODEL")
+    or os.getenv("IMAGE_EDIT_MODEL")
+    or "gpt-image-1"
+)
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CREATE_IMAGE_DIR = os.path.join(BACKEND_DIR, "create_image")
@@ -202,7 +207,6 @@ def edit_image(
     base_prompt: str,
     edit_prompt: str,
     size: str = "1024x1024",
-    quality: str = "standard",
 ):
     """
     create_image 폴더에 저장된 원본 이미지를 다시 열어
@@ -217,7 +221,6 @@ def edit_image(
             image=image_file,
             prompt=refined_prompt,
             size=size,
-            quality=quality,
             n=1,
             response_format="url",
         )

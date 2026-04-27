@@ -12,6 +12,7 @@ import os
 import requests
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
+from openai import BadRequestError
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -41,7 +42,6 @@ class EditImageRequest(BaseModel):
     base_prompt: str
     edit_prompt: str
     size: str = "1024x1024"
-    quality: str = "standard"
 
 
 class ImageResponse(BaseModel):
@@ -85,10 +85,13 @@ async def edit_image_endpoint(body: EditImageRequest):
             base_prompt=body.base_prompt,
             edit_prompt=body.edit_prompt,
             size=body.size,
-            quality=body.quality,
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except BadRequestError as exc:
+        detail = getattr(exc, "body", {}) or {}
+        message = detail.get("error", {}).get("message", str(exc))
+        raise HTTPException(status_code=400, detail=message) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
