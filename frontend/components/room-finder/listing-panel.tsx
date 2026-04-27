@@ -23,6 +23,8 @@ interface ListingPanelProps {
   favoriteListings?: Listing[];
   isLoggedIn?: boolean;
   onWishClick?: (listing: Listing) => void;
+  sort?: "latest" | "price_asc" | "price_desc";
+  onSortChange?: (sort: "latest" | "price_asc" | "price_desc") => void;
 }
 
 type PanelTab = "list" | "ai" | "wish";
@@ -42,6 +44,8 @@ export function ListingPanel({
   favoriteListings = [],
   isLoggedIn = false,
   onWishClick,
+  sort = "latest",
+  onSortChange,
 }: ListingPanelProps) {
   const addRecent = useRecentStore((state) => state.addRecent);
 
@@ -177,6 +181,31 @@ export function ListingPanel({
             </button>
           )}
         </div>
+
+        {currentTab === "list" && onSortChange && (
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              onClick={() => onSortChange("latest")}
+              className={cn(
+                "text-xs tracking-tight transition-colors duration-200",
+                sort === "latest" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
+              )}
+            >
+              최신순
+            </button>
+            <button
+              onClick={() => onSortChange(sort === "price_asc" ? "price_desc" : "price_asc")}
+              className={cn(
+                "text-xs tracking-tight transition-colors duration-200 flex items-center gap-0.5",
+                sort !== "latest" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
+              )}
+            >
+              가격순
+              {sort === "price_asc" && <span>↑</span>}
+              {sort === "price_desc" && <span>↓</span>}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
