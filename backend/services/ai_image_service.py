@@ -131,6 +131,23 @@ def _build_edit_system_role():
     """
 
 
+def _normalize_image_size(size: str):
+    """GPT Image에서 지원하는 크기로 정규화"""
+    supported_sizes = {"1024x1024", "1536x1024", "1024x1536", "auto"}
+    size_aliases = {
+        "1792x1024": "1536x1024",
+        "1024x1792": "1024x1536",
+    }
+
+    normalized_size = size_aliases.get(size, size)
+    return normalized_size if normalized_size in supported_sizes else "1024x1024"
+
+
+def _normalize_image_quality(quality: str):
+    """이미지 생성 품질은 항상 medium으로 고정"""
+    return "medium"
+
+
 def _generate_single(user_prompt: str, size: str, quality: str, index: int):
     """이미지 1장 생성 (병렬 호출용)"""
     try:
@@ -139,15 +156,16 @@ def _generate_single(user_prompt: str, size: str, quality: str, index: int):
             GEN_PROMPT_MODEL,
             _build_generate_system_role(),
         )
+        normalized_size = _normalize_image_size(size)
+        normalized_quality = _normalize_image_quality(quality)
 
         print(f"[generate_image] Generating image {index + 1} for: {file_summary}")
         response = client.images.generate(
             model=GEN_IMAGE_MODEL,
             prompt=refined_prompt,
-            size=size,
-            quality=quality,
+            size=normalized_size,
+            quality=normalized_quality,
             n=1,
-            response_format="b64_json",
         )
 
         image_base64 = response.data[0].b64_json
@@ -160,7 +178,7 @@ def _generate_single(user_prompt: str, size: str, quality: str, index: int):
 def generate_image(
     user_prompt: str,
     size: str = "1792x1024",
-    quality: str = "standard",
+    quality: str = "medium",
     n: int = 4,
 ):
     image_count = max(1, n)
@@ -221,6 +239,7 @@ def _upload_image_file_to_openai(image_path: str):
 
 def _request_gpt_image_edit(file_id: str, prompt: str, size: str):
     """file_id 기반 GPT Image 편집 요청을 전송하고 base64 이미지를 반환"""
+    normalized_size = _normalize_image_size(size)
     response = requests.post(
         "https://api.openai.com/v1/images/edits",
         headers={
@@ -231,9 +250,8 @@ def _request_gpt_image_edit(file_id: str, prompt: str, size: str):
             "model": EDIT_IMAGE_MODEL,
             "images": [{"file_id": file_id}],
             "prompt": prompt,
-            "size": size,
+            "size": normalized_size,
             "n": 1,
-            "response_format": "b64_json",
         },
         timeout=180,
     )
@@ -244,11 +262,27 @@ def _request_gpt_image_edit(file_id: str, prompt: str, size: str):
     return image_base64
 
 
+def _edit_single(file_id: str, prompt: str, size: str, file_summary: str, index: int):
+    """이미지 1장 수정 (병렬 호출용)"""
+    try:
+        print(f"[edit_image] Editing image {index + 1} for: {file_summary}")
+        image_base64 = _request_gpt_image_edit(
+            file_id=file_id,
+            prompt=prompt,
+            size=size,
+        )
+        return _save_base64_image(image_base64, file_summary, prefix="edit")
+    except Exception as exc:
+        print(f"[edit_image] Error on image {index + 1}: {exc}")
+        return None
+
+
 def edit_image(
     source_image_url: str,
     base_prompt: str,
     edit_prompt: str,
     size: str = "1024x1024",
+    n: int = 4,
 ):
     """
     create_image 폴더에 저장된 원본 이미지를 다시 열어
@@ -257,17 +291,28 @@ def edit_image(
     image_path = resolve_saved_image_path(source_image_url)
     refined_prompt, file_summary = _build_edit_prompt(base_prompt, edit_prompt)
     uploaded_file_id = _upload_image_file_to_openai(image_path)
+    image_count = max(1, n)
+    max_workers = min(image_count, 4)
 
     try:
-        image_base64 = _request_gpt_image_edit(
-            file_id=uploaded_file_id,
-            prompt=refined_prompt,
-            size=size,
-        )
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(
+                    _edit_single,
+                    uploaded_file_id,
+                    refined_prompt,
+                    size,
+                    file_summary,
+                    index,
+                )
+                for index in range(image_count)
+            ]
+            file_paths = [future.result() for future in futures]
     finally:
         try:
             client.files.delete(uploaded_file_id)
         except Exception as exc:
             print(f"[edit_image] Failed to delete uploaded source file: {exc}")
 
-    return _save_base64_image(image_base64, file_summary, prefix="edit")
+    file_paths = [file_path for file_path in file_paths if file_path is not None]
+    return file_paths if file_paths else None

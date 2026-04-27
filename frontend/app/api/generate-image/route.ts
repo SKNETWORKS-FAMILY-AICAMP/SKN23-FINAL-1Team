@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           user_prompt: trimmedPrompt,
           size: "1024x1024",
-          quality: "standard",
+          quality: "medium",
           n: 4,
         }),
       },
