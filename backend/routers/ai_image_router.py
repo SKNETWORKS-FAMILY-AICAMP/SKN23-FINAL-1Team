@@ -33,7 +33,7 @@ CREATE_IMAGE_DIR = os.path.join(BACKEND_DIR, "create_image")
 class GenerateImageRequest(BaseModel):
     user_prompt: str
     size: str = "1024x1024"
-    quality: str = "standard"
+    quality: str = "medium"
     n: int = 4
 
 
