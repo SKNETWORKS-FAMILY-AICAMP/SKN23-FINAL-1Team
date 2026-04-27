@@ -262,11 +262,27 @@ def _request_gpt_image_edit(file_id: str, prompt: str, size: str):
     return image_base64
 
 
+def _edit_single(file_id: str, prompt: str, size: str, file_summary: str, index: int):
+    """이미지 1장 수정 (병렬 호출용)"""
+    try:
+        print(f"[edit_image] Editing image {index + 1} for: {file_summary}")
+        image_base64 = _request_gpt_image_edit(
+            file_id=file_id,
+            prompt=prompt,
+            size=size,
+        )
+        return _save_base64_image(image_base64, file_summary, prefix="edit")
+    except Exception as exc:
+        print(f"[edit_image] Error on image {index + 1}: {exc}")
+        return None
+
+
 def edit_image(
     source_image_url: str,
     base_prompt: str,
     edit_prompt: str,
     size: str = "1024x1024",
+    n: int = 4,
 ):
     """
     create_image 폴더에 저장된 원본 이미지를 다시 열어
@@ -275,17 +291,28 @@ def edit_image(
     image_path = resolve_saved_image_path(source_image_url)
     refined_prompt, file_summary = _build_edit_prompt(base_prompt, edit_prompt)
     uploaded_file_id = _upload_image_file_to_openai(image_path)
+    image_count = max(1, n)
+    max_workers = min(image_count, 4)
 
     try:
-        image_base64 = _request_gpt_image_edit(
-            file_id=uploaded_file_id,
-            prompt=refined_prompt,
-            size=size,
-        )
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(
+                    _edit_single,
+                    uploaded_file_id,
+                    refined_prompt,
+                    size,
+                    file_summary,
+                    index,
+                )
+                for index in range(image_count)
+            ]
+            file_paths = [future.result() for future in futures]
     finally:
         try:
             client.files.delete(uploaded_file_id)
         except Exception as exc:
             print(f"[edit_image] Failed to delete uploaded source file: {exc}")
 
-    return _save_base64_image(image_base64, file_summary, prefix="edit")
+    file_paths = [file_path for file_path in file_paths if file_path is not None]
+    return file_paths if file_paths else None
