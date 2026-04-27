@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Listing } from "@/components/room-finder/map-view";
 import { ListingCard } from "@/components/common/ListingCards";
 import { AIRecommendation } from "@/components/room-finder/ai-recommendation";
-import { Sparkles, House, Heart } from "lucide-react";
+import { Sparkles, House, Heart, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRecentStore } from "@/store/recentStore";
 
@@ -119,7 +119,7 @@ export function ListingPanel({
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white md:bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">
-      <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-4 pt-6 backdrop-blur-md shrink-0">
+      <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-2 pt-4 backdrop-blur-md shrink-0">
         <div className="mb-4">
           {/* <div className="mt-1 text-xl font-bold tracking-tight text-stone-900">
             {headerTitle}
@@ -183,7 +183,7 @@ export function ListingPanel({
         </div>
 
         {currentTab === "list" && onSortChange && (
-          <div className="flex items-center justify-end gap-3 pt-2">
+          <div className="flex items-center justify-end gap-3 pt-2 -mr-0">
             <button
               onClick={() => onSortChange("latest")}
               className={cn(
@@ -191,7 +191,7 @@ export function ListingPanel({
                 sort === "latest" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
               )}
             >
-              최신순
+              등록순
             </button>
             <button
               onClick={() => onSortChange(sort === "price_asc" ? "price_desc" : "price_asc")}
@@ -203,6 +203,12 @@ export function ListingPanel({
               가격순
               {sort === "price_asc" && <span>↑</span>}
               {sort === "price_desc" && <span>↓</span>}
+            </button>
+            <button
+              onClick={() => onSortChange("latest")}
+              className="text-stone-400 hover:text-stone-600 transition-colors duration-200"
+            >
+              <RotateCcw className="h-3 w-3" />
             </button>
           </div>
         )}
