@@ -219,7 +219,6 @@ def edit_image(
             size=size,
             quality=quality,
             n=1,
-            input_fidelity="high",
             response_format="url",
         )
 
