@@ -92,6 +92,18 @@ async def edit_image_endpoint(body: EditImageRequest):
         detail = getattr(exc, "body", {}) or {}
         message = detail.get("error", {}).get("message", str(exc))
         raise HTTPException(status_code=400, detail=message) from exc
+    except requests.HTTPError as exc:
+        response = exc.response
+        detail = {}
+        if response is not None:
+            try:
+                detail = response.json()
+            except ValueError:
+                detail = {}
+
+        message = detail.get("error", {}).get("message", str(exc))
+        status_code = response.status_code if response is not None else 500
+        raise HTTPException(status_code=status_code, detail=message) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
