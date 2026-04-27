@@ -122,7 +122,7 @@ export function ListingPanel({
       <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-2 pt-0 backdrop-blur-md shrink-0">
         <div
           className={cn(
-            "rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
+            "rounded-2xl border mt-4 border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
             isLoggedIn ? "grid grid-cols-3" : "grid grid-cols-2",
           )}
         >
