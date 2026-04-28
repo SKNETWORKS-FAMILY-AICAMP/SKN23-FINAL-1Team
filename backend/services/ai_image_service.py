@@ -18,9 +18,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 client = OpenAI(api_key=OPENAI_API_KEY)
 GEN_PROMPT_MODEL = os.getenv("IMAGE_GEN_GPT_MODEL", "gpt-4o")
 GEN_IMAGE_MODEL = (
-    os.getenv("IMAGE_GEN_DALLE_MODEL")
-    or os.getenv("IMAGE_GEN_IMAGE_MODEL")
-    or "dall-e-3"
+    os.getenv("IMAGE_GEN_IMAGE_MODEL")
+    or "gpt-image-1"
 )
 EDIT_PROMPT_MODEL = os.getenv("IMAGE_EDIT_GPT_MODEL") or GEN_PROMPT_MODEL
 EDIT_IMAGE_MODEL = os.getenv("IMAGE_EDIT_IMAGE_MODEL") or "gpt-image-1"
@@ -104,7 +103,7 @@ def _build_generate_system_role():
     return """
         You are a Korean real estate photographer.
 
-        Create a DALL-E prompt for a realistic Korean studio apartment (one-room).
+        Create an image generation prompt for a realistic Korean studio apartment (one-room).
         Return a JSON object with two keys:
         - "prompt": the detailed image generation prompt in English
         - "summary": a short English filename summary (snake_case, max 30 chars)
@@ -172,8 +171,8 @@ def _normalize_image_size(size: str):
 
 
 def _normalize_image_quality(quality: str):
-    """이미지 생성 품질은 항상 medium으로 고정"""
-    return "medium"
+    """이미지 생성 품질은 항상 low으로 고정"""
+    return "low"
 
 
 def _normalize_generate_image_size(size: str):
@@ -196,7 +195,10 @@ def _generate_single(user_prompt: str, size: str, quality: str, index: int):
             _build_generate_system_role(),
         )
 
-        print(f"[generate_image] Generating image {index + 1} for: {file_summary}")
+        print(
+            f"[generate_image] Generating image {index + 1} "
+            f"with {GEN_IMAGE_MODEL} for: {file_summary}"
+        )
 
         if GEN_IMAGE_MODEL.startswith("gpt-image"):
             response = client.images.generate(
@@ -235,13 +237,12 @@ def _generate_single(user_prompt: str, size: str, quality: str, index: int):
 def generate_image(
     user_prompt: str,
     size: str = "1792x1024",
-    quality: str = "medium",
+    quality: str = "low",
     n: int = 4,
 ):
     image_count = max(1, n)
     max_workers = min(image_count, 4)
 
-    # ?? 4??? ?? ??
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
             executor.submit(_generate_single, user_prompt, size, quality, index)
