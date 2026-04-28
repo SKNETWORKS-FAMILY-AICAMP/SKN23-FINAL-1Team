@@ -109,7 +109,7 @@ export function AIRecommendation({
     nextEditCount: number,
   ) => {
     console.log("[AIRecommendation] edit prompt:", editRequest);
-    const response = await fetch("/api/edit-image", {
+    const startResponse = await fetch("/api/edit-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -120,21 +120,57 @@ export function AIRecommendation({
       }),
     });
 
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => null);
+    if (!startResponse.ok) {
+      const errorBody = await startResponse.json().catch(() => null);
       throw new Error(errorBody?.error ?? "이미지 수정에 실패했습니다.");
     }
 
-    const data = (await response.json()) as {
-      images?: GeneratedImageResponse[];
-      remain?: number;
-      credit?: number;
+    const startData = (await startResponse.json()) as {
+      jobId?: string;
+      status?: string;
     };
-    return {
-      images: buildSessionImages(data.images ?? [], nextPromptHistory, nextEditCount),
-      remain: data.remain,
-      credit: data.credit,
-    };
+
+    if (!startData.jobId) {
+      throw new Error("이미지 수정 작업을 시작하지 못했습니다.");
+    }
+
+    for (let attempt = 0; attempt < 45; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const statusResponse = await fetch(
+        `/api/edit-image?jobId=${encodeURIComponent(startData.jobId)}`,
+      );
+
+      const data = (await statusResponse.json().catch(() => null)) as {
+        status?: string;
+        error?: string;
+        images?: GeneratedImageResponse[];
+        remain?: number;
+        credit?: number;
+      } | null;
+
+      if (!statusResponse.ok) {
+        throw new Error(data?.error ?? "이미지 수정 상태 조회에 실패했습니다.");
+      }
+
+      if (data?.status === "completed") {
+        return {
+          images: buildSessionImages(
+            data.images ?? [],
+            nextPromptHistory,
+            nextEditCount,
+          ),
+          remain: data.remain,
+          credit: data.credit,
+        };
+      }
+
+      if (data?.status === "failed") {
+        throw new Error(data.error ?? "이미지 수정에 실패했습니다.");
+      }
+    }
+
+    throw new Error("이미지 수정 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
   };
 
   const handleGenerate = async (overridePrompt?: string) => {
@@ -178,7 +214,7 @@ export function AIRecommendation({
     }
 
     setIsEditing(true);
-    setMessage("");
+    setMessage("이미지를 수정하는 중입니다. 잠시만 기다려주세요.");
 
     try {
       const nextPromptHistory = [...selectedImage.promptHistory, trimmedEditPrompt];

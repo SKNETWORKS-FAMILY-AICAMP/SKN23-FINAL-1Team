@@ -124,7 +124,9 @@ def _build_edit_system_role():
 
         Follow these rules:
         - Use the provided original intent as context.
-        - Apply only the new edit request.
+        - The new edit request must be visibly applied in the final image.
+        - If the original image conflicts with the new edit request, prioritize the new edit request.
+        - Apply only the requested change and keep everything else as consistent as possible.
         - Keep the overall room layout, camera angle, and untouched details as consistent as possible.
         - Do not redesign the whole room unless the edit request explicitly asks for it.
         - Keep the result realistic like a real estate listing photo.
@@ -216,13 +218,29 @@ def _build_edit_prompt(base_prompt: str, edit_prompt: str):
     """기존 생성 프롬프트와 수정 지시를 합쳐 편집용 프롬프트를 구성"""
     combined_prompt = (
         f"Original intent:\n{base_prompt.strip()}\n\n"
-        f"Edit request:\n{edit_prompt.strip()}"
+        f"Edit request:\n{edit_prompt.strip()}\n\n"
+        "Important:\n"
+        "- The requested change must be clearly visible in the edited image.\n"
+        "- Preserve the room as much as possible, but do not ignore the edit request.\n"
+        "- If the request asks to move, swap, add, remove, enlarge, or replace something, that change must be explicit."
     )
 
     return _refine_prompt(
         combined_prompt,
         EDIT_PROMPT_MODEL,
         _build_edit_system_role(),
+    )
+
+
+def _build_edit_batch_prompt(refined_prompt: str, image_count: int):
+    """한 번의 수정 요청으로 여러 결과를 생성하기 위한 변주 지시를 추가"""
+    return (
+        f"{refined_prompt}\n\n"
+        "Output requirement:\n"
+        f"- Generate {image_count} edited variations.\n"
+        "- Every variation must clearly apply the requested edit.\n"
+        "- Keep the overall room and camera angle close to the original image.\n"
+        "- Vary lighting, crop, textures, and small surrounding details across the variations so the outputs are not identical."
     )
 
 
@@ -237,8 +255,8 @@ def _upload_image_file_to_openai(image_path: str):
     return uploaded_file.id
 
 
-def _request_gpt_image_edit(file_id: str, prompt: str, size: str):
-    """file_id 기반 GPT Image 편집 요청을 전송하고 base64 이미지를 반환"""
+def _request_gpt_image_edit(file_id: str, prompt: str, size: str, n: int):
+    """file_id 기반 GPT Image 편집 요청을 전송하고 base64 이미지 목록을 반환"""
     normalized_size = _normalize_image_size(size)
     response = requests.post(
         "https://api.openai.com/v1/images/edits",
@@ -251,30 +269,14 @@ def _request_gpt_image_edit(file_id: str, prompt: str, size: str):
             "images": [{"file_id": file_id}],
             "prompt": prompt,
             "size": normalized_size,
-            "n": 1,
+            "n": n,
         },
         timeout=180,
     )
     response.raise_for_status()
 
     response_body = response.json()
-    image_base64 = response_body["data"][0]["b64_json"]
-    return image_base64
-
-
-def _edit_single(file_id: str, prompt: str, size: str, file_summary: str, index: int):
-    """이미지 1장 수정 (병렬 호출용)"""
-    try:
-        print(f"[edit_image] Editing image {index + 1} for: {file_summary}")
-        image_base64 = _request_gpt_image_edit(
-            file_id=file_id,
-            prompt=prompt,
-            size=size,
-        )
-        return _save_base64_image(image_base64, file_summary, prefix="edit")
-    except Exception as exc:
-        print(f"[edit_image] Error on image {index + 1}: {exc}")
-        return None
+    return [item["b64_json"] for item in response_body["data"] if item.get("b64_json")]
 
 
 def edit_image(
@@ -292,27 +294,24 @@ def edit_image(
     refined_prompt, file_summary = _build_edit_prompt(base_prompt, edit_prompt)
     uploaded_file_id = _upload_image_file_to_openai(image_path)
     image_count = max(1, n)
-    max_workers = min(image_count, 4)
+    batch_prompt = _build_edit_batch_prompt(refined_prompt, image_count)
 
     try:
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [
-                executor.submit(
-                    _edit_single,
-                    uploaded_file_id,
-                    refined_prompt,
-                    size,
-                    file_summary,
-                    index,
-                )
-                for index in range(image_count)
-            ]
-            file_paths = [future.result() for future in futures]
+        print(f"[edit_image] Editing {image_count} images for: {file_summary}")
+        image_base64_list = _request_gpt_image_edit(
+            file_id=uploaded_file_id,
+            prompt=batch_prompt,
+            size=size,
+            n=image_count,
+        )
     finally:
         try:
             client.files.delete(uploaded_file_id)
         except Exception as exc:
             print(f"[edit_image] Failed to delete uploaded source file: {exc}")
 
-    file_paths = [file_path for file_path in file_paths if file_path is not None]
+    file_paths = [
+        _save_base64_image(image_base64, file_summary, prefix="edit")
+        for image_base64 in image_base64_list
+    ]
     return file_paths if file_paths else None

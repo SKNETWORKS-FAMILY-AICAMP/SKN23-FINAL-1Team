@@ -94,6 +94,17 @@ export function ListingCard({
                 className="object-cover transition-transform duration-500 group-hover:scale-105"
                 sizes="72px"
               />
+              <div
+                className="absolute right-3 top-3 z-10"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <FavoriteButton
+                  isFavorite={!!isFavorite}
+                  disabled={!!isFavoriteLoading}
+                  onClick={() => onToggleFavorite?.()}
+                />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-black/0 to-transparent pointer-events-none" />
             </>
           ) : (
             <div className="flex h-full items-center justify-center text-xs text-stone-400">
