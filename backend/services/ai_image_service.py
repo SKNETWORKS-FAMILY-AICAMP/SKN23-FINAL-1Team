@@ -124,7 +124,9 @@ def _build_edit_system_role():
 
         Follow these rules:
         - Use the provided original intent as context.
-        - Apply only the new edit request.
+        - The new edit request must be visibly applied in the final image.
+        - If the original image conflicts with the new edit request, prioritize the new edit request.
+        - Apply only the requested change and keep everything else as consistent as possible.
         - Keep the overall room layout, camera angle, and untouched details as consistent as possible.
         - Do not redesign the whole room unless the edit request explicitly asks for it.
         - Keep the result realistic like a real estate listing photo.
@@ -216,13 +218,35 @@ def _build_edit_prompt(base_prompt: str, edit_prompt: str):
     """기존 생성 프롬프트와 수정 지시를 합쳐 편집용 프롬프트를 구성"""
     combined_prompt = (
         f"Original intent:\n{base_prompt.strip()}\n\n"
-        f"Edit request:\n{edit_prompt.strip()}"
+        f"Edit request:\n{edit_prompt.strip()}\n\n"
+        "Important:\n"
+        "- The requested change must be clearly visible in the edited image.\n"
+        "- Preserve the room as much as possible, but do not ignore the edit request.\n"
+        "- If the request asks to move, swap, add, remove, enlarge, or replace something, that change must be explicit."
     )
 
     return _refine_prompt(
         combined_prompt,
         EDIT_PROMPT_MODEL,
         _build_edit_system_role(),
+    )
+
+
+def _build_edit_variant_prompt(refined_prompt: str, index: int):
+    """같은 수정 요청에서도 4장의 결과가 겹치지 않도록 변주 지시를 추가"""
+    variation_instructions = [
+        "Variation 1: keep the composition most similar to the original image.",
+        "Variation 2: keep the requested edit, but slightly vary lighting and small decor details.",
+        "Variation 3: keep the requested edit, but slightly vary camera crop and furniture styling.",
+        "Variation 4: keep the requested edit, but slightly vary tone, textures, and surrounding object arrangement.",
+    ]
+
+    instruction = variation_instructions[index % len(variation_instructions)]
+    return (
+        f"{refined_prompt}\n\n"
+        "Additional variation instruction:\n"
+        f"- {instruction}\n"
+        "- The requested edit must still be obvious and correctly applied."
     )
 
 
@@ -266,9 +290,10 @@ def _edit_single(file_id: str, prompt: str, size: str, file_summary: str, index:
     """이미지 1장 수정 (병렬 호출용)"""
     try:
         print(f"[edit_image] Editing image {index + 1} for: {file_summary}")
+        variant_prompt = _build_edit_variant_prompt(prompt, index)
         image_base64 = _request_gpt_image_edit(
             file_id=file_id,
-            prompt=prompt,
+            prompt=variant_prompt,
             size=size,
         )
         return _save_base64_image(image_base64, file_summary, prefix="edit")
