@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import Logo from "@/assets/Logo.png";
 import { useOnboardingStore } from "@/store/onboardingStore";
 
@@ -22,7 +23,40 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const updateUser = useAuthStore((state) => state.updateUser);
   const openGuide = useOnboardingStore((state) => state.openGuide);
+  const [isChargingCredit, setIsChargingCredit] = useState(false);
+
+  const handleIncrementCredit = async () => {
+    if (!user?.user_id || isChargingCredit) return;
+
+    setIsChargingCredit(true);
+
+    try {
+      const response = await fetch("/api/user-credit/increment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: user.user_id }),
+      });
+
+      const data = (await response.json().catch(() => null)) as
+        | { credit?: number; remain?: number; error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "credit 충전에 실패했습니다.");
+      }
+
+      updateUser({
+        credit: data?.credit ?? user.credit,
+        remain: data?.remain ?? user.remain,
+      });
+    } catch (error) {
+      console.error("[header] credit increment failed:", error);
+    } finally {
+      setIsChargingCredit(false);
+    }
+  };
 
   return (
     <header className="border-b border-stone-200/80 bg-white/70 backdrop-blur-xl">
@@ -80,6 +114,16 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
 
         {isLoggedIn && user ? (
           <div className="flex w-auto shrink-0 items-center justify-end gap-1.5 px-3 sm:gap-2 md:px-6">
+            <button
+              onClick={handleIncrementCredit}
+              disabled={isChargingCredit}
+              className="rounded-md border border-stone-300 px-2 py-1 text-[11px] font-semibold tracking-tight text-stone-700 transition-colors hover:border-stone-500 hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              credit+
+            </button>
+            <div className="rounded-md bg-stone-100 px-2 py-1 text-[11px] font-semibold tracking-tight text-stone-700">
+              {user.credit ?? 0}
+            </div>
             <span className="text-[12px] font-semibold tracking-tight text-stone-800 sm:text-sm">{user.nickname}</span>
             <div className="h-4 w-px bg-stone-200 sm:h-5" />
             <button
