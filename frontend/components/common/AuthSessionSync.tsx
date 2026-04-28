@@ -45,7 +45,7 @@ export default function AuthSessionSync() {
         if (!response.ok || ignore || !data) return;
 
         setUser({
-          user_id,
+          user_id: userId,
           email: session?.user?.email,
           nickname: (session?.user as any).nickname,
           social_type: (session?.user as any).social_type,
