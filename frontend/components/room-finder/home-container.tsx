@@ -176,7 +176,7 @@ export function HomeContainer() {
     pendingListingRef.current = pendingListing;
     isPendingOpenRef.current = true;
     setIsDetailOpen(true);
-    setIsPanelOpen(false);
+    setIsPanelOpen(true);
     setIsInitialLoading(false);
     setIsLocationReady(true);
     recordRecentListing(pendingListing);
@@ -652,60 +652,87 @@ export function HomeContainer() {
           />
         </section>
 
-        <ListingDetailPanel
-          listing={selectedListing}
-          isOpen={isDetailOpen}
-          onClose={() => { setSelectedListing(null); setIsDetailOpen(false); isPendingOpenRef.current = false; setIsInitialLoading(false); setIsLocationReady(true);}}
-          listPanelOpen={isPanelOpen}
-          favoriteIds={favoriteIds}
-          favoriteLoadingIds={favoriteLoadingIds}
-          onToggleFavorite={handleToggleFavorite}
-        />
-
-        <aside
-          className={`absolute top-0 right-0 z-20 h-full overflow-hidden border-l border-border-warm bg-ivory/95 shadow-xl backdrop-blur-sm transition-transform duration-500 ease-in-out ${
-            isPanelOpen
-              ? "translate-x-0 w-[400px] xl:w-[450px]"
-              : "translate-x-[calc(100%-56px)] w-[400px] xl:w-[450px]"
-          }`}
-        >
+        {/* 패널 닫힌 상태: 지도 위 › 버튼 */}
+        {!isPanelOpen && (
           <button
             type="button"
-            onClick={() => setIsPanelOpen((prev) => !prev)}
-            className="absolute top-1/2 left-0 z-30 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-border-warm bg-white shadow-lg transition-colors hover:bg-orange-300"
-            aria-label={isPanelOpen ? "매물 패널 닫기" : "매물 패널 열기"}
+            onClick={() => setIsPanelOpen(true)}
+            className="absolute right-4 top-1/2 z-30 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-white shadow-md transition-all duration-200 hover:bg-stone-50 hover:shadow-lg cursor-pointer"
+            aria-label="매물 패널 열기"
           >
-            <span className="text-xl leading-none">
-              {isPanelOpen ? "›" : "‹"}
-            </span>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M5 2.5L9.5 7L5 11.5" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        )}
+
+        {/* 목록 패널 */}
+        <aside
+          className={`absolute top-0 right-0 z-20 h-full border-l border-border-warm bg-ivory/95 shadow-xl backdrop-blur-sm transition-transform duration-500 ease-in-out w-[400px] xl:w-[450px] ${
+            isPanelOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          {/* 경계선 ‹ 버튼 */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsPanelOpen(false);
+              setIsDetailOpen(false);
+              setSelectedListing(null);
+              isPendingOpenRef.current = false;
+            }}
+            className="absolute top-1/2 left-0 z-30 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-white shadow-md transition-all duration-200 hover:bg-stone-50 hover:shadow-lg cursor-pointer"
+            aria-label="매물 패널 닫기"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M9 2.5L4.5 7L9 11.5" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </button>
 
+          <ListingPanel
+            listings={panelListings}
+            selectedListing={selectedListing}
+            isLoading={isLoading}
+            hasMore={recommendedListings ? false : hasMore}
+            scrollResetKey={listScrollResetKey}
+            onLoadMore={loadMore}
+            onListingClick={handleListingClick}
+            favoriteIds={favoriteIds}
+            favoriteLoadingIds={favoriteLoadingIds}
+            onToggleFavorite={handleToggleFavorite}
+            onSimilarListingsFound={(similar) => {
+              setRecommendedListings(similar);
+              setSelectedListing(similar[0] ?? null);
+              setIsDetailOpen(false);
+            }}
+            favoriteListings={favoriteListings}
+            isLoggedIn={isLoggedIn}
+            onWishClick={handleWishClick}
+            sort={sort}
+            onSortChange={setSort}
+          />
+
+          {/* 상세 패널 — 목록 위에 슬라이드로 덮음 */}
           <div
-            className={`h-full transition-opacity duration-500 ${
-              isPanelOpen ? "opacity-100" : "pointer-events-none opacity-0"
+            className={`absolute inset-0 z-10 transition-transform duration-300 ease-in-out ${
+              isDetailOpen ? "translate-x-0" : "translate-x-full"
             }`}
           >
-            <ListingPanel
-              listings={panelListings}
-              selectedListing={selectedListing}
-              isLoading={isLoading}
-              hasMore={recommendedListings ? false : hasMore}
-              scrollResetKey={listScrollResetKey}
-              onLoadMore={loadMore}
-              onListingClick={handleListingClick}
+            <ListingDetailPanel
+              listing={selectedListing}
+              isOpen={isDetailOpen}
+              onClose={() => {
+                // X 버튼 → 목록으로 복귀 (① 상태)
+                setIsDetailOpen(false);
+                setSelectedListing(null);
+                isPendingOpenRef.current = false;
+                setIsInitialLoading(false);
+                setIsLocationReady(true);
+              }}
+              listPanelOpen={isPanelOpen}
               favoriteIds={favoriteIds}
               favoriteLoadingIds={favoriteLoadingIds}
               onToggleFavorite={handleToggleFavorite}
-              onSimilarListingsFound={(similar) => {
-                setRecommendedListings(similar);
-                setSelectedListing(similar[0] ?? null);
-                setIsDetailOpen(false);
-              }}
-              favoriteListings={favoriteListings}
-              isLoggedIn={isLoggedIn}
-              onWishClick={handleWishClick}
-              sort={sort}
-              onSortChange={setSort}
             />
           </div>
         </aside>
