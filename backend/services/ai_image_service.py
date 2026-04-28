@@ -74,6 +74,20 @@ def _save_image_bytes(image_data: bytes, file_summary: str, prefix: str = ""):
     return file_path
 
 
+def _save_openai_image_result(image_result, file_summary: str, prefix: str = ""):
+    """OpenAI 이미지 응답이 b64_json 또는 url 중 어느 형태여도 저장"""
+    image_base64 = getattr(image_result, "b64_json", None)
+    image_url = getattr(image_result, "url", None)
+
+    if image_base64:
+        return _save_base64_image(image_base64, file_summary, prefix=prefix)
+
+    if image_url:
+        return _save_remote_image(image_url, file_summary, prefix=prefix)
+
+    raise ValueError("OpenAI image response did not include b64_json or url.")
+
+
 def _build_generate_system_role():
     return """
         You are a Korean real estate photographer.
@@ -170,8 +184,7 @@ def _generate_single(user_prompt: str, size: str, quality: str, index: int):
             n=1,
         )
 
-        image_base64 = response.data[0].b64_json
-        return _save_base64_image(image_base64, file_summary)
+        return _save_openai_image_result(response.data[0], file_summary)
     except Exception as exc:
         print(f"[generate_image] Error on image {index + 1}: {exc}")
         return None
@@ -256,7 +269,7 @@ def _upload_image_file_to_openai(image_path: str):
 
 
 def _request_gpt_image_edit(file_id: str, prompt: str, size: str, n: int):
-    """file_id 기반 GPT Image 편집 요청을 전송하고 base64 이미지 목록을 반환"""
+    """file_id 기반 GPT Image 편집 요청을 전송하고 저장 가능한 결과 목록을 반환"""
     normalized_size = _normalize_image_size(size)
     response = requests.post(
         "https://api.openai.com/v1/images/edits",
@@ -276,7 +289,7 @@ def _request_gpt_image_edit(file_id: str, prompt: str, size: str, n: int):
     response.raise_for_status()
 
     response_body = response.json()
-    return [item["b64_json"] for item in response_body["data"] if item.get("b64_json")]
+    return response_body["data"]
 
 
 def edit_image(
@@ -298,7 +311,7 @@ def edit_image(
 
     try:
         print(f"[edit_image] Editing {image_count} images for: {file_summary}")
-        image_base64_list = _request_gpt_image_edit(
+        image_results = _request_gpt_image_edit(
             file_id=uploaded_file_id,
             prompt=batch_prompt,
             size=size,
@@ -311,7 +324,10 @@ def edit_image(
             print(f"[edit_image] Failed to delete uploaded source file: {exc}")
 
     file_paths = [
-        _save_base64_image(image_base64, file_summary, prefix="edit")
-        for image_base64 in image_base64_list
+        _save_base64_image(image_result["b64_json"], file_summary, prefix="edit")
+        if image_result.get("b64_json")
+        else _save_remote_image(image_result["url"], file_summary, prefix="edit")
+        for image_result in image_results
+        if image_result.get("b64_json") or image_result.get("url")
     ]
     return file_paths if file_paths else None

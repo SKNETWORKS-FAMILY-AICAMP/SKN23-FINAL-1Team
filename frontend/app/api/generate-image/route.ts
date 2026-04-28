@@ -51,7 +51,22 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("[generate-room-images] Python backend error:", errorText);
-      throw new Error(`Python backend error: ${response.status}`);
+
+      try {
+        const errorBody = JSON.parse(errorText) as {
+          detail?: string;
+          error?: string;
+        };
+        throw new Error(
+          errorBody.detail ??
+            errorBody.error ??
+            "이미지 생성에 실패했습니다. 다시 시도해주세요.",
+        );
+      } catch {
+        throw new Error(
+          errorText || "이미지 생성에 실패했습니다. 다시 시도해주세요.",
+        );
+      }
     }
 
     const data = await response.json();
