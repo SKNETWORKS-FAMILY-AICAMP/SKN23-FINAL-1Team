@@ -130,7 +130,7 @@ export function ListingPanel({
             type="button"
             onClick={() => setActiveTab("list")}
             className={cn(
-              "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
+              "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
               currentTab === "list"
                 ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                 : "text-stone-500 hover:text-stone-800",
@@ -144,7 +144,7 @@ export function ListingPanel({
             type="button"
             onClick={() => setActiveTab("ai")}
             className={cn(
-              "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
+              "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
               currentTab === "ai"
                 ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                 : "text-stone-500 hover:text-stone-800",
@@ -159,7 +159,7 @@ export function ListingPanel({
               type="button"
               onClick={() => setActiveTab("wish")}
               className={cn(
-                "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
+                "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
                 currentTab === "wish"
                   ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                   : "text-stone-500 hover:text-stone-800",
@@ -181,7 +181,7 @@ export function ListingPanel({
             <button
               onClick={() => onSortChange("latest")}
               className={cn(
-                "text-xs tracking-tight transition-colors duration-200",
+                "cursor-pointer text-xs tracking-tight transition-colors duration-200",
                 sort === "latest" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
               )}
             >
@@ -193,7 +193,7 @@ export function ListingPanel({
                 sort === "price_desc" ? "price_asc" : "latest"
               )}
               className={cn(
-                "text-xs tracking-tight transition-colors duration-200",
+                "cursor-pointer text-xs tracking-tight transition-colors duration-200",
                 sort !== "latest" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
               )}
             >
