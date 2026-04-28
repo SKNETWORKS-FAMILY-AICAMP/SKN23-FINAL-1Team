@@ -332,6 +332,7 @@ def _request_gpt_image_edit(file_id: str, prompt: str, size: str, n: int):
             "images": [{"file_id": file_id}],
             "prompt": prompt,
             "size": normalized_size,
+            "quality": _normalize_image_quality("low"),
             "n": n,
         },
         timeout=180,
