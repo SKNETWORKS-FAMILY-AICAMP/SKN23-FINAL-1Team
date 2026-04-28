@@ -57,14 +57,19 @@ export async function POST(request: NextRequest) {
           detail?: string;
           error?: string;
         };
-        throw new Error(
-          errorBody.detail ??
-            errorBody.error ??
-            "이미지 생성에 실패했습니다. 다시 시도해주세요.",
+        return NextResponse.json(
+          {
+            error:
+              errorBody.detail ??
+              errorBody.error ??
+              "이미지 생성에 실패했습니다. 다시 시도해주세요.",
+          },
+          { status: response.status },
         );
       } catch {
-        throw new Error(
-          errorText || "이미지 생성에 실패했습니다. 다시 시도해주세요.",
+        return NextResponse.json(
+          { error: errorText || "이미지 생성에 실패했습니다. 다시 시도해주세요." },
+          { status: response.status },
         );
       }
     }
@@ -83,7 +88,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[generate-room-images] Error:", error);
     return NextResponse.json(
-      { error: "이미지 생성에 실패했습니다. 다시 시도해주세요." },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "이미지 생성에 실패했습니다. 다시 시도해주세요.",
+      },
       { status: 500 },
     );
   }

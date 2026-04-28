@@ -17,7 +17,11 @@ load_dotenv(dotenv_path)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 client = OpenAI(api_key=OPENAI_API_KEY)
 GEN_PROMPT_MODEL = os.getenv("IMAGE_GEN_GPT_MODEL", "gpt-4o")
-GEN_IMAGE_MODEL = os.getenv("IMAGE_GEN_IMAGE_MODEL") or "gpt-image-1"
+GEN_IMAGE_MODEL = (
+    os.getenv("IMAGE_GEN_DALLE_MODEL")
+    or os.getenv("IMAGE_GEN_IMAGE_MODEL")
+    or "dall-e-3"
+)
 EDIT_PROMPT_MODEL = os.getenv("IMAGE_EDIT_GPT_MODEL") or GEN_PROMPT_MODEL
 EDIT_IMAGE_MODEL = os.getenv("IMAGE_EDIT_IMAGE_MODEL") or "gpt-image-1"
 
@@ -76,8 +80,12 @@ def _save_image_bytes(image_data: bytes, file_summary: str, prefix: str = ""):
 
 def _save_openai_image_result(image_result, file_summary: str, prefix: str = ""):
     """OpenAI 이미지 응답이 b64_json 또는 url 중 어느 형태여도 저장"""
-    image_base64 = getattr(image_result, "b64_json", None)
-    image_url = getattr(image_result, "url", None)
+    if isinstance(image_result, dict):
+        image_base64 = image_result.get("b64_json")
+        image_url = image_result.get("url")
+    else:
+        image_base64 = getattr(image_result, "b64_json", None)
+        image_url = getattr(image_result, "url", None)
 
     if image_base64:
         return _save_base64_image(image_base64, file_summary, prefix=prefix)
@@ -92,7 +100,7 @@ def _build_generate_system_role():
     return """
         You are a Korean real estate photographer.
 
-        Create a GPT Image prompt for a realistic Korean studio apartment (one-room).
+        Create a DALL-E prompt for a realistic Korean studio apartment (one-room).
         Return a JSON object with two keys:
         - "prompt": the detailed image generation prompt in English
         - "summary": a short English filename summary (snake_case, max 30 chars)
@@ -164,27 +172,48 @@ def _normalize_image_quality(quality: str):
     return "medium"
 
 
+def _normalize_generate_image_size(size: str):
+    """DALL-E 생성 경로에서 지원하는 크기로 정규화"""
+    supported_sizes = {"1024x1024", "1792x1024", "1024x1792"}
+    return size if size in supported_sizes else "1024x1024"
+
+
+def _normalize_generate_image_quality(quality: str):
+    """생성은 high를 쓰지 않고 standard만 사용"""
+    return "medium"
+
+
 def _generate_single(user_prompt: str, size: str, quality: str, index: int):
-    """이미지 1장 생성 (병렬 호출용)"""
+    """??? 1? ?? (?? ???)"""
     try:
         refined_prompt, file_summary = _refine_prompt(
             user_prompt,
             GEN_PROMPT_MODEL,
             _build_generate_system_role(),
         )
-        normalized_size = _normalize_image_size(size)
-        normalized_quality = _normalize_image_quality(quality)
 
         print(f"[generate_image] Generating image {index + 1} for: {file_summary}")
+
+        if GEN_IMAGE_MODEL.startswith("gpt-image"):
+            response = client.images.generate(
+                model=GEN_IMAGE_MODEL,
+                prompt=refined_prompt,
+                size=_normalize_image_size(size),
+                quality=_normalize_image_quality(quality),
+                n=1,
+            )
+            return _save_openai_image_result(response.data[0], file_summary)
+
         response = client.images.generate(
             model=GEN_IMAGE_MODEL,
             prompt=refined_prompt,
-            size=normalized_size,
-            quality=normalized_quality,
+            size=_normalize_generate_image_size(size),
+            quality="standard",
             n=1,
+            response_format="url",
         )
 
-        return _save_openai_image_result(response.data[0], file_summary)
+        return _save_remote_image(response.data[0].url, file_summary)
     except Exception as exc:
         print(f"[generate_image] Error on image {index + 1}: {exc}")
         return None
