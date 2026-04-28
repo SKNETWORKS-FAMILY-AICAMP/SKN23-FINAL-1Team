@@ -328,7 +328,7 @@ export function FilterBar({
     `w-[160px] md:w-full py-5 rounded-full border text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
 
   const popoverTriggerClass = (isSelected: boolean) =>
-    `w-[160px] md:w-full flex items-center justify-between rounded-full border px-4 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
+    `cursor-pointer w-[160px] md:w-full flex items-center justify-between rounded-full border px-4 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
 
   const popoverContentClass =
     "border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,246,241,0.96)_100%)] p-5 shadow-[0_18px_40px_rgba(15,23,42,0.12)]";
@@ -337,7 +337,7 @@ export function FilterBar({
     "border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,246,241,0.96)_100%)] p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] rounded-2xl";
 
   const selectItemClass =
-    "rounded-xl px-3 py-2.5 text-sm font-medium tracking-tight text-stone-700 outline-none transition-colors focus:bg-stone-100 focus:text-stone-900 data-[highlighted]:bg-stone-100 data-[highlighted]:text-stone-900";
+    "cursor-pointer rounded-xl px-3 py-2.5 text-sm font-medium tracking-tight text-stone-700 outline-none transition-colors focus:bg-stone-100 focus:text-stone-900 data-[highlighted]:bg-stone-100 data-[highlighted]:text-stone-900";
 
   return (
     <div className="border-b border-stone-200/80 bg-white/70 px-4 py-4 backdrop-blur-md md:px-6">
@@ -478,14 +478,14 @@ export function FilterBar({
                     setDepositDraft(0);
                     setMonthlyRentDraft(0);
                   }}
-                  className="rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
+                  className="cursor-pointer rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
                 >
                   초기화
                 </button>
                 <button
                   type="button"
                   onClick={() => setPriceOpen(false)}
-                  className="rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
+                  className="cursor-pointer rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
                 >
                   적용
                 </button>
@@ -526,7 +526,7 @@ export function FilterBar({
                         key={item.value}
                         type="button"
                         onClick={() => toggleStructure(item.value)}
-                        className={`rounded-full border px-5 py-3 text-sm font-medium transition-colors ${
+                        className={`cursor-pointer rounded-full border px-5 py-3 text-sm font-medium transition-colors ${
                           isSelected
                             ? "border-warm-brown bg-warm-brown text-white"
                             : "border-border-warm bg-white text-neutral-dark hover:bg-neutral-50"
@@ -549,7 +549,7 @@ export function FilterBar({
                   <button
                     type="button"
                     onClick={() => setStructureOpen(false)}
-                    className="rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
+                    className="cursor-pointer rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
                   >
                     적용
                   </button>
@@ -604,7 +604,7 @@ export function FilterBar({
                     });
                     setSizeDraft(nextSize);
                   }}
-                  className={`px-3 py-1.5 text-sm ${
+                  className={`cursor-pointer px-3 py-1.5 text-sm ${
                     filters.sizeUnit === "m2"
                       ? "bg-white text-neutral-dark"
                       : "bg-warm-brown text-white"
@@ -631,7 +631,7 @@ export function FilterBar({
                     });
                     setSizeDraft(nextSize);
                   }}
-                  className={`px-3 py-1.5 text-sm ${
+                  className={`cursor-pointer px-3 py-1.5 text-sm ${
                     filters.sizeUnit === "pyeong"
                       ? "bg-white text-neutral-dark"
                       : "bg-warm-brown text-white"
@@ -665,14 +665,14 @@ export function FilterBar({
                 <button
                   type="button"
                   onClick={() => setSizeDraft(0)}
-                  className="rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
+                  className="cursor-pointer rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
                 >
                   초기화
                 </button>
                 <button
                   type="button"
                   onClick={() => setSizeOpen(false)}
-                  className="rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
+                  className="cursor-pointer rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
                 >
                   적용
                 </button>
@@ -735,7 +735,7 @@ export function FilterBar({
                       key={item.value}
                       type="button"
                       onClick={() => toggleOption(item.value)}
-                      className={`rounded-full border px-5 py-3 text-sm font-medium transition-colors ${
+                      className={`cursor-pointer rounded-full border px-5 py-3 text-sm font-medium transition-colors ${
                         isSelected
                           ? "border-warm-brown bg-warm-brown text-white"
                           : "border-border-warm bg-white text-neutral-dark hover:bg-neutral-50"
@@ -758,7 +758,7 @@ export function FilterBar({
                 <button
                   type="button"
                   onClick={() => setOptionsOpen(false)}
-                  className="rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
+                  className="cursor-pointer rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
                 >
                   적용
                 </button>

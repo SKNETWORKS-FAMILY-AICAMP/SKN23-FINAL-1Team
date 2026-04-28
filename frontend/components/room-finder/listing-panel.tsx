@@ -119,7 +119,7 @@ export function ListingPanel({
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white md:bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">
-      <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-2 pt-0 backdrop-blur-md shrink-0">
+      <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-2 pt-3 backdrop-blur-md shrink-0">
         <div
           className={cn(
             "rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
@@ -130,7 +130,7 @@ export function ListingPanel({
             type="button"
             onClick={() => setActiveTab("list")}
             className={cn(
-              "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
+              "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
               currentTab === "list"
                 ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                 : "text-stone-500 hover:text-stone-800",
@@ -144,7 +144,7 @@ export function ListingPanel({
             type="button"
             onClick={() => setActiveTab("ai")}
             className={cn(
-              "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
+              "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
               currentTab === "ai"
                 ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                 : "text-stone-500 hover:text-stone-800",
@@ -159,7 +159,7 @@ export function ListingPanel({
               type="button"
               onClick={() => setActiveTab("wish")}
               className={cn(
-                "inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
+                "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
                 currentTab === "wish"
                   ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                   : "text-stone-500 hover:text-stone-800",
@@ -181,7 +181,7 @@ export function ListingPanel({
             <button
               onClick={() => onSortChange("latest")}
               className={cn(
-                "text-xs tracking-tight transition-colors duration-200",
+                "cursor-pointer text-xs tracking-tight transition-colors duration-200",
                 sort === "latest" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
               )}
             >
@@ -193,7 +193,7 @@ export function ListingPanel({
                 sort === "price_desc" ? "price_asc" : "latest"
               )}
               className={cn(
-                "text-xs tracking-tight transition-colors duration-200",
+                "cursor-pointer text-xs tracking-tight transition-colors duration-200",
                 sort !== "latest" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
               )}
             >
