@@ -10,15 +10,17 @@
 import os
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import FileResponse
 from openai import BadRequestError
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from db.session import SessionLocal
 from db.session import get_db
 from schemas.room_schema import RoomListRequest
 from services.ai_image_service import edit_image, generate_image
+from services.ai_image_job_service import create_edit_job, get_edit_job, update_edit_job
 from services.embedding_service import EmbeddingService
 from services.room_service import get_rooms_by_similarity
 from services.user_credit_service import decrement_user_remain, get_user_by_id
@@ -54,6 +56,20 @@ class ImageResponse(BaseModel):
 class EditImageResponse(ImageResponse):
     remain: int
     credit: int
+
+
+class EditImageJobCreateResponse(BaseModel):
+    job_id: str
+    status: str
+
+
+class EditImageJobStatusResponse(BaseModel):
+    job_id: str
+    status: str
+    file_paths: list[str] = []
+    remain: int | None = None
+    credit: int | None = None
+    error: str | None = None
 
 
 class FindSimilarRoomsRequest(RoomListRequest):
@@ -143,6 +159,82 @@ async def edit_image_endpoint(body: EditImageRequest, db: Session = Depends(get_
         "remain": updated_user.remain,
         "credit": updated_user.credit,
     }
+
+
+def _run_edit_image_job(job_id: str, body: EditImageRequest):
+    db = SessionLocal()
+
+    try:
+        update_edit_job(job_id, status="running")
+
+        file_paths = edit_image(
+            source_image_url=body.source_image_url,
+            base_prompt=body.base_prompt,
+            edit_prompt=body.edit_prompt,
+            size=body.size,
+            n=body.n,
+        )
+
+        if not file_paths:
+            update_edit_job(job_id, status="failed", error="이미지 수정에 실패했습니다.")
+            return
+
+        updated_user = decrement_user_remain(db, body.user_id)
+        if updated_user is None:
+            update_edit_job(job_id, status="failed", error="사용자를 찾을 수 없습니다.")
+            return
+        if updated_user is False:
+            update_edit_job(job_id, status="failed", error="남은 수정 횟수가 없습니다.")
+            return
+
+        update_edit_job(
+            job_id,
+            status="completed",
+            file_paths=file_paths,
+            remain=updated_user.remain,
+            credit=updated_user.credit,
+        )
+    except Exception as exc:
+        update_edit_job(job_id, status="failed", error=str(exc))
+    finally:
+        db.close()
+
+
+@router.post("/edit-image-jobs", response_model=EditImageJobCreateResponse)
+async def create_edit_image_job(
+    body: EditImageRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    print(
+        f"[edit-image-job] user_id={body.user_id}, "
+        f"base_prompt={body.base_prompt}, edit_prompt={body.edit_prompt}"
+    )
+
+    user = get_user_by_id(db, body.user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    if user.remain <= 0:
+        raise HTTPException(status_code=400, detail="남은 수정 횟수가 없습니다.")
+
+    job = create_edit_job(body.user_id)
+    background_tasks.add_task(_run_edit_image_job, job["job_id"], body)
+
+    return {
+        "job_id": job["job_id"],
+        "status": job["status"],
+    }
+
+
+@router.get("/edit-image-jobs/{job_id}", response_model=EditImageJobStatusResponse)
+async def read_edit_image_job(job_id: str):
+    job = get_edit_job(job_id)
+
+    if job is None:
+        raise HTTPException(status_code=404, detail="이미지 수정 작업을 찾을 수 없습니다.")
+
+    return job
 
 
 @router.get("/images/{filename}")

@@ -15,6 +15,8 @@ function parseJsonSafely(rawBody: string) {
 
   try {
     return JSON.parse(rawBody) as {
+      job_id?: string;
+      status?: string;
       detail?: string;
       error?: string;
       file_paths?: string[];
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     const response = await fetch(
-      buildBackendApiUrl(BACKEND_URL, "/edit-image"),
+      buildBackendApiUrl(BACKEND_URL, "/edit-image-jobs"),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -74,44 +76,67 @@ export async function POST(request: NextRequest) {
     );
 
     const rawBody = await response.text();
+    const data = parseJsonSafely(rawBody);
 
     if (!response.ok) {
-      const errorBody = parseJsonSafely(rawBody);
-      const errorMessage =
-        errorBody?.detail ??
-        errorBody?.error ??
-        rawBody ??
-        "이미지 수정에 실패했습니다.";
       return NextResponse.json(
-        { error: errorMessage },
+        {
+          error:
+            data?.detail ??
+            data?.error ??
+            rawBody ??
+            "이미지 수정 작업 시작에 실패했습니다.",
+        },
         { status: response.status },
       );
     }
 
-    if (!rawBody) {
+    return NextResponse.json({
+      jobId: data?.job_id,
+      status: data?.status,
+    });
+  } catch (error) {
+    console.error("[edit-image][POST] Error:", error);
+    return NextResponse.json(
+      { error: "이미지 수정 작업 시작에 실패했습니다." },
+      { status: 500 },
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const jobId = request.nextUrl.searchParams.get("jobId");
+
+    if (!jobId) {
       return NextResponse.json(
-        { error: "이미지 수정 결과를 받아오지 못했습니다." },
-        { status: 502 },
+        { error: "jobId가 필요합니다." },
+        { status: 400 },
       );
     }
 
+    const response = await fetch(
+      buildBackendApiUrl(BACKEND_URL, `/edit-image-jobs/${jobId}`),
+      { method: "GET" },
+    );
+
+    const rawBody = await response.text();
     const data = parseJsonSafely(rawBody);
-    if (!data) {
+
+    if (!response.ok) {
       return NextResponse.json(
-        { error: "이미지 수정 응답 형식을 읽을 수 없습니다." },
-        { status: 502 },
+        {
+          error:
+            data?.detail ??
+            data?.error ??
+            rawBody ??
+            "이미지 수정 상태 조회에 실패했습니다.",
+        },
+        { status: response.status },
       );
     }
 
-    const filePaths: string[] = data.file_paths ?? data.images ?? [];
-
-    if (!Array.isArray(filePaths) || filePaths.length === 0) {
-      return NextResponse.json(
-        { error: "수정된 이미지 결과가 비어 있습니다." },
-        { status: 502 },
-      );
-    }
-
+    const filePaths: string[] = data?.file_paths ?? data?.images ?? [];
     const images = filePaths.map((filePath: string, index: number) => ({
       id: `${Date.now()}-${index}`,
       url: `/backend/api/images/${encodeURIComponent(
@@ -120,19 +145,16 @@ export async function POST(request: NextRequest) {
     }));
 
     return NextResponse.json({
+      status: data?.status,
+      error: data?.error,
+      remain: data?.remain,
+      credit: data?.credit,
       images,
-      remain: data.remain,
-      credit: data.credit,
     });
   } catch (error) {
-    console.error("[edit-image] Error:", error);
+    console.error("[edit-image][GET] Error:", error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "이미지 수정에 실패했습니다. 다시 시도해주세요.",
-      },
+      { error: "이미지 수정 상태 조회에 실패했습니다." },
       { status: 500 },
     );
   }
