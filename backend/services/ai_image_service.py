@@ -33,6 +33,10 @@ if not os.path.exists(CREATE_IMAGE_DIR):
     print(f"[*] 이미지 저장 폴더 생성 완료: {CREATE_IMAGE_DIR}")
 
 
+class ImageGenerationError(Exception):
+    """이미지 생성 실패 시 실제 원인을 전달하기 위한 예외"""
+
+
 def _refine_prompt(user_prompt: str, model: str, system_role: str):
     try:
         print(f"[_refine_prompt] Refining prompt with {model}...")
@@ -202,7 +206,10 @@ def _generate_single(user_prompt: str, size: str, quality: str, index: int):
                 quality=_normalize_image_quality(quality),
                 n=1,
             )
-            return _save_openai_image_result(response.data[0], file_summary)
+            return {
+                "file_path": _save_openai_image_result(response.data[0], file_summary),
+                "error": None,
+            }
 
         response = client.images.generate(
             model=GEN_IMAGE_MODEL,
@@ -213,10 +220,16 @@ def _generate_single(user_prompt: str, size: str, quality: str, index: int):
             response_format="url",
         )
 
-        return _save_remote_image(response.data[0].url, file_summary)
+        return {
+            "file_path": _save_remote_image(response.data[0].url, file_summary),
+            "error": None,
+        }
     except Exception as exc:
         print(f"[generate_image] Error on image {index + 1}: {exc}")
-        return None
+        return {
+            "file_path": None,
+            "error": str(exc),
+        }
 
 
 def generate_image(
@@ -228,16 +241,23 @@ def generate_image(
     image_count = max(1, n)
     max_workers = min(image_count, 4)
 
-    # 최대 4장까지 병렬 생성
+    # ?? 4??? ?? ??
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
             executor.submit(_generate_single, user_prompt, size, quality, index)
             for index in range(image_count)
         ]
-        file_paths = [future.result() for future in futures]
+        results = [future.result() for future in futures]
 
-    file_paths = [file_path for file_path in file_paths if file_path is not None]
-    return file_paths if file_paths else None
+    file_paths = [result["file_path"] for result in results if result["file_path"]]
+    if file_paths:
+        return file_paths
+
+    first_error = next(
+        (result["error"] for result in results if result["error"]),
+        "??? ??? ??????.",
+    )
+    raise ImageGenerationError(first_error)
 
 
 def resolve_saved_image_path(source_image_url: str):
