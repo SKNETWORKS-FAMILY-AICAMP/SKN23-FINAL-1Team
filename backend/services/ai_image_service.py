@@ -298,10 +298,22 @@ def _build_edit_prompt(base_prompt: str, edit_prompt: str):
 def _build_edit_variant_prompt(refined_prompt: str, variant_index: int):
     """수정 결과가 서로 다른 후보가 되도록 변주 지시를 추가"""
     variant_guides = [
-        "Variation direction: preserve the original camera angle closely, with subtle changes in lighting and material details.",
-        "Variation direction: keep the same room structure, but adjust the crop slightly wider and make appliance placement details distinct.",
-        "Variation direction: keep the edit request clear, with a brighter daylight mood and slightly different furniture spacing.",
-        "Variation direction: keep the edit request clear, with a warmer indoor light mood and different small surrounding details.",
+        (
+            "Variation direction: create a distinct layout option. Keep the requested edit, "
+            "but change the furniture arrangement, appliance placement, and visible storage details."
+        ),
+        (
+            "Variation direction: create a different camera viewpoint option. Keep the requested edit, "
+            "but use a noticeably different angle, crop, depth, and foreground/background balance."
+        ),
+        (
+            "Variation direction: create an alternative room concept. Keep the requested edit, "
+            "but change the bed/desk/sofa placement, kitchen-wall relationship, and open floor area."
+        ),
+        (
+            "Variation direction: create a different real-estate listing candidate. Keep the requested edit, "
+            "but vary the room proportions, window position impression, built-in closet placement, and small fixtures."
+        ),
     ]
     guide = variant_guides[variant_index % len(variant_guides)]
 
@@ -311,7 +323,9 @@ def _build_edit_variant_prompt(refined_prompt: str, variant_index: int):
         "- Generate one edited room image for this output.\n"
         "- Do not create a collage, split screen, contact sheet, or grid.\n"
         "- The requested edit must be clearly applied.\n"
-        "- Keep the overall room and camera angle close to the original image.\n"
+        "- Use the source image as a reference, but do not merely recolor it.\n"
+        "- Make this output meaningfully different from the other candidates in layout, composition, and object placement.\n"
+        "- Preserve realism as a Korean real-estate listing photo.\n"
         f"- {guide}"
     )
 
