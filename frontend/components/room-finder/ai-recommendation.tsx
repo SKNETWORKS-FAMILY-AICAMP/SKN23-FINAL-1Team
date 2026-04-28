@@ -480,7 +480,7 @@ export function AIRecommendation({
 
               <button
                 onClick={handleReset}
-                className="mt-2 block w-full text-center text-xs text-stone-400 transition-colors hover:text-stone-600"
+                className="cursor-pointer mt-2 block w-full text-center text-xs text-stone-400 transition-colors hover:text-stone-600"
               >
                 ← 처음으로
               </button>
