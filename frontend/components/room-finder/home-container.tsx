@@ -373,6 +373,7 @@ export function HomeContainer() {
     filters.floor,
     filters.options,
     roomType,
+    sort,
     hasMore,
     hasRequestFailed,
   ]);

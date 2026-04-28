@@ -178,7 +178,7 @@ export function ListingDetailPanel({
     <div className="flex h-full flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(248,246,241,0.96)_100%)] backdrop-blur-xl">
       {/* 풀스크린 모달 */}
       {isFullscreen && imageUrls.length > 0 && (
-        <div className="absolute inset-0 z-50 flex flex-col bg-black">
+        <div className="fixed inset-0 z-[9999] flex flex-col bg-black">
           <div className="flex items-center justify-between px-4 py-3">
             <span className="text-sm font-medium text-white/70">
               {fullscreenIndex + 1} / {imageUrls.length}
@@ -264,7 +264,7 @@ export function ListingDetailPanel({
             {imageUrls.length > 0 ? (
               <Carousel
                 opts={{ loop: true }}
-                className="relative w-full"
+                className="group relative w-full"
                 setApi={(api) => {
                   if (!api) return;
 
@@ -294,12 +294,11 @@ export function ListingDetailPanel({
                         />
 
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
-                        <div className="absolute right-4 top-4 z-20" onClick={(e) => e.stopPropagation()}>
-                          <FavoriteButton
-                            isFavorite={isFavorite}
-                            disabled={isFavoriteLoading}
-                            onClick={() => onToggleFavorite(listingId)}
-                          />
+
+                        {/* 확대 힌트 */}
+                        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs text-white backdrop-blur-sm opacity-0 hover:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="0.5" y="0.5" width="7" height="7" rx="1.5" stroke="white" strokeWidth="1"/><path d="M6 6L11 11" stroke="white" strokeWidth="1" strokeLinecap="round"/></svg>
+                          크게 보기
                         </div>
 
                         {/* 확대 힌트 */}
@@ -320,8 +319,8 @@ export function ListingDetailPanel({
 
                 {imageUrls.length > 1 && (
                   <>
-                    <CarouselPrevious className="left-4 top-1/2 z-10 -translate-y-1/2 cursor-pointer border-stone-200 bg-white/90 text-stone-700 shadow-md hover:bg-white" />
-                    <CarouselNext className="right-4 top-1/2 z-10 -translate-y-1/2 cursor-pointer border-stone-200 bg-white/90 text-stone-700 shadow-md hover:bg-white" />
+                    <CarouselPrevious className="left-8 top-1/2 z-10 -translate-y-1/2 cursor-pointer border-none bg-transparent text-white shadow-none hover:bg-transparent hover:text-white" />
+                    <CarouselNext className="right-4 top-1/2 z-10 -translate-y-1/2 cursor-pointer border-none bg-transparent text-white shadow-none hover:bg-transparent hover:text-white" />
                   </>
                 )}
               </Carousel>
