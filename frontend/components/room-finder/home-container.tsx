@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import { X } from "lucide-react";
 import { Header } from "@/components/room-finder/header";
 import { FilterBar, type Filters } from "@/components/room-finder/filter-bar";
 import {
@@ -124,6 +126,9 @@ export function HomeContainer() {
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [sort, setSort] = useState<"latest" | "price_asc" | "price_desc">("latest");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenImages, setFullscreenImages] = useState<string[]>([]);
+  const [fullscreenIndex, setFullscreenIndex] = useState(0);
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [visibleListings, setVisibleListings] = useState<Listing[]>([]);
@@ -600,6 +605,69 @@ export function HomeContainer() {
   return (
     <>
     <OnboardingGuide userId={user?.user_id} />
+
+    {/* 풀스크린 사진 모달 — 페이지 최상단 */}
+    {isFullscreen && fullscreenImages.length > 0 && (
+      <div className="fixed inset-0 z-[9999] flex flex-col bg-black">
+        <div className="flex items-center justify-between px-4 py-3">
+          <span className="text-sm font-medium text-white/70">
+            {fullscreenIndex + 1} / {fullscreenImages.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsFullscreen(false)}
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+            aria-label="닫기"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="relative flex flex-1 items-center justify-center">
+          <Image
+            src={fullscreenImages[fullscreenIndex]}
+            alt={`사진 ${fullscreenIndex + 1}`}
+            fill
+            className="object-contain"
+            sizes="100vw"
+          />
+          {fullscreenImages.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setFullscreenIndex((prev) => (prev - 1 + fullscreenImages.length) % fullscreenImages.length)}
+                className="absolute left-3 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
+                aria-label="이전 사진"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5.5 8L10 13" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFullscreenIndex((prev) => (prev + 1) % fullscreenImages.length)}
+                className="absolute right-3 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
+                aria-label="다음 사진"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3L10.5 8L6 13" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+            </>
+          )}
+        </div>
+        {fullscreenImages.length > 1 && (
+          <div className="flex justify-center gap-1.5 py-4">
+            {fullscreenImages.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setFullscreenIndex(i)}
+                className={`h-1.5 cursor-pointer rounded-full transition-all duration-200 ${
+                  i === fullscreenIndex ? "w-5 bg-white" : "w-1.5 bg-white/40"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    )}
+
     <div className="flex h-screen flex-col bg-ivory">
       <Header roomType={roomType} onRoomTypeChange={handleRoomTypeChange} />
 
@@ -734,6 +802,11 @@ export function HomeContainer() {
               favoriteIds={favoriteIds}
               favoriteLoadingIds={favoriteLoadingIds}
               onToggleFavorite={handleToggleFavorite}
+              onPhotoClick={(images, index) => {
+                setFullscreenImages(images);
+                setFullscreenIndex(index);
+                setIsFullscreen(true);
+              }}
             />
           </div>
         </aside>
