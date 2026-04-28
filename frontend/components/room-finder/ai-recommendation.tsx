@@ -63,7 +63,6 @@ export function AIRecommendation({
   const resetSessionStore = useAIImageSessionStore((state) => state.resetSession);
 
   const [prompt, setPrompt] = useState("");
-  const [regenPrompt, setRegenPrompt] = useState("");
   const [editPrompt, setEditPrompt] = useState("");
   const [message, setMessage] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -149,7 +148,6 @@ export function AIRecommendation({
     try {
       const nextImages = await requestGeneratedImages([activePrompt]);
       replaceSession(nextImages);
-      setRegenPrompt("");
     } catch (error) {
       console.error("Error generating images:", error);
       setMessage(
@@ -273,7 +271,6 @@ export function AIRecommendation({
   const handleReset = () => {
     resetSessionStore();
     setPrompt("");
-    setRegenPrompt("");
     setEditPrompt("");
     setMessage("");
   };
@@ -455,28 +452,6 @@ export function AIRecommendation({
               <p className="mb-2 text-center text-xs text-stone-500">
                 마음에 드는 이미지를 선택하세요
               </p>
-
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={regenPrompt}
-                  onChange={(e) => setRegenPrompt(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleGenerate(regenPrompt)}
-                  placeholder="다른 스타일로 바꿔볼까요?"
-                  className="flex-1 rounded-lg border border-[#d6cfc8] bg-white px-3 py-2 text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400/40"
-                />
-                <button
-                  onClick={() => handleGenerate(regenPrompt)}
-                  disabled={isGenerating || !regenPrompt.trim()}
-                  className="self-end whitespace-nowrap rounded-lg bg-stone-700 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isGenerating ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    "재생성"
-                  )}
-                </button>
-              </div>
 
               <button
                 onClick={handleReset}
