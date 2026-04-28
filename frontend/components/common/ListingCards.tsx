@@ -67,39 +67,48 @@ export function ListingCard({
       >
         {/* 썸네일 */}
         <div
-          className="relative h-[90px] w-[90px] flex-shrink-0 overflow-hidden rounded-xl bg-stone-100 cursor-pointer"
+          className="relative h-[130px] w-[130px] flex-shrink-0 overflow-hidden rounded-xl bg-stone-100 cursor-pointer"
           onClick={(e) => {
             e.stopPropagation();
             onImageClick?.(listing);
           }}
         >
           {imageSrc ? (
-            <Image
-              src={imageSrc}
-              alt={listing.title}
-              fill
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
-              sizes="90px"
-            />
+            <>
+              <Image
+                src={imageSrc}
+                alt={listing.title}
+                fill
+                className="object-cover transition-transform duration-500 group-hover:scale-105"
+                sizes="130px"
+              />
+              <div className="absolute left-1.5 top-1.5 z-10 rounded-md bg-black/50 px-1.5 py-0.5 text-[9px] font-medium text-white backdrop-blur-sm">
+                {listing.structure || "매물"}
+              </div>
+            </>
           ) : (
-            <div className="flex h-full items-center justify-center text-xs text-stone-400">
-              없음
+            <div className="flex h-full flex-col items-center justify-center gap-2">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <rect x="2" y="6" width="24" height="18" rx="3" stroke="#aaa" strokeWidth="1.2"/>
+                <circle cx="9" cy="12" r="2.5" stroke="#aaa" strokeWidth="1.2"/>
+                <path d="M2 20L9 14L14 18L19 13L26 20" stroke="#aaa" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span className="rounded-md bg-stone-200 px-2 py-0.5 text-[10px] font-medium text-stone-600">
+                {listing.structure || "매물"}
+              </span>
             </div>
           )}
-          <div className="absolute left-1.5 top-1.5 z-10 rounded-md bg-black/50 px-1.5 py-0.5 text-[9px] font-medium text-white backdrop-blur-sm">
-            {listing.structure || "매물"}
-          </div>
         </div>
 
         {/* 텍스트 */}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 py-1">
           <p className="truncate text-[13px] font-medium leading-snug text-stone-800">
             {listing.title}
           </p>
-          <p className="mt-1 text-[15px] font-semibold text-stone-900">
+          <p className="mt-1.5 text-[16px] font-semibold text-stone-900">
             {listing.price}
           </p>
-          <p className="mt-1 truncate text-[11px] text-stone-400">
+          <p className="mt-1.5 truncate text-[11px] text-stone-400">
             {listing.address}
           </p>
           <p className="mt-0.5 text-[11px] text-stone-400">
