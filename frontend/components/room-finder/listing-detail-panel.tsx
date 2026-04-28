@@ -26,6 +26,7 @@ interface ListingDetailPanelProps {
   favoriteIds: number[];
   favoriteLoadingIds: number[];
   onToggleFavorite: (listingId: number) => void;
+  onPhotoClick?: (images: string[], index: number) => void;
 }
 
 const formatKoreanMoney = (value: number) => {
@@ -99,13 +100,12 @@ export function ListingDetailPanel({
   favoriteIds,
   favoriteLoadingIds,
   onToggleFavorite,
+  onPhotoClick,
 }: ListingDetailPanelProps) {
   const [detail, setDetail] = useState<ListingDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [areaUnit, setAreaUnit] = useState<"m2" | "pyeong">("m2");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [fullscreenIndex, setFullscreenIndex] = useState(0);
   const listingId = Number(listing?.id ?? 0);
   const isFavorite = favoriteIds.includes(listingId);
   const isFavoriteLoading = favoriteLoadingIds.includes(listingId);
@@ -169,74 +169,8 @@ export function ListingDetailPanel({
 
   const areaText = formatAreaValue(currentItem?.area_m2, areaUnit);
 
-  const openFullscreen = (index: number) => {
-    setFullscreenIndex(index);
-    setIsFullscreen(true);
-  };
-
   return (
     <div className="flex h-full flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(248,246,241,0.96)_100%)] backdrop-blur-xl">
-      {/* 풀스크린 모달 */}
-      {isFullscreen && imageUrls.length > 0 && (
-        <div className="fixed inset-0 z-[9999] flex flex-col bg-black">
-          <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-sm font-medium text-white/70">
-              {fullscreenIndex + 1} / {imageUrls.length}
-            </span>
-            <button
-              type="button"
-              onClick={() => setIsFullscreen(false)}
-              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
-              aria-label="닫기"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <div className="relative flex flex-1 items-center justify-center">
-            <Image
-              src={imageUrls[fullscreenIndex]}
-              alt={`사진 ${fullscreenIndex + 1}`}
-              fill
-              className="object-contain"
-              sizes="100vw"
-            />
-            {imageUrls.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setFullscreenIndex((prev) => (prev - 1 + imageUrls.length) % imageUrls.length)}
-                  className="absolute left-3 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
-                  aria-label="이전 사진"
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5.5 8L10 13" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFullscreenIndex((prev) => (prev + 1) % imageUrls.length)}
-                  className="absolute right-3 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
-                  aria-label="다음 사진"
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3L10.5 8L6 13" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </button>
-              </>
-            )}
-          </div>
-          {imageUrls.length > 1 && (
-            <div className="flex justify-center gap-1.5 py-4">
-              {imageUrls.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setFullscreenIndex(i)}
-                  className={`h-1.5 cursor-pointer rounded-full transition-all duration-200 ${
-                    i === fullscreenIndex ? "w-5 bg-white" : "w-1.5 bg-white/40"
-                  }`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
       <div className="flex h-full flex-col">
       <div className="border-b border-stone-200/80 bg-white/70 px-5 py-4 backdrop-blur-md">
           <div className="flex items-center justify-between gap-4">
@@ -280,7 +214,7 @@ export function ListingDetailPanel({
                     <CarouselItem key={`${url}-${index}`} className="pl-0">
                       <div
                         className="relative aspect-[4/3] min-w-fit cursor-pointer overflow-hidden"
-                        onClick={() => openFullscreen(index)}
+                        onClick={() => onPhotoClick?.(imageUrls, index)}
                         title="클릭해서 크게 보기"
                       >
                         <Image

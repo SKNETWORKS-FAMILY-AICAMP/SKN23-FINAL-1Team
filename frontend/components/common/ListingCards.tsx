@@ -18,13 +18,8 @@ interface ListingCardProps {
 
 export function isValidImageSrc(value?: string | null) {
   if (!value) return false;
-
   const normalized = value.trim().toLowerCase();
-
-  if (["", "nan", "none", "null"].includes(normalized)) {
-    return false;
-  }
-
+  if (["", "nan", "none", "null"].includes(normalized)) return false;
   return (
     normalized.startsWith("http://") ||
     normalized.startsWith("https://") ||
@@ -45,15 +40,10 @@ export function ListingCard({
     ? listing.images[0]
     : null;
 
-  const handleSelect = () => {
-    onClick?.(listing);
-  };
+  const handleSelect = () => onClick?.(listing);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (!onClick || (event.key !== "Enter" && event.key !== " ")) {
-      return;
-    }
-
+    if (!onClick || (event.key !== "Enter" && event.key !== " ")) return;
     event.preventDefault();
     handleSelect();
   };
@@ -69,62 +59,58 @@ export function ListingCard({
     >
       <div
         className={cn(
-          "group flex items-center gap-3 rounded-2xl border p-3 transition-all duration-200",
-          "bg-white",
+          "group flex items-center gap-3 rounded-2xl border p-3 transition-all duration-200 bg-white",
           isSelected
             ? "border-amber-200 shadow-[0_4px_16px_rgba(245,158,11,0.14)] ring-1 ring-amber-100"
             : "border-stone-200/80 hover:border-stone-300 hover:shadow-[0_4px_12px_rgba(15,23,42,0.08)]",
         )}
       >
         {/* 썸네일 */}
-        <div className="relative h-[72px] w-[72px] flex-shrink-0 overflow-hidden rounded-xl bg-stone-100">
+        <div
+          className="relative h-[90px] w-[90px] flex-shrink-0 overflow-hidden rounded-xl bg-stone-100 cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation();
+            onImageClick?.(listing);
+          }}
+        >
           {imageSrc ? (
-            <>
-              <div
-                className="absolute inset-0 z-10 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onImageClick?.(listing);
-                }}
-              />
-              <Image
-                src={imageSrc}
-                alt={listing.title}
-                fill
-                className="object-cover transition-transform duration-500 group-hover:scale-105"
-                sizes="72px"
-              />
-            </>
+            <Image
+              src={imageSrc}
+              alt={listing.title}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              sizes="90px"
+            />
           ) : (
             <div className="flex h-full items-center justify-center text-xs text-stone-400">
               없음
             </div>
           )}
-          <div className="absolute left-1.5 top-1.5 z-20 rounded-md bg-black/50 px-1.5 py-0.5 text-[9px] font-medium text-white backdrop-blur-sm">
+          <div className="absolute left-1.5 top-1.5 z-10 rounded-md bg-black/50 px-1.5 py-0.5 text-[9px] font-medium text-white backdrop-blur-sm">
             {listing.structure || "매물"}
           </div>
         </div>
 
         {/* 텍스트 */}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium text-stone-800">
+          <p className="truncate text-[13px] font-medium leading-snug text-stone-800">
             {listing.title}
           </p>
-          <p className="mt-0.5 text-[13px] font-semibold text-stone-900">
+          <p className="mt-1 text-[15px] font-semibold text-stone-900">
             {listing.price}
           </p>
           <p className="mt-1 truncate text-[11px] text-stone-400">
             {listing.address}
-            {listing.size ? ` · ${listing.size}` : ""}
-            {listing.floor ? ` · ${listing.floor}층` : ""}
+          </p>
+          <p className="mt-0.5 text-[11px] text-stone-400">
+            {[listing.size, listing.floor ? `${listing.floor}층` : null]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         </div>
 
         {/* 하트 버튼 */}
-        <div
-          className="flex-shrink-0"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
           <FavoriteButton
             isFavorite={!!isFavorite}
             disabled={!!isFavoriteLoading}
