@@ -22,7 +22,7 @@ interface ListingDetailPanelProps {
   listing: Listing | null;
   isOpen: boolean;
   onClose: () => void;
-  listPanelOpen: boolean;
+  listPanelOpen?: boolean;
   favoriteIds: number[];
   favoriteLoadingIds: number[];
   onToggleFavorite: (listingId: number) => void;
@@ -96,7 +96,6 @@ export function ListingDetailPanel({
   listing,
   isOpen,
   onClose,
-  listPanelOpen,
   favoriteIds,
   favoriteLoadingIds,
   onToggleFavorite,
@@ -105,6 +104,8 @@ export function ListingDetailPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [areaUnit, setAreaUnit] = useState<"m2" | "pyeong">("m2");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenIndex, setFullscreenIndex] = useState(0);
   const listingId = Number(listing?.id ?? 0);
   const isFavorite = favoriteIds.includes(listingId);
   const isFavoriteLoading = favoriteLoadingIds.includes(listingId);
@@ -168,28 +169,92 @@ export function ListingDetailPanel({
 
   const areaText = formatAreaValue(currentItem?.area_m2, areaUnit);
 
-  return (
-    <aside
-      className={`absolute top-0 z-[15] h-full w-[380px] border-l border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(248,246,241,0.96)_100%)] shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-all duration-300 ease-out xl:w-[440px] ${
-        listPanelOpen ? "right-[400px] xl:right-[450px]" : "right-[56px]"
-      } ${
-        isOpen
-          ? "translate-x-0 opacity-100"
-          : "pointer-events-none translate-x-full opacity-0"
-      }`}
-    >
-      <div className="flex h-full flex-col">
-        <div className="border-b border-stone-200/80 bg-white/70 px-6 py-5 backdrop-blur-md">
-          <div className="flex items-start justify-between gap-4">
-            <div></div>
+  const openFullscreen = (index: number) => {
+    setFullscreenIndex(index);
+    setIsFullscreen(true);
+  };
 
+  return (
+    <div className="flex h-full flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(248,246,241,0.96)_100%)] backdrop-blur-xl">
+      {/* 풀스크린 모달 */}
+      {isFullscreen && imageUrls.length > 0 && (
+        <div className="absolute inset-0 z-50 flex flex-col bg-black">
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-sm font-medium text-white/70">
+              {fullscreenIndex + 1} / {imageUrls.length}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsFullscreen(false)}
+              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+              aria-label="닫기"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="relative flex flex-1 items-center justify-center">
+            <Image
+              src={imageUrls[fullscreenIndex]}
+              alt={`사진 ${fullscreenIndex + 1}`}
+              fill
+              className="object-contain"
+              sizes="100vw"
+            />
+            {imageUrls.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setFullscreenIndex((prev) => (prev - 1 + imageUrls.length) % imageUrls.length)}
+                  className="absolute left-3 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
+                  aria-label="이전 사진"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5.5 8L10 13" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFullscreenIndex((prev) => (prev + 1) % imageUrls.length)}
+                  className="absolute right-3 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
+                  aria-label="다음 사진"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3L10.5 8L6 13" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+              </>
+            )}
+          </div>
+          {imageUrls.length > 1 && (
+            <div className="flex justify-center gap-1.5 py-4">
+              {imageUrls.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setFullscreenIndex(i)}
+                  className={`h-1.5 cursor-pointer rounded-full transition-all duration-200 ${
+                    i === fullscreenIndex ? "w-5 bg-white" : "w-1.5 bg-white/40"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <div className="flex h-full flex-col">
+      <div className="border-b border-stone-200/80 bg-white/70 px-5 py-4 backdrop-blur-md">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-stone-800">
+                {currentItem?.title || listing.title || "매물 상세"}
+              </p>
+              <p className="truncate text-xs text-stone-500">
+                {currentItem?.address || listing.address || ""}
+              </p>
+            </div>
             <button
               type="button"
               onClick={onClose}
-              className="cursor-pointer group rounded-full border border-stone-200 bg-white/90 p-2.5 text-stone-700 shadow-sm transition-all duration-200 hover:scale-105 hover:bg-stone-100 hover:shadow-md"
-              aria-label="상세 패널 닫기"
+              className="flex h-8 w-8 cursor-pointer flex-shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white/90 text-stone-500 transition-all duration-200 hover:bg-stone-100 hover:text-stone-700"
+              aria-label="목록으로 돌아가기"
             >
-              <X className="h-4 w-4 transition-transform duration-200 group-hover:rotate-90" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -213,7 +278,11 @@ export function ListingDetailPanel({
                 <CarouselContent className="ml-0">
                   {imageUrls.map((url, index) => (
                     <CarouselItem key={`${url}-${index}`} className="pl-0">
-                      <div className="relative aspect-[4/3] min-w-fit overflow-hidden">
+                      <div
+                        className="relative aspect-[4/3] min-w-fit cursor-pointer overflow-hidden"
+                        onClick={() => openFullscreen(index)}
+                        title="클릭해서 크게 보기"
+                      >
                         <Image
                           src={url}
                           alt={`${
@@ -221,16 +290,22 @@ export function ListingDetailPanel({
                           } ${index + 1}`}
                           fill
                           sizes="(min-width: 1280px) 440px, 380px"
-                          className="object-cover transition-transform duration-700"
+                          className="object-cover transition-transform duration-700 hover:scale-105"
                         />
 
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
-                        <div className="absolute right-4 top-4 z-20">
+                        <div className="absolute right-4 top-4 z-20" onClick={(e) => e.stopPropagation()}>
                           <FavoriteButton
                             isFavorite={isFavorite}
                             disabled={isFavoriteLoading}
                             onClick={() => onToggleFavorite(listingId)}
                           />
+                        </div>
+
+                        {/* 확대 힌트 */}
+                        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs text-white backdrop-blur-sm opacity-0 hover:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="0.5" y="0.5" width="7" height="7" rx="1.5" stroke="white" strokeWidth="1"/><path d="M6 6L11 11" stroke="white" strokeWidth="1" strokeLinecap="round"/></svg>
+                          크게 보기
                         </div>
 
                         {imageUrls.length > 1 && (
@@ -245,8 +320,8 @@ export function ListingDetailPanel({
 
                 {imageUrls.length > 1 && (
                   <>
-                    <CarouselPrevious className="left-4 top-1/2 z-10 -translate-y-1/2 border-stone-200 bg-white/90 text-stone-700 shadow-md hover:bg-white" />
-                    <CarouselNext className="right-4 top-1/2 z-10 -translate-y-1/2 border-stone-200 bg-white/90 text-stone-700 shadow-md hover:bg-white" />
+                    <CarouselPrevious className="left-4 top-1/2 z-10 -translate-y-1/2 cursor-pointer border-stone-200 bg-white/90 text-stone-700 shadow-md hover:bg-white" />
+                    <CarouselNext className="right-4 top-1/2 z-10 -translate-y-1/2 cursor-pointer border-stone-200 bg-white/90 text-stone-700 shadow-md hover:bg-white" />
                   </>
                 )}
               </Carousel>
@@ -503,6 +578,6 @@ export function ListingDetailPanel({
           )}
         </div>
       </div>
-    </aside>
+    </div>
   );
 }

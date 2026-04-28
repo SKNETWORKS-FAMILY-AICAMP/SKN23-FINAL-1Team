@@ -225,6 +225,7 @@ export function ListingPanel({
                     listing={listing}
                     isSelected={selectedListing?.id === listing.id}
                     onClick={handleListingClick}
+                    onImageClick={handleListingClick}
                     isFavorite={favoriteIds.includes(Number(listing.id))}
                     isFavoriteLoading={favoriteLoadingIds.includes(Number(listing.id))}
                     onToggleFavorite={() => onToggleFavorite(Number(listing.id))}
@@ -278,6 +279,7 @@ export function ListingPanel({
                       listing={listing}
                       isSelected={selectedListing?.id === listing.id}
                       onClick={handleWishClick}
+                      onImageClick={handleWishClick}
                       isFavorite={true}
                       isFavoriteLoading={favoriteLoadingIds.includes(Number(listing.id))}
                       onToggleFavorite={() => onToggleFavorite(Number(listing.id))}
