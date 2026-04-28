@@ -134,7 +134,7 @@ export function AIRecommendation({
       throw new Error("이미지 수정 작업을 시작하지 못했습니다.");
     }
 
-    for (let attempt = 0; attempt < 45; attempt += 1) {
+    for (let attempt = 0; attempt < 120; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       const statusResponse = await fetch(
