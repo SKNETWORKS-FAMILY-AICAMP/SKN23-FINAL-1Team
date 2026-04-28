@@ -721,19 +721,30 @@ export function HomeContainer() {
           />
         </section>
 
-        {/* 패널 닫힌 상태: 지도 위 › 버튼 */}
-        {!isPanelOpen && (
-          <button
-            type="button"
-            onClick={() => setIsPanelOpen(true)}
-            className="absolute right-4 top-1/2 z-30 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-white shadow-md transition-all duration-200 hover:bg-stone-50 hover:shadow-lg cursor-pointer"
-            aria-label="매물 패널 열기"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        {/* 패널 토글 버튼 — 항상 표시 */}
+        <button
+          type="button"
+          onClick={() => {
+            if (isPanelOpen) {
+              setIsPanelOpen(false);
+              setIsDetailOpen(false);
+              setSelectedListing(null);
+              isPendingOpenRef.current = false;
+            } else {
+              setIsPanelOpen(true);
+            }
+          }}
+          className="absolute right-4 top-1/2 z-30 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-white shadow-md transition-all duration-200 hover:bg-stone-50 hover:shadow-lg cursor-pointer"
+          aria-label={isPanelOpen ? "매물 패널 닫기" : "매물 패널 열기"}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            {isPanelOpen ? (
               <path d="M5 2.5L9.5 7L5 11.5" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-        )}
+            ) : (
+              <path d="M9 2.5L4.5 7L9 11.5" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            )}
+          </svg>
+        </button>
 
         {/* 목록 패널 */}
         <aside
@@ -741,22 +752,6 @@ export function HomeContainer() {
             isPanelOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
-          {/* 경계선 ‹ 버튼 */}
-          <button
-            type="button"
-            onClick={() => {
-              setIsPanelOpen(false);
-              setIsDetailOpen(false);
-              setSelectedListing(null);
-              isPendingOpenRef.current = false;
-            }}
-            className="absolute top-1/2 left-0 z-30 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-white shadow-md transition-all duration-200 hover:bg-stone-50 hover:shadow-lg cursor-pointer"
-            aria-label="매물 패널 닫기"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M9 2.5L4.5 7L9 11.5" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
 
           <ListingPanel
             listings={panelListings}
