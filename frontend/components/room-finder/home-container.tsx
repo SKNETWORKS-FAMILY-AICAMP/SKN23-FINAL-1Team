@@ -734,7 +734,11 @@ export function HomeContainer() {
               setIsPanelOpen(true);
             }
           }}
-          className="absolute right-4 top-1/2 z-30 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-white shadow-md transition-all duration-200 hover:bg-stone-50 hover:shadow-lg cursor-pointer"
+          className={`absolute top-1/2 z-30 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-stone-200 bg-white shadow-md transition-all duration-500 ease-in-out hover:bg-stone-50 hover:shadow-lg cursor-pointer ${
+            isPanelOpen
+              ? "right-[382px] xl:right-[432px]"
+              : "right-4"
+          }`}
           aria-label={isPanelOpen ? "매물 패널 닫기" : "매물 패널 열기"}
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
