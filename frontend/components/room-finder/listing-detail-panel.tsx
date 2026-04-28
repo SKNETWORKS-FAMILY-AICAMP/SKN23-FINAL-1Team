@@ -186,7 +186,7 @@ export function ListingDetailPanel({
             <button
               type="button"
               onClick={onClose}
-              className="group rounded-full border border-stone-200 bg-white/90 p-2.5 text-stone-700 shadow-sm transition-all duration-200 hover:scale-105 hover:bg-stone-100 hover:shadow-md"
+              className="cursor-pointer group rounded-full border border-stone-200 bg-white/90 p-2.5 text-stone-700 shadow-sm transition-all duration-200 hover:scale-105 hover:bg-stone-100 hover:shadow-md"
               aria-label="상세 패널 닫기"
             >
               <X className="h-4 w-4 transition-transform duration-200 group-hover:rotate-90" />

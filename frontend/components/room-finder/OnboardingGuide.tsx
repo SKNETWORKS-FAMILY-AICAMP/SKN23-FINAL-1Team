@@ -134,7 +134,7 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
           <h3 className="text-base font-bold text-stone-900">{step.title}</h3>
           <button
             onClick={handleClose}
-            className="text-stone-400 hover:text-stone-600"
+            className="cursor-pointer text-stone-400 hover:text-stone-600"
           >
             <X className="h-4 w-4" />
           </button>
@@ -160,7 +160,7 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
           {currentStep > 0 ? (
             <button
               onClick={handlePrev}
-              className="flex-1 rounded-xl border border-stone-200 py-2.5 text-sm font-semibold text-stone-500 hover:bg-stone-50"
+              className="cursor-pointer flex-1 rounded-xl border border-stone-200 py-2.5 text-sm font-semibold text-stone-500 hover:bg-stone-50"
             >
               이전
             </button>
@@ -170,7 +170,7 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
 
           <button
             onClick={handleNext}
-            className="flex-1 rounded-xl bg-warm-brown py-2.5 text-sm font-semibold text-white hover:opacity-90"
+            className="cursor-pointer flex-1 rounded-xl bg-warm-brown py-2.5 text-sm font-semibold text-white hover:opacity-90"
           >
             {currentStep === steps.length - 1 ? "시작하기" : "다음"}
           </button>

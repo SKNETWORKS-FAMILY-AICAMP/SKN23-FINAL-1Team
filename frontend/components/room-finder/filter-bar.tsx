@@ -542,7 +542,7 @@ export function FilterBar({
                   <button
                     type="button"
                     onClick={resetStructure}
-                    className="rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
+                    className="cursor-pointer rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
                   >
                     초기화
                   </button>
@@ -751,7 +751,7 @@ export function FilterBar({
                 <button
                   type="button"
                   onClick={resetOptions}
-                  className="rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
+                  className="cursor-pointer rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
                 >
                   초기화
                 </button>
