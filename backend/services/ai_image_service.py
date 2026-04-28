@@ -296,12 +296,13 @@ def _build_edit_prompt(base_prompt: str, edit_prompt: str):
 
 
 def _build_edit_batch_prompt(refined_prompt: str, image_count: int):
-    """한 번의 수정 요청으로 여러 결과를 생성하기 위한 변주 지시를 추가"""
+    """수정 요청 결과 개수에 맞는 출력 지시를 추가"""
     return (
         f"{refined_prompt}\n\n"
         "Output requirement:\n"
-        f"- Generate {image_count} edited variations.\n"
-        "- Every variation must clearly apply the requested edit.\n"
+        "- Generate one edited room image for this output.\n"
+        "- If multiple outputs are requested by the API, each output should be a separate single image, not a collage or grid.\n"
+        "- Every output must clearly apply the requested edit.\n"
         "- Keep the overall room and camera angle close to the original image.\n"
         "- Vary lighting, crop, textures, and small surrounding details across the variations so the outputs are not identical."
     )
@@ -332,6 +333,7 @@ def _request_gpt_image_edit(file_id: str, prompt: str, size: str, n: int):
             "images": [{"file_id": file_id}],
             "prompt": prompt,
             "size": normalized_size,
+            "quality": _normalize_image_quality("low"),
             "n": n,
         },
         timeout=180,
@@ -356,11 +358,14 @@ def edit_image(
     image_path = resolve_saved_image_path(source_image_url)
     refined_prompt, file_summary = _build_edit_prompt(base_prompt, edit_prompt)
     uploaded_file_id = _upload_image_file_to_openai(image_path)
-    image_count = max(1, n)
+    image_count = max(1, min(n, 4))
     batch_prompt = _build_edit_batch_prompt(refined_prompt, image_count)
 
     try:
-        print(f"[edit_image] Editing {image_count} images for: {file_summary}")
+        print(
+            f"[edit_image] Editing {image_count} images "
+            f"with {EDIT_IMAGE_MODEL} for: {file_summary}"
+        )
         image_results = _request_gpt_image_edit(
             file_id=uploaded_file_id,
             prompt=batch_prompt,
