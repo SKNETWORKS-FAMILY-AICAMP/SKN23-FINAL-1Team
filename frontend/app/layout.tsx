@@ -40,7 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body className="bg-neutral-100 text-black antialiased">
+      <body className="bg-neutral-100 text-black antialiased select-none">
         <NextAuthProvider>
           <AuthSessionSync />
           {children}
