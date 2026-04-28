@@ -21,6 +21,7 @@ from schemas.room_schema import RoomListRequest
 from services.ai_image_service import edit_image, generate_image
 from services.embedding_service import EmbeddingService
 from services.room_service import get_rooms_by_similarity
+from services.user_credit_service import decrement_user_remain, get_user_by_id
 
 router = APIRouter(prefix="/api")
 
@@ -38,6 +39,7 @@ class GenerateImageRequest(BaseModel):
 
 
 class EditImageRequest(BaseModel):
+    user_id: int
     source_image_url: str
     base_prompt: str
     edit_prompt: str
@@ -47,6 +49,11 @@ class EditImageRequest(BaseModel):
 
 class ImageResponse(BaseModel):
     file_paths: list[str]
+
+
+class EditImageResponse(ImageResponse):
+    remain: int
+    credit: int
 
 
 class FindSimilarRoomsRequest(RoomListRequest):
@@ -61,6 +68,7 @@ async def generate_image_endpoint(body: GenerateImageRequest):
     사용자 한국어 프롬프트 → GPT로 영문 프롬프트 정제 → 이미지 생성
     생성된 이미지를 create_image/ 폴더에 저장하고 경로를 반환합니다.
     """
+    print(f"[generate-image] user_prompt={body.user_prompt}")
     file_paths = generate_image(
         user_prompt=body.user_prompt,
         size=body.size,
@@ -74,12 +82,24 @@ async def generate_image_endpoint(body: GenerateImageRequest):
     return {"file_paths": file_paths}
 
 
-@router.post("/edit-image", response_model=ImageResponse)
-async def edit_image_endpoint(body: EditImageRequest):
+@router.post("/edit-image", response_model=EditImageResponse)
+async def edit_image_endpoint(body: EditImageRequest, db: Session = Depends(get_db)):
     """
     생성 후 저장된 원본 이미지를 create_image/ 폴더에서 다시 읽어와
     수정 프롬프트를 반영한 새 이미지를 생성하고 경로를 반환합니다.
     """
+    print(
+        f"[edit-image] user_id={body.user_id}, "
+        f"base_prompt={body.base_prompt}, edit_prompt={body.edit_prompt}"
+    )
+
+    user = get_user_by_id(db, body.user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    if user.remain <= 0:
+        raise HTTPException(status_code=400, detail="남은 수정 횟수가 없습니다.")
+
     try:
         file_paths = edit_image(
             source_image_url=body.source_image_url,
@@ -112,7 +132,17 @@ async def edit_image_endpoint(body: EditImageRequest):
     if not file_paths:
         raise HTTPException(status_code=500, detail="이미지 수정에 실패했습니다.")
 
-    return {"file_paths": file_paths}
+    updated_user = decrement_user_remain(db, body.user_id)
+    if updated_user is None:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+    if updated_user is False:
+        raise HTTPException(status_code=400, detail="남은 수정 횟수가 없습니다.")
+
+    return {
+        "file_paths": file_paths,
+        "remain": updated_user.remain,
+        "credit": updated_user.credit,
+    }
 
 
 @router.get("/images/{filename}")

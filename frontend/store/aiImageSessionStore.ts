@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 
 export type AIScreen = "init" | "generated";
 
@@ -22,8 +21,6 @@ type AIImageSessionState = {
   resetSession: () => void;
 };
 
-export const MAX_AI_EDIT_COUNT = 2;
-
 export function composePromptHistory(promptHistory: string[]) {
   return promptHistory
     .map((prompt, index) =>
@@ -35,39 +32,23 @@ export function composePromptHistory(promptHistory: string[]) {
     .join("\n");
 }
 
-export const useAIImageSessionStore = create<AIImageSessionState>()(
-  persist(
-    (set) => ({
-      hasHydrated: false,
+export const useAIImageSessionStore = create<AIImageSessionState>((set) => ({
+  hasHydrated: true,
+  screen: "init",
+  generatedImages: [],
+  selectedImageId: null,
+  setHasHydrated: (value) => set({ hasHydrated: value }),
+  replaceSession: (images) =>
+    set({
+      screen: images.length > 0 ? "generated" : "init",
+      generatedImages: images,
+      selectedImageId: null,
+    }),
+  setSelectedImageId: (imageId) => set({ selectedImageId: imageId }),
+  resetSession: () =>
+    set({
       screen: "init",
       generatedImages: [],
       selectedImageId: null,
-      setHasHydrated: (value) => set({ hasHydrated: value }),
-      replaceSession: (images) =>
-        set({
-          screen: images.length > 0 ? "generated" : "init",
-          generatedImages: images,
-          selectedImageId: null,
-        }),
-      setSelectedImageId: (imageId) => set({ selectedImageId: imageId }),
-      resetSession: () =>
-        set({
-          screen: "init",
-          generatedImages: [],
-          selectedImageId: null,
-        }),
     }),
-    {
-      name: "ai-image-session",
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        screen: state.screen,
-        generatedImages: state.generatedImages,
-        selectedImageId: state.selectedImageId,
-      }),
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
-      },
-    },
-  ),
-);
+}));

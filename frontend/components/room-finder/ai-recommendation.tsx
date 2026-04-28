@@ -8,7 +8,6 @@ import type { Listing } from "./map-view";
 import { useAuthStore } from "@/store/authStore";
 import {
   composePromptHistory,
-  MAX_AI_EDIT_COUNT,
   type AIGeneratedImage,
   useAIImageSessionStore,
 } from "@/store/aiImageSessionStore";
@@ -52,6 +51,7 @@ export function AIRecommendation({
   compact = false,
 }: AIRecommendationProps) {
   const user = useAuthStore((state) => state.user);
+  const updateUser = useAuthStore((state) => state.updateUser);
   const hasHydrated = useAIImageSessionStore((state) => state.hasHydrated);
   const screen = useAIImageSessionStore((state) => state.screen);
   const generatedImages = useAIImageSessionStore((state) => state.generatedImages);
@@ -75,15 +75,14 @@ export function AIRecommendation({
     [generatedImages, selectedImageId],
   );
 
-  const activeEditCount =
-    selectedImage?.editCount ?? generatedImages[0]?.editCount ?? 0;
-  const remainingEdits = Math.max(0, MAX_AI_EDIT_COUNT - activeEditCount);
+  const remainingEdits = user?.remain ?? 0;
 
   useEffect(() => {
     setEditPrompt("");
   }, [selectedImageId]);
 
   const requestGeneratedImages = async (nextPromptHistory: string[]) => {
+    console.log("[AIRecommendation] generate prompt:", nextPromptHistory[0]);
     const response = await fetch("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -104,19 +103,21 @@ export function AIRecommendation({
 
   const requestEditedImage = async (
     sourceImageUrl: string,
+    userId: number,
     basePrompt: string,
     editRequest: string,
     nextPromptHistory: string[],
     nextEditCount: number,
   ) => {
+    console.log("[AIRecommendation] edit prompt:", editRequest);
     const response = await fetch("/api/edit-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        userId,
         sourceImageUrl,
         basePrompt,
         editPrompt: editRequest,
-        editCount: nextEditCount - 1,
       }),
     });
 
@@ -125,8 +126,16 @@ export function AIRecommendation({
       throw new Error(errorBody?.error ?? "이미지 수정에 실패했습니다.");
     }
 
-    const data = (await response.json()) as { images?: GeneratedImageResponse[] };
-    return buildSessionImages(data.images ?? [], nextPromptHistory, nextEditCount);
+    const data = (await response.json()) as {
+      images?: GeneratedImageResponse[];
+      remain?: number;
+      credit?: number;
+    };
+    return {
+      images: buildSessionImages(data.images ?? [], nextPromptHistory, nextEditCount),
+      remain: data.remain,
+      credit: data.credit,
+    };
   };
 
   const handleGenerate = async (overridePrompt?: string) => {
@@ -161,8 +170,12 @@ export function AIRecommendation({
     const trimmedEditPrompt = editPrompt.trim();
 
     if (!selectedImage || !trimmedEditPrompt || isEditing) return;
-    if (selectedImage.editCount >= MAX_AI_EDIT_COUNT) {
-      setMessage("이미지 수정은 최대 2번까지 가능합니다.");
+    if (!user?.user_id) {
+      setMessage("로그인 후 이미지 수정이 가능합니다.");
+      return;
+    }
+    if (remainingEdits <= 0) {
+      setMessage("남은 수정 횟수가 없습니다.");
       return;
     }
 
@@ -172,15 +185,20 @@ export function AIRecommendation({
     try {
       const nextPromptHistory = [...selectedImage.promptHistory, trimmedEditPrompt];
       const nextEditCount = selectedImage.editCount + 1;
-      const nextImages = await requestEditedImage(
+      const result = await requestEditedImage(
         selectedImage.url,
+        user.user_id,
         selectedImage.prompt,
         trimmedEditPrompt,
         nextPromptHistory,
         nextEditCount,
       );
 
-      replaceSession(nextImages);
+      replaceSession(result.images);
+      updateUser({
+        remain: result.remain ?? user.remain,
+        credit: result.credit ?? user.credit,
+      });
       setEditPrompt("");
     } catch (error) {
       console.error("Error editing images:", error);
@@ -478,15 +496,23 @@ export function AIRecommendation({
                       조금 더 바꾸고 싶다면? 구체적일수록 잘 반영돼요
                     </p>
                     <p className="mt-1 text-[10px] text-stone-400">
-                      남은 수정 횟수: {remainingEdits} / {MAX_AI_EDIT_COUNT}
+                      현재 남은 수정 횟수: {remainingEdits}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setSelectedImageId(null)}
-                    className="mt-0.5 shrink-0 text-sm leading-none text-stone-400 transition-colors hover:text-stone-600"
-                  >
-                    ✕
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleReset}
+                      className="text-[10px] font-semibold text-stone-400 transition-colors hover:text-stone-600"
+                    >
+                      초기화
+                    </button>
+                    <button
+                      onClick={() => setSelectedImageId(null)}
+                      className="mt-0.5 shrink-0 text-sm leading-none text-stone-400 transition-colors hover:text-stone-600"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex gap-2">
@@ -498,7 +524,7 @@ export function AIRecommendation({
                     placeholder={
                       remainingEdits > 0
                         ? "변경사항을 입력하세요..."
-                        : "이 이미지는 수정 횟수를 모두 사용했습니다"
+                        : "남은 수정 횟수가 없습니다"
                     }
                     disabled={remainingEdits === 0}
                     className="flex-1 rounded-lg border border-[#d6cfc8] bg-white px-3 py-2 text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400/40 disabled:cursor-not-allowed disabled:bg-stone-100"

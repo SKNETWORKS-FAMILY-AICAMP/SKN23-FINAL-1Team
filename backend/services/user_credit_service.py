@@ -17,3 +17,18 @@ def increment_user_credit(db: Session, user_id: int):
     db.commit()
     db.refresh(user)
     return user
+
+
+def decrement_user_remain(db: Session, user_id: int):
+    user = get_user_by_id(db, user_id)
+
+    if user is None:
+        return None
+
+    if user.remain <= 0:
+        return False
+
+    user.remain -= 1
+    db.commit()
+    db.refresh(user)
+    return user
