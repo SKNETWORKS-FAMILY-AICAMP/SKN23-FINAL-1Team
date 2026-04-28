@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
           base_prompt: basePrompt,
           edit_prompt: editPrompt,
           size: "1024x1024",
+          n: 4,
         }),
       },
     );
