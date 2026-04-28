@@ -179,8 +179,9 @@ export function HomeContainer() {
     setIsPanelOpen(false);
     setIsInitialLoading(false);
     setIsLocationReady(true);
+    recordRecentListing(pendingListing);
     clearPendingListing();
-  }, [pendingListing, clearPendingListing]);
+  }, [pendingListing, clearPendingListing, recordRecentListing]);
 
   // 지도 준비되면 pendingListing 위치로 이동
   useEffect(() => {
