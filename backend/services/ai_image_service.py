@@ -295,16 +295,24 @@ def _build_edit_prompt(base_prompt: str, edit_prompt: str):
     )
 
 
-def _build_edit_batch_prompt(refined_prompt: str, image_count: int):
-    """수정 요청 결과 개수에 맞는 출력 지시를 추가"""
+def _build_edit_variant_prompt(refined_prompt: str, variant_index: int):
+    """수정 결과가 서로 다른 후보가 되도록 변주 지시를 추가"""
+    variant_guides = [
+        "Variation direction: preserve the original camera angle closely, with subtle changes in lighting and material details.",
+        "Variation direction: keep the same room structure, but adjust the crop slightly wider and make appliance placement details distinct.",
+        "Variation direction: keep the edit request clear, with a brighter daylight mood and slightly different furniture spacing.",
+        "Variation direction: keep the edit request clear, with a warmer indoor light mood and different small surrounding details.",
+    ]
+    guide = variant_guides[variant_index % len(variant_guides)]
+
     return (
         f"{refined_prompt}\n\n"
         "Output requirement:\n"
         "- Generate one edited room image for this output.\n"
-        "- If multiple outputs are requested by the API, each output should be a separate single image, not a collage or grid.\n"
-        "- Every output must clearly apply the requested edit.\n"
+        "- Do not create a collage, split screen, contact sheet, or grid.\n"
+        "- The requested edit must be clearly applied.\n"
         "- Keep the overall room and camera angle close to the original image.\n"
-        "- Vary lighting, crop, textures, and small surrounding details across the variations so the outputs are not identical."
+        f"- {guide}"
     )
 
 
@@ -344,6 +352,45 @@ def _request_gpt_image_edit(file_id: str, prompt: str, size: str, n: int):
     return response_body["data"]
 
 
+def _edit_single(file_id: str, prompt: str, size: str, file_summary: str, index: int):
+    try:
+        print(
+            f"[edit_image] Editing image {index + 1} "
+            f"with {EDIT_IMAGE_MODEL} for: {file_summary}"
+        )
+        image_results = _request_gpt_image_edit(
+            file_id=file_id,
+            prompt=prompt,
+            size=size,
+            n=1,
+        )
+        image_result = image_results[0] if image_results else {}
+
+        if image_result.get("b64_json"):
+            file_path = _save_base64_image(
+                image_result["b64_json"],
+                file_summary,
+                prefix="edit",
+            )
+            return {"file_path": file_path, "error": None}
+
+        if image_result.get("url"):
+            file_path = _save_remote_image(
+                image_result["url"],
+                file_summary,
+                prefix="edit",
+            )
+            return {"file_path": file_path, "error": None}
+
+        return {
+            "file_path": None,
+            "error": "OpenAI image edit response did not include b64_json or url.",
+        }
+    except Exception as exc:
+        print(f"[edit_image] Error on image {index + 1}: {exc}")
+        return {"file_path": None, "error": str(exc)}
+
+
 def edit_image(
     source_image_url: str,
     base_prompt: str,
@@ -359,30 +406,26 @@ def edit_image(
     refined_prompt, file_summary = _build_edit_prompt(base_prompt, edit_prompt)
     uploaded_file_id = _upload_image_file_to_openai(image_path)
     image_count = max(1, min(n, 4))
-    batch_prompt = _build_edit_batch_prompt(refined_prompt, image_count)
 
     try:
-        print(
-            f"[edit_image] Editing {image_count} images "
-            f"with {EDIT_IMAGE_MODEL} for: {file_summary}"
-        )
-        image_results = _request_gpt_image_edit(
-            file_id=uploaded_file_id,
-            prompt=batch_prompt,
-            size=size,
-            n=image_count,
-        )
+        with ThreadPoolExecutor(max_workers=image_count) as executor:
+            futures = [
+                executor.submit(
+                    _edit_single,
+                    uploaded_file_id,
+                    _build_edit_variant_prompt(refined_prompt, index),
+                    size,
+                    file_summary,
+                    index,
+                )
+                for index in range(image_count)
+            ]
+            results = [future.result() for future in futures]
     finally:
         try:
             client.files.delete(uploaded_file_id)
         except Exception as exc:
             print(f"[edit_image] Failed to delete uploaded source file: {exc}")
 
-    file_paths = [
-        _save_base64_image(image_result["b64_json"], file_summary, prefix="edit")
-        if image_result.get("b64_json")
-        else _save_remote_image(image_result["url"], file_summary, prefix="edit")
-        for image_result in image_results
-        if image_result.get("b64_json") or image_result.get("url")
-    ]
+    file_paths = [result["file_path"] for result in results if result["file_path"]]
     return file_paths if file_paths else None
