@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from db.session import SessionLocal
 from db.session import get_db
 from schemas.room_schema import RoomListRequest
-from services.ai_image_service import edit_image, generate_image
+from services.ai_image_service import ImageGenerationError, edit_image, generate_image
 from services.ai_image_job_service import create_edit_job, get_edit_job, update_edit_job
 from services.embedding_service import EmbeddingService
 from services.room_service import get_rooms_by_similarity
@@ -81,19 +81,24 @@ class FindSimilarRoomsRequest(RoomListRequest):
 @router.post("/generate-image", response_model=ImageResponse)
 async def generate_image_endpoint(body: GenerateImageRequest):
     """
-    사용자 한국어 프롬프트 → GPT로 영문 프롬프트 정제 → 이미지 생성
-    생성된 이미지를 create_image/ 폴더에 저장하고 경로를 반환합니다.
+    ??? ??? ???? ? GPT? ?? ???? ?? ? ??? ??
+    ??? ???? create_image/ ??? ???? ??? ?????.
     """
     print(f"[generate-image] user_prompt={body.user_prompt}")
-    file_paths = generate_image(
-        user_prompt=body.user_prompt,
-        size=body.size,
-        quality=body.quality,
-        n=body.n,
-    )
+    try:
+        file_paths = generate_image(
+            user_prompt=body.user_prompt,
+            size=body.size,
+            quality=body.quality,
+            n=body.n,
+        )
+    except ImageGenerationError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     if not file_paths:
-        raise HTTPException(status_code=500, detail="이미지 생성에 실패했습니다.")
+        raise HTTPException(status_code=500, detail="??? ??? ??????.")
 
     return {"file_paths": file_paths}
 
