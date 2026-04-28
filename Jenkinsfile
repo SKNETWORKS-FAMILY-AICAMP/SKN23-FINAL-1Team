@@ -52,6 +52,10 @@ pipeline {
         sh '''
           set -eu
           cd "$DEPLOY_DIR"
+          docker compose -f "$COMPOSE_FILE" down --remove-orphans || true
+          for name in skn-backend-develop skn-frontend-develop; do
+            docker ps -aq --filter "name=$name" | xargs -r docker rm -f
+          done
           docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
         '''
       }
