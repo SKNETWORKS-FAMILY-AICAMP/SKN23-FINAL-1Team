@@ -118,7 +118,7 @@ export function ListingCard({
           </p>
         </div>
 
-        {/* 하트 버튼 */}
+        {/* 하트 버튼 — 세로 중앙 */}
         <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
           <FavoriteButton
             isFavorite={!!isFavorite}
