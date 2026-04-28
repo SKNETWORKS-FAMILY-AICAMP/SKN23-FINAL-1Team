@@ -40,6 +40,8 @@ def create_social_user(
         nickname=nickname,
         social_type=social_type,
         provider_id=provider_id,
+        remain=2,
+        credit=0,
     )
     db.add(user)
     db.commit()
