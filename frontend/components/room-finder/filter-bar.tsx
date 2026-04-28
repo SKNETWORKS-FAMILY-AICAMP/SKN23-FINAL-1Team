@@ -328,7 +328,7 @@ export function FilterBar({
     `w-[160px] md:w-full py-5 rounded-full border text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
 
   const popoverTriggerClass = (isSelected: boolean) =>
-    `w-[160px] md:w-full flex items-center justify-between rounded-full border px-4 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
+    `cursor-pointer w-[160px] md:w-full flex items-center justify-between rounded-full border px-4 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
 
   const popoverContentClass =
     "border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,246,241,0.96)_100%)] p-5 shadow-[0_18px_40px_rgba(15,23,42,0.12)]";
