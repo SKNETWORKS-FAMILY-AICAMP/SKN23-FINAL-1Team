@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           user_prompt: trimmedPrompt,
           size: "1024x1024",
-          quality: "medium",
+          quality: "low",
           n: 4,
         }),
       },
@@ -68,7 +68,10 @@ export async function POST(request: NextRequest) {
         );
       } catch {
         return NextResponse.json(
-          { error: errorText || "이미지 생성에 실패했습니다. 다시 시도해주세요." },
+          {
+            error:
+              errorText || "이미지 생성에 실패했습니다. 다시 시도해주세요.",
+          },
           { status: response.status },
         );
       }
