@@ -12,6 +12,7 @@ interface ListingCardProps {
   listing: Listing;
   isSelected?: boolean;
   onClick?: (listing: Listing) => void;
+  onImageClick?: (listing: Listing) => void;
   isFavorite?: boolean;
   isFavoriteLoading?: boolean;
   onToggleFavorite?: () => void;
@@ -37,6 +38,7 @@ export function ListingCard({
   listing,
   isSelected = false,
   onClick,
+  onImageClick,
   isFavorite = false,
   isFavoriteLoading = false,
   onToggleFavorite,
@@ -79,6 +81,13 @@ export function ListingCard({
         <div className="relative aspect-[4/3] overflow-hidden bg-stone-100">
           {imageSrc ? (
             <>
+              <div
+                className="absolute inset-0 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onImageClick?.(listing);
+                }}
+              />
               <Image
                 src={imageSrc}
                 alt={listing.title}
@@ -86,14 +95,17 @@ export function ListingCard({
                 className="object-cover transition-transform duration-700 group-hover:scale-105"
                 sizes="(min-width: 1280px) 380px, (min-width: 768px) 50vw, 100vw"
               />
-              <div className="absolute right-3 top-3 z-10">
+              <div
+                className="absolute right-3 top-3 z-10"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <FavoriteButton
                   isFavorite={!!isFavorite}
                   disabled={!!isFavoriteLoading}
                   onClick={() => onToggleFavorite?.()}
                 />
               </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-black/0 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-black/0 to-transparent pointer-events-none" />
             </>
           ) : (
             <div className="flex h-full items-center justify-center text-sm font-medium text-stone-400">
