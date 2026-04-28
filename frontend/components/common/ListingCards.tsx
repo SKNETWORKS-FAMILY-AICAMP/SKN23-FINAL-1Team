@@ -59,7 +59,7 @@ export function ListingCard({
     >
       <div
         className={cn(
-          "group flex items-center gap-3 rounded-2xl border p-3 transition-all duration-200 bg-white",
+          "group relative flex items-center gap-3 rounded-2xl border p-3 transition-all duration-200 bg-white",
           isSelected
             ? "border-amber-200 shadow-[0_4px_16px_rgba(245,158,11,0.14)] ring-1 ring-amber-100"
             : "border-stone-200/80 hover:border-stone-300 hover:shadow-[0_4px_12px_rgba(15,23,42,0.08)]",
@@ -119,7 +119,7 @@ export function ListingCard({
         </div>
 
         {/* 하트 버튼 */}
-        <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+        <div className="absolute right-3 top-3 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
           <FavoriteButton
             isFavorite={!!isFavorite}
             disabled={!!isFavoriteLoading}
