@@ -146,6 +146,24 @@ export function HomeContainer() {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const addRecent = useRecentStore((state) => state.addRecent);
 
+  const recordRecentListing = useCallback(
+    (listing: Listing) => {
+      addRecent({
+        id: listing.id,
+        title: listing.title,
+        price: listing.price,
+        address: listing.address,
+        images: listing.images,
+        structure: listing.structure,
+        size: listing.size,
+        floor: listing.floor,
+        lat: listing.lat,
+        lng: listing.lng,
+      });
+    },
+    [addRecent],
+  );
+
   const pendingListing = usePendingListingStore((state) => state.pendingListing);
   const clearPendingListing = usePendingListingStore((state) => state.clearPendingListing);
   const isPendingOpenRef = useRef(false);
@@ -432,24 +450,6 @@ export function HomeContainer() {
     if (isLoading || !hasMore || recommendedListings) return;
     setOffset((prev) => prev + PAGE_SIZE);
   }, [hasMore, isLoading, recommendedListings]);
-
-  const recordRecentListing = useCallback(
-    (listing: Listing) => {
-      addRecent({
-        id: listing.id,
-        title: listing.title,
-        price: listing.price,
-        address: listing.address,
-        images: listing.images,
-        structure: listing.structure,
-        size: listing.size,
-        floor: listing.floor,
-        lat: listing.lat,
-        lng: listing.lng,
-      });
-    },
-    [addRecent],
-  );
 
   // 매물목록 클릭 → 지도 이동 + 상세패널 오픈
   const handleListingClick = useCallback((listing: Listing) => {
