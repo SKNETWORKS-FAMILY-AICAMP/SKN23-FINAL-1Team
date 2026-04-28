@@ -34,7 +34,7 @@ export function FavoriteButton({
       disabled={disabled}
       aria-label={isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
       className={cn(
-        "inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/90 shadow-md backdrop-blur transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/70 bg-white/90 shadow-md backdrop-blur transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
     >
