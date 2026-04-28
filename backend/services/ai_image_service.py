@@ -76,8 +76,12 @@ def _save_image_bytes(image_data: bytes, file_summary: str, prefix: str = ""):
 
 def _save_openai_image_result(image_result, file_summary: str, prefix: str = ""):
     """OpenAI 이미지 응답이 b64_json 또는 url 중 어느 형태여도 저장"""
-    image_base64 = getattr(image_result, "b64_json", None)
-    image_url = getattr(image_result, "url", None)
+    if isinstance(image_result, dict):
+        image_base64 = image_result.get("b64_json")
+        image_url = image_result.get("url")
+    else:
+        image_base64 = getattr(image_result, "b64_json", None)
+        image_url = getattr(image_result, "url", None)
 
     if image_base64:
         return _save_base64_image(image_base64, file_summary, prefix=prefix)
