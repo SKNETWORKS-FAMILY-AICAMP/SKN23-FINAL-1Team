@@ -119,7 +119,7 @@ export function ListingPanel({
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white md:bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">
-      <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-2 pt-0 backdrop-blur-md shrink-0">
+      <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-2 pt-3 backdrop-blur-md shrink-0">
         <div
           className={cn(
             "rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
