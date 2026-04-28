@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildBackendApiUrl } from "@/lib/api/backend-url";
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
-const MAX_AI_EDIT_COUNT = 2;
 
 type EditImageRequestBody = {
+  userId?: number;
   sourceImageUrl?: string;
   basePrompt?: string;
   editPrompt?: string;
-  editCount?: number;
 };
 
 function parseJsonSafely(rawBody: string) {
@@ -20,6 +19,8 @@ function parseJsonSafely(rawBody: string) {
       error?: string;
       file_paths?: string[];
       images?: string[];
+      remain?: number;
+      credit?: number;
     };
   } catch {
     return null;
@@ -29,11 +30,18 @@ function parseJsonSafely(rawBody: string) {
 export async function POST(request: NextRequest) {
   try {
     const {
+      userId = 0,
       sourceImageUrl = "",
       basePrompt = "",
       editPrompt = "",
-      editCount = 0,
     } = (await request.json()) as EditImageRequestBody;
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "로그인한 사용자 정보가 필요합니다." },
+        { status: 400 },
+      );
+    }
 
     if (!sourceImageUrl.trim()) {
       return NextResponse.json(
@@ -49,19 +57,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (editCount >= MAX_AI_EDIT_COUNT) {
-      return NextResponse.json(
-        { error: "이미지 수정은 최대 2번까지 가능합니다." },
-        { status: 400 },
-      );
-    }
-
     const response = await fetch(
       buildBackendApiUrl(BACKEND_URL, "/edit-image"),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          user_id: userId,
           source_image_url: sourceImageUrl,
           base_prompt: basePrompt,
           edit_prompt: editPrompt,
@@ -117,7 +119,11 @@ export async function POST(request: NextRequest) {
       )}`,
     }));
 
-    return NextResponse.json({ images });
+    return NextResponse.json({
+      images,
+      remain: data.remain,
+      credit: data.credit,
+    });
   } catch (error) {
     console.error("[edit-image] Error:", error);
     return NextResponse.json(
