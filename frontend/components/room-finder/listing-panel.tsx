@@ -25,6 +25,7 @@ interface ListingPanelProps {
   onWishClick?: (listing: Listing) => void;
   sort?: "latest" | "price_asc" | "price_desc";
   onSortChange?: (sort: "latest" | "price_asc" | "price_desc") => void;
+  onAIPhotoClick?: (url: string) => void;
 }
 
 type PanelTab = "list" | "ai" | "wish";
@@ -46,6 +47,7 @@ export function ListingPanel({
   onWishClick,
   sort = "latest",
   onSortChange,
+  onAIPhotoClick,
 }: ListingPanelProps) {
   const addRecent = useRecentStore((state) => state.addRecent);
 
@@ -262,6 +264,7 @@ export function ListingPanel({
               onSimilarListingsFound?.(similarListings);
               setActiveTab("list");
             }}
+            onPhotoClick={onAIPhotoClick}
           />
         </div>
 

@@ -131,6 +131,7 @@ export function HomeContainer() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenImages, setFullscreenImages] = useState<string[]>([]);
   const [fullscreenIndex, setFullscreenIndex] = useState(0);
+  const [aiFullscreenUrl, setAiFullscreenUrl] = useState<string | null>(null);
   const { toast, showToast, hideToast } = useFavoriteToast();
 
   const [listings, setListings] = useState<Listing[]>([]);
@@ -612,6 +613,64 @@ export function HomeContainer() {
     {/* 찜 토스트 알림 */}
     <Toast toast={toast} onClose={hideToast} />
 
+    {/* AI 이미지 풀스크린 모달 */}
+    {aiFullscreenUrl && (
+      <div
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90"
+        onClick={() => setAiFullscreenUrl(null)}
+      >
+        <button
+          type="button"
+          onClick={() => setAiFullscreenUrl(null)}
+          className="absolute top-4 right-4 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        <div
+          className="relative h-[80vh] w-[80vh] max-w-[90vw] overflow-hidden rounded-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Image
+            src={aiFullscreenUrl}
+            alt="AI 생성 이미지"
+            fill
+            unoptimized
+            className="object-cover"
+          />
+        </div>
+      </div>
+    )}
+
+    {/* AI 이미지 풀스크린 모달 */}
+    {aiFullscreenUrl && (
+      <div
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85"
+        onClick={() => setAiFullscreenUrl(null)}
+      >
+        <div
+          className="relative w-[480px] max-w-[90vw] overflow-hidden rounded-2xl bg-black"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="relative aspect-square w-full">
+            <Image
+              src={aiFullscreenUrl}
+              alt="AI 생성 이미지"
+              fill
+              unoptimized
+              className="object-cover"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setAiFullscreenUrl(null)}
+            className="absolute right-3 top-3 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    )}
+
     {/* 풀스크린 사진 모달 — 페이지 최상단 */}
     {isFullscreen && fullscreenImages.length > 0 && (
       <div className="fixed inset-0 z-[9999] flex flex-col bg-black">
@@ -784,6 +843,7 @@ export function HomeContainer() {
             onWishClick={handleWishClick}
             sort={sort}
             onSortChange={setSort}
+            onAIPhotoClick={(url) => setAiFullscreenUrl(url)}
           />
 
           {/* 상세 패널 — 목록 위에 슬라이드로 덮음 */}
@@ -855,6 +915,7 @@ export function HomeContainer() {
               favoriteListings={favoriteListings}
               isLoggedIn={isLoggedIn}
               onWishClick={handleWishClick}
+              onAIPhotoClick={(url) => setAiFullscreenUrl(url)}
             />
           </aside>
         )}
