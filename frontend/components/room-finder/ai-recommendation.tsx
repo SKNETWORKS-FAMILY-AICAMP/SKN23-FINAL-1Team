@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Loader2 } from "lucide-react";
+import { Loader2, Maximize2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Listing } from "./map-view";
 import { useAuthStore } from "@/store/authStore";
@@ -68,6 +68,7 @@ export function AIRecommendation({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isFindingSimilar, setIsFindingSimilar] = useState(false);
+  const [fullscreenImage, setFullscreenImage] = useState<{ url: string; prompt: string } | null>(null);
 
   const selectedImage = useMemo(
     () => generatedImages.find((image) => image.id === selectedImageId) ?? null,
@@ -354,6 +355,37 @@ export function AIRecommendation({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/* 풀스크린 모달 */}
+      {fullscreenImage && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80"
+          onClick={() => setFullscreenImage(null)}
+        >
+          <div
+            className="relative w-[420px] max-w-[90vw] overflow-hidden rounded-2xl bg-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative aspect-square w-full">
+              <Image
+                src={fullscreenImage.url}
+                alt={fullscreenImage.prompt}
+                fill
+                unoptimized
+                className="object-cover"
+              />
+            </div>
+            <div className="flex items-center justify-between p-4">
+              <p className="text-sm font-medium text-stone-700 line-clamp-2">{fullscreenImage.prompt}</p>
+              <button
+                onClick={() => setFullscreenImage(null)}
+                className="ml-3 flex-shrink-0 cursor-pointer text-stone-400 hover:text-stone-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {screen === "init" && (
         <div className="flex flex-1 flex-col items-center justify-center gap-5 overflow-y-auto px-5 py-8">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#e8e0d5] bg-[#f5f0eb]">
@@ -449,7 +481,7 @@ export function AIRecommendation({
                     key={image.id}
                     onClick={() => handleSelectImage(image.id)}
                     className={cn(
-                      "relative aspect-square cursor-pointer overflow-hidden rounded-xl border-2 transition-all duration-150",
+                      "group relative aspect-square cursor-pointer overflow-hidden rounded-xl border-2 transition-all duration-150",
                       isSelected ? "border-stone-600" : "border-transparent",
                       isDimmed && "opacity-30",
                     )}
@@ -473,6 +505,17 @@ export function AIRecommendation({
                         </svg>
                       </div>
                     )}
+
+                    {/* 왼쪽 상단 확대 버튼 */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFullscreenImage({ url: image.url, prompt: image.prompt });
+                      }}
+                      className="absolute left-2 top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-white/80 opacity-0 transition-opacity duration-150 hover:bg-white group-hover:opacity-100"
+                    >
+                      <Maximize2 className="h-3.5 w-3.5 text-stone-600" />
+                    </button>
 
                     <div className="absolute bottom-2 right-2 rounded bg-black/45 px-1.5 py-0.5 text-[10px] text-white">
                       {index + 1}/4
