@@ -7,6 +7,7 @@ import { AIRecommendation } from "@/components/room-finder/ai-recommendation";
 import { Sparkles, House, Heart, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRecentStore } from "@/store/recentStore";
+import type { RoomSearchParams } from "@/lib/api/rooms";
 
 interface ListingPanelProps {
   listings: Listing[];
@@ -16,7 +17,7 @@ interface ListingPanelProps {
   hasMore?: boolean;
   isLoading?: boolean;
   scrollResetKey?: number;
-  onSimilarListingsFound?: (listings: Listing[]) => void;
+  onSimilarListingsFound?: (listings: Listing[], imageUrl?: string) => void;
   favoriteIds: number[];
   favoriteLoadingIds: number[];
   onToggleFavorite: (listingId: number) => void;
@@ -26,6 +27,7 @@ interface ListingPanelProps {
   sort?: "latest" | "price_asc" | "price_desc";
   onSortChange?: (sort: "latest" | "price_asc" | "price_desc") => void;
   onAIPhotoClick?: (url: string) => void;
+  similarSearchParams?: RoomSearchParams;
 }
 
 type PanelTab = "list" | "ai" | "wish";
@@ -48,6 +50,7 @@ export function ListingPanel({
   sort = "latest",
   onSortChange,
   onAIPhotoClick,
+  similarSearchParams,
 }: ListingPanelProps) {
   const addRecent = useRecentStore((state) => state.addRecent);
 
@@ -278,8 +281,9 @@ export function ListingPanel({
         )}>
           <AIRecommendation
             allListings={listings}
-            onSimilarListingsFound={(similarListings) => {
-              onSimilarListingsFound?.(similarListings);
+            similarSearchParams={similarSearchParams}
+            onSimilarListingsFound={(similarListings, imageUrl) => {
+              onSimilarListingsFound?.(similarListings, imageUrl);
               setActiveTab("list");
             }}
             onPhotoClick={onAIPhotoClick}

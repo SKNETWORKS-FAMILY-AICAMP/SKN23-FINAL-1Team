@@ -124,7 +124,7 @@ export interface ListingDetailResponse {
   }[];
 }
 
-function buildSearchBody(params: RoomSearchParams) {
+export function buildSearchBody(params: RoomSearchParams) {
   return {
     offset: params.offset ?? 0,
     limit: params.limit ?? 20,

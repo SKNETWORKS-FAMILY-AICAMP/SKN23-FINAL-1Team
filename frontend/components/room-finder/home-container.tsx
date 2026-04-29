@@ -12,7 +12,13 @@ import {
   type MapItem,
 } from "@/components/room-finder/map-view";
 import { ListingPanel } from "@/components/room-finder/listing-panel";
-import { fetchItems, fetchMapItems, fetchRoomDetail } from "@/lib/api/rooms";
+import {
+  buildSearchBody,
+  fetchItems,
+  fetchMapItems,
+  fetchRoomDetail,
+  type RoomSearchParams,
+} from "@/lib/api/rooms";
 import { mapItemToListing } from "@/utils/roomMappers";
 import { ListingDetailPanel } from "@/components/room-finder/listing-detail-panel";
 import { useAuthStore } from "@/store/authStore";
@@ -118,6 +124,19 @@ function isAbortError(error: unknown) {
   );
 }
 
+function logSimilarRoomScores(items: Listing[], context: string) {
+  console.table(
+    items.map((item, index) => ({
+      rank: index + 1,
+      itemId: item.id,
+      similarity: item.embeddingSimilarity ?? null,
+      title: item.title,
+      address: item.address,
+    })),
+  );
+  console.log(`[find-similar-rooms] ${context}: ${items.length} items`);
+}
+
 export function HomeContainer() {
   const [roomType, setRoomType] = useState<"oneroom" | "tworoom">("oneroom");
   const [filters, setFilters] = useState<Filters>(defaultFilters);
@@ -138,6 +157,7 @@ export function HomeContainer() {
   const [visibleListings, setVisibleListings] = useState<Listing[]>([]);
   const [mapItems, setMapItems] = useState<MapItem[]>([]);
   const [recommendedListings, setRecommendedListings] = useState<Listing[] | null>(null);
+  const [similarImageUrl, setSimilarImageUrl] = useState<string | null>(null);
 
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -238,6 +258,39 @@ export function HomeContainer() {
     sort,
   ]);
 
+  const similarSearchParams = useMemo<RoomSearchParams>(() => ({
+    search: debouncedSearchQuery,
+    transactionType: filters.transactionType,
+    roomType: roomType === "oneroom" ? "원룸" : "투룸",
+    structure: roomType === "oneroom" ? filters.structure : [],
+    deposit: filters.deposit,
+    monthlyRent: filters.monthlyRent,
+    size: filters.size,
+    sizeUnit: filters.sizeUnit,
+    floor: filters.floor,
+    options: filters.options,
+    sort,
+    lat: mapBounds?.centerLat,
+    lng: mapBounds?.centerLng,
+    swLat: mapBounds?.swLat,
+    swLng: mapBounds?.swLng,
+    neLat: mapBounds?.neLat,
+    neLng: mapBounds?.neLng,
+  }), [
+    debouncedSearchQuery,
+    filters.transactionType,
+    filters.deposit,
+    filters.monthlyRent,
+    filters.structure,
+    filters.size,
+    filters.sizeUnit,
+    filters.floor,
+    filters.options,
+    roomType,
+    sort,
+    mapBounds,
+  ]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
@@ -246,18 +299,98 @@ export function HomeContainer() {
   }, [searchQuery]);
 
   const prevRequestKeyRef = useRef<string>("");
+  const prevSimilarRequestKeyRef = useRef<string>("");
+
+  const getSimilarRequestKey = useCallback(
+    (imageUrl: string) =>
+      JSON.stringify({
+        imageUrl,
+        body: buildSearchBody({
+          ...similarSearchParams,
+          offset: 0,
+          limit: PAGE_SIZE,
+        }),
+      }),
+    [similarSearchParams],
+  );
+
+  const handleSimilarListingsFound = useCallback(
+    (similar: Listing[], imageUrl?: string) => {
+      if (imageUrl) {
+        setSimilarImageUrl(imageUrl);
+        prevSimilarRequestKeyRef.current = getSimilarRequestKey(imageUrl);
+      }
+      setRecommendedListings(similar);
+      setSelectedListing(similar[0] ?? null);
+      setIsDetailOpen(false);
+    },
+    [getSimilarRequestKey],
+  );
 
   useEffect(() => {
     if (prevRequestKeyRef.current === requestKey) return;
     prevRequestKeyRef.current = requestKey;
-    setRecommendedListings(null);
+    if (!similarImageUrl) {
+      setRecommendedListings(null);
+    }
     setVisibleListings([]);
     if (!isPendingOpenRef.current) setSelectedListing(null);
     setOffset(0);
     setHasMore(true);
     setHasRequestFailed(false);
     setIsInitialLoading(listings.length === 0);
-  }, [requestKey, listings.length]);
+  }, [requestKey, listings.length, similarImageUrl]);
+
+  useEffect(() => {
+    if (!similarImageUrl) return;
+
+    const nextSimilarRequestKey = getSimilarRequestKey(similarImageUrl);
+    if (prevSimilarRequestKeyRef.current === nextSimilarRequestKey) return;
+    prevSimilarRequestKeyRef.current = nextSimilarRequestKey;
+
+    const controller = new AbortController();
+
+    const refreshSimilarListings = async () => {
+      setIsLoading(true);
+
+      try {
+        const response = await fetch("/api/find-similar-rooms", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...buildSearchBody({
+              ...similarSearchParams,
+              offset: 0,
+              limit: PAGE_SIZE,
+            }),
+            image_url: similarImageUrl,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Similar room request failed.");
+        }
+
+        const data = await response.json();
+        const similar = Array.isArray(data.items) ? (data.items as Listing[]) : [];
+        logSimilarRoomScores(similar, "filter refresh");
+        setRecommendedListings(similar);
+        setSelectedListing(similar[0] ?? null);
+        setIsDetailOpen(false);
+      } catch (error) {
+        if (controller.signal.aborted || isAbortError(error)) return;
+        console.error(error);
+      } finally {
+        if (controller.signal.aborted) return;
+        setIsLoading(false);
+        setIsInitialLoading(false);
+      }
+    };
+
+    refreshSimilarListings();
+    return () => { controller.abort(); };
+  }, [getSimilarRequestKey, similarImageUrl, similarSearchParams]);
 
   const handleInitialLocationResolved = useCallback(() => {
     setIsLocationReady((prev) => (prev ? prev : true));
@@ -806,17 +939,14 @@ export function HomeContainer() {
             favoriteIds={favoriteIds}
             favoriteLoadingIds={favoriteLoadingIds}
             onToggleFavorite={handleToggleFavorite}
-            onSimilarListingsFound={(similar) => {
-              setRecommendedListings(similar);
-              setSelectedListing(similar[0] ?? null);
-              setIsDetailOpen(false);
-            }}
+            onSimilarListingsFound={handleSimilarListingsFound}
             favoriteListings={favoriteListings}
             isLoggedIn={isLoggedIn}
             onWishClick={handleWishClick}
             sort={sort}
             onSortChange={setSort}
             onAIPhotoClick={(url) => setAiFullscreenUrl(url)}
+            similarSearchParams={similarSearchParams}
           />
 
           {/* 상세 패널 — 목록 위에 슬라이드로 덮음 */}
@@ -880,15 +1010,12 @@ export function HomeContainer() {
               favoriteIds={favoriteIds}
               favoriteLoadingIds={favoriteLoadingIds}
               onToggleFavorite={handleToggleFavorite}
-              onSimilarListingsFound={(similar) => {
-                setRecommendedListings(similar);
-                setSelectedListing(similar[0] ?? null);
-                setIsDetailOpen(false);
-              }}
+              onSimilarListingsFound={handleSimilarListingsFound}
               favoriteListings={favoriteListings}
               isLoggedIn={isLoggedIn}
               onWishClick={handleWishClick}
               onAIPhotoClick={(url) => setAiFullscreenUrl(url)}
+              similarSearchParams={similarSearchParams}
             />
           </aside>
         )}
