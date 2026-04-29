@@ -12,10 +12,12 @@ import {
   type AIGeneratedImage,
   useAIImageSessionStore,
 } from "@/store/aiImageSessionStore";
+import { buildSearchBody, type RoomSearchParams } from "@/lib/api/rooms";
 
 interface AIRecommendationProps {
-  onSimilarListingsFound: (listings: Listing[]) => void;
+  onSimilarListingsFound: (listings: Listing[], imageUrl?: string) => void;
   allListings: Listing[];
+  similarSearchParams?: RoomSearchParams;
   compact?: boolean;
   onPhotoClick?: (url: string) => void;
 }
@@ -47,9 +49,23 @@ function buildSessionImages(
   }));
 }
 
+function logSimilarRoomScores(items: Listing[], context: string) {
+  console.table(
+    items.map((item, index) => ({
+      rank: index + 1,
+      itemId: item.id,
+      similarity: item.embeddingSimilarity ?? null,
+      title: item.title,
+      address: item.address,
+    })),
+  );
+  console.log(`[find-similar-rooms] ${context}: ${items.length} items`);
+}
+
 export function AIRecommendation({
   onSimilarListingsFound,
   allListings,
+  similarSearchParams,
   compact = false,
   onPhotoClick,
 }: AIRecommendationProps) {
@@ -282,7 +298,14 @@ export function AIRecommendation({
       const response = await fetch("/api/find-similar-rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_url: selectedImage.url }),
+        body: JSON.stringify({
+          ...buildSearchBody({
+            ...(similarSearchParams ?? {}),
+            offset: 0,
+            limit: 20,
+          }),
+          image_url: selectedImage.url,
+        }),
       });
 
       if (!response.ok) {
@@ -292,7 +315,9 @@ export function AIRecommendation({
       const data = await response.json();
 
       if (data.items && data.items.length > 0) {
-        onSimilarListingsFound(data.items as Listing[]);
+        const similarItems = data.items as Listing[];
+        logSimilarRoomScores(similarItems, "manual search");
+        onSimilarListingsFound(similarItems, selectedImage.url);
       } else {
         onSimilarListingsFound(allListings.slice(0, 4));
       }

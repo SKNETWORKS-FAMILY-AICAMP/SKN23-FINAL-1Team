@@ -178,10 +178,10 @@ def apply_room_filters(stmt, req):
     return stmt
 
 
-def serialize_room_marker(room):
+def serialize_room_marker(room, embedding_similarity: float | None = None):
     image_urls = [room.image_thumbnail] if is_valid_image_value(room.image_thumbnail) else []
 
-    return {
+    item = {
         "type": "marker",
         "id": str(room.item_id),
         "item_id": room.item_id,
@@ -198,6 +198,11 @@ def serialize_room_marker(room):
         "structure": room.room_type or "매물",
         "options": [],
     }
+
+    if embedding_similarity is not None:
+        item["embeddingSimilarity"] = float(embedding_similarity)
+
+    return item
 
 
 def get_rooms(db, req):
@@ -238,13 +243,18 @@ def get_rooms_by_similarity(db: Session, req, embedding: list[float] | None = No
     기존 get_rooms 기능을 그대로 쓰되,
     중복 없이 '가장 비슷한 이미지가 있는 방' 순서로 정렬함.
     """
-    stmt = select(Room)
     count_stmt = select(func.count(distinct(Room.item_id)))
+    has_embedding = bool(embedding)
 
-    if embedding:
+    if has_embedding:
         vector_str = "[" + ",".join(map(str, embedding)) + "]"
+        embedding_distance_expr = func.min(
+            ITEM_IMAGE_EMBEDDINGS.c.embedding.op("<#>")(text(f"'{vector_str}'::vector"))
+        )
+        embedding_similarity_expr = (-embedding_distance_expr).label("embedding_similarity")
 
         # 조인: Room -> ItemImage -> item_image_embeddings
+        stmt = select(Room, embedding_similarity_expr)
         stmt = stmt.join(ItemImage, Room.item_id == ItemImage.item_id)
         stmt = stmt.join(ITEM_IMAGE_EMBEDDINGS, ItemImage.id == ITEM_IMAGE_EMBEDDINGS.c.image_id)
         count_stmt = count_stmt.join(ItemImage, Room.item_id == ItemImage.item_id)
@@ -253,27 +263,29 @@ def get_rooms_by_similarity(db: Session, req, embedding: list[float] | None = No
             ItemImage.id == ITEM_IMAGE_EMBEDDINGS.c.image_id,
         )
 
-        similarity_expr = func.min(
-            ITEM_IMAGE_EMBEDDINGS.c.embedding.op("<#>")(text(f"'{vector_str}'::vector"))
-        )
-
         stmt = apply_room_filters(stmt, req)
         count_stmt = apply_room_filters(count_stmt, req)
 
-        stmt = stmt.group_by(Room.item_id).order_by(similarity_expr)
+        stmt = stmt.group_by(Room.item_id).order_by(embedding_distance_expr)
     else:
+        stmt = select(Room)
         stmt = apply_room_filters(stmt, req)
         count_stmt = apply_room_filters(count_stmt, req)
         stmt = stmt.order_by(Room.first_crawled_at.desc().nullslast(), Room.item_id.desc())
 
     total = db.execute(count_stmt).scalar_one()
 
-    rows = db.execute(
-        stmt.offset(req.offset).limit(req.limit)
-    ).scalars().all()
+    result = db.execute(stmt.offset(req.offset).limit(req.limit))
+    if has_embedding:
+        items = [
+            serialize_room_marker(room, embedding_similarity)
+            for room, embedding_similarity in result.all()
+        ]
+    else:
+        items = [serialize_room_marker(room) for room in result.scalars().all()]
 
     return {
-        "items": [serialize_room_marker(r) for r in rows],
+        "items": items,
         "total": total,
         "has_more": req.offset + req.limit < total,
     }
