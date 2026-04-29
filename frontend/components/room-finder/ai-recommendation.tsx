@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Loader2, Maximize2, X } from "lucide-react";
+import { Loader2, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Listing } from "./map-view";
 import { useAuthStore } from "@/store/authStore";
@@ -16,6 +16,7 @@ interface AIRecommendationProps {
   onSimilarListingsFound: (listings: Listing[]) => void;
   allListings: Listing[];
   compact?: boolean;
+  onPhotoClick?: (url: string) => void;
 }
 
 type GeneratedImageResponse = {
@@ -49,6 +50,7 @@ export function AIRecommendation({
   onSimilarListingsFound,
   allListings,
   compact = false,
+  onPhotoClick,
 }: AIRecommendationProps) {
   const user = useAuthStore((state) => state.user);
   const updateUser = useAuthStore((state) => state.updateUser);
@@ -506,11 +508,10 @@ export function AIRecommendation({
                       </div>
                     )}
 
-                    {/* 왼쪽 상단 확대 버튼 */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setFullscreenImage({ url: image.url, prompt: image.prompt });
+                        onPhotoClick?.(image.url);
                       }}
                       className="absolute left-2 top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-white/80 opacity-0 transition-opacity duration-150 hover:bg-white group-hover:opacity-100"
                     >
