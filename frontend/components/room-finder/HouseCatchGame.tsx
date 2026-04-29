@@ -119,7 +119,7 @@ export function HouseCatchGame({ isGenerating, onClose }: HouseCatchGameProps) {
       position: "absolute", inset: 0, zIndex: 20,
       background: "var(--color-background-primary)",
       borderRadius: "inherit", display: "flex", flexDirection: "column",
-      padding: "16px",
+      padding: "16px", overflow: "hidden",
     }}>
       <style>{`
         @keyframes fadeUp {
