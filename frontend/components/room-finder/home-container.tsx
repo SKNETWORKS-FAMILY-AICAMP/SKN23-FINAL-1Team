@@ -613,33 +613,6 @@ export function HomeContainer() {
     {/* 찜 토스트 알림 */}
     <Toast toast={toast} onClose={hideToast} />
 
-    {/* AI 이미지 풀스크린 모달 */}
-    {aiFullscreenUrl && (
-      <div
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90"
-        onClick={() => setAiFullscreenUrl(null)}
-      >
-        <button
-          type="button"
-          onClick={() => setAiFullscreenUrl(null)}
-          className="absolute top-4 right-4 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
-        >
-          <X className="h-5 w-5" />
-        </button>
-        <div
-          className="relative h-[80vh] w-[80vh] max-w-[90vw] overflow-hidden rounded-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Image
-            src={aiFullscreenUrl}
-            alt="AI 생성 이미지"
-            fill
-            unoptimized
-            className="object-cover"
-          />
-        </div>
-      </div>
-    )}
 
     {/* AI 이미지 풀스크린 모달 */}
     {aiFullscreenUrl && (
