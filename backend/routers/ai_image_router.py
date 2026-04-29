@@ -19,7 +19,12 @@ from sqlalchemy.orm import Session
 from db.session import SessionLocal
 from db.session import get_db
 from schemas.room_schema import RoomListRequest
-from services.ai_image_service import ImageGenerationError, edit_image, generate_image
+from services.ai_image_service import (
+    ImageGenerationError,
+    edit_image,
+    generate_image,
+    resolve_saved_image_path,
+)
 from services.ai_image_job_service import create_edit_job, get_edit_job, update_edit_job
 from services.embedding_service import EmbeddingService
 from services.room_service import get_rooms_by_similarity
@@ -76,13 +81,33 @@ class FindSimilarRoomsRequest(RoomListRequest):
     image_url: str
 
 
+def _read_similarity_image(image_url: str) -> bytes:
+    """
+    create_image에 저장된 생성/수정 이미지는 자기 자신에게 HTTP 요청하지 않고
+    로컬 파일에서 바로 읽는다.
+    """
+    if "/api/images/" in image_url or "/backend/api/images/" in image_url:
+        image_path = resolve_saved_image_path(image_url)
+        with open(image_path, "rb") as image_file:
+            return image_file.read()
+
+    image_response = requests.get(image_url, timeout=15)
+    if image_response.status_code != 200:
+        raise HTTPException(
+            status_code=400,
+            detail="이미지를 불러올 수 없습니다.",
+        )
+
+    return image_response.content
+
+
 # ── 엔드포인트 ─────────────────────────────────────────────────────────────────
 
 @router.post("/generate-image", response_model=ImageResponse)
 async def generate_image_endpoint(body: GenerateImageRequest):
     """
-    ??? ??? ???? ? GPT? ?? ???? ?? ? ??? ??
-    ??? ???? create_image/ ??? ???? ??? ?????.
+    사용자 프롬프트로 AI 이미지를 생성하고,
+    생성된 이미지를 create_image/ 폴더에 저장한 뒤 경로를 반환합니다.
     """
     print(f"[generate-image] user_prompt={body.user_prompt}")
     try:
@@ -98,7 +123,7 @@ async def generate_image_endpoint(body: GenerateImageRequest):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     if not file_paths:
-        raise HTTPException(status_code=500, detail="??? ??? ??????.")
+        raise HTTPException(status_code=500, detail="이미지 생성에 실패했습니다.")
 
     return {"file_paths": file_paths}
 
@@ -268,14 +293,7 @@ async def find_similar_rooms_endpoint(
     4. 무한 스크롤 지원 형식으로 반환
     """
     try:
-        image_response = requests.get(body.image_url, timeout=5)
-        if image_response.status_code != 200:
-            raise HTTPException(
-                status_code=400,
-                detail="이미지를 불러올 수 없습니다.",
-            )
-
-        image_data = image_response.content
+        image_data = _read_similarity_image(body.image_url)
         embedding = EmbeddingService.get_image_embedding(image_data)
 
         if not embedding:

@@ -187,7 +187,7 @@ def _normalize_generate_image_quality(quality: str):
 
 
 def _generate_single(user_prompt: str, size: str, quality: str, index: int):
-    """??? 1? ?? (?? ???)"""
+    """이미지 1장을 생성한다."""
     try:
         refined_prompt, file_summary = _refine_prompt(
             user_prompt,
@@ -256,7 +256,7 @@ def generate_image(
 
     first_error = next(
         (result["error"] for result in results if result["error"]),
-        "??? ??? ??????.",
+        "이미지 생성에 실패했습니다.",
     )
     raise ImageGenerationError(first_error)
 
