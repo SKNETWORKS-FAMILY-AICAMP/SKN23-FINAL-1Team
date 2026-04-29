@@ -226,9 +226,7 @@ export function HomeContainer() {
   // listings와 분리된 찜 목록 상태 — 지도 이동해도 유지됨
   const [favoriteListings, setFavoriteListings] = useState<Listing[]>([]);
 
-  const panelListings =
-    recommendedListings ??
-    (visibleListings.length > 0 ? visibleListings : listings);
+  const panelListings = visibleListings.length > 0 ? visibleListings : listings;
 
   const requestKey = useMemo(() => {
     return JSON.stringify({
@@ -308,7 +306,7 @@ export function HomeContainer() {
         body: buildSearchBody({
           ...similarSearchParams,
           offset: 0,
-          limit: PAGE_SIZE,
+          limit: 4,
         }),
       }),
     [similarSearchParams],
@@ -316,12 +314,13 @@ export function HomeContainer() {
 
   const handleSimilarListingsFound = useCallback(
     (similar: Listing[], imageUrl?: string) => {
+      const topSimilar = similar.slice(0, 4);
       if (imageUrl) {
         setSimilarImageUrl(imageUrl);
         prevSimilarRequestKeyRef.current = getSimilarRequestKey(imageUrl);
       }
-      setRecommendedListings(similar);
-      setSelectedListing(similar[0] ?? null);
+      setRecommendedListings(topSimilar);
+      setSelectedListing(topSimilar[0] ?? null);
       setIsDetailOpen(false);
     },
     [getSimilarRequestKey],
@@ -361,7 +360,7 @@ export function HomeContainer() {
             ...buildSearchBody({
               ...similarSearchParams,
               offset: 0,
-              limit: PAGE_SIZE,
+              limit: 4,
             }),
             image_url: similarImageUrl,
           }),
@@ -373,7 +372,9 @@ export function HomeContainer() {
         }
 
         const data = await response.json();
-        const similar = Array.isArray(data.items) ? (data.items as Listing[]) : [];
+        const similar = Array.isArray(data.items)
+          ? (data.items as Listing[]).slice(0, 4)
+          : [];
         logSimilarRoomScores(similar, "filter refresh");
         setRecommendedListings(similar);
         setSelectedListing(similar[0] ?? null);
@@ -932,7 +933,7 @@ export function HomeContainer() {
             listings={panelListings}
             selectedListing={selectedListing}
             isLoading={isLoading}
-            hasMore={recommendedListings ? false : hasMore}
+            hasMore={hasMore}
             scrollResetKey={listScrollResetKey}
             onLoadMore={loadMore}
             onListingClick={handleListingClick}
@@ -940,6 +941,7 @@ export function HomeContainer() {
             favoriteLoadingIds={favoriteLoadingIds}
             onToggleFavorite={handleToggleFavorite}
             onSimilarListingsFound={handleSimilarListingsFound}
+            aiRecommendedListings={recommendedListings ?? []}
             favoriteListings={favoriteListings}
             isLoggedIn={isLoggedIn}
             onWishClick={handleWishClick}
@@ -1003,7 +1005,7 @@ export function HomeContainer() {
               listings={panelListings}
               selectedListing={selectedListing}
               isLoading={isLoading}
-              hasMore={recommendedListings ? false : hasMore}
+              hasMore={hasMore}
               scrollResetKey={listScrollResetKey}
               onLoadMore={loadMore}
               onListingClick={handleListingClick}
@@ -1011,6 +1013,7 @@ export function HomeContainer() {
               favoriteLoadingIds={favoriteLoadingIds}
               onToggleFavorite={handleToggleFavorite}
               onSimilarListingsFound={handleSimilarListingsFound}
+              aiRecommendedListings={recommendedListings ?? []}
               favoriteListings={favoriteListings}
               isLoggedIn={isLoggedIn}
               onWishClick={handleWishClick}
