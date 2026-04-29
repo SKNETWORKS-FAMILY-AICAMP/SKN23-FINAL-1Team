@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Loader2, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { HouseCatchGame } from "@/components/room-finder/HouseCatchGame";
 import type { Listing } from "./map-view";
 import { useAuthStore } from "@/store/authStore";
 import {
@@ -70,8 +71,8 @@ export function AIRecommendation({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isFindingSimilar, setIsFindingSimilar] = useState(false);
-  const [fullscreenImage, setFullscreenImage] = useState<{ url: string; prompt: string } | null>(null);
-
+  const [showGame, setShowGame] = useState(false);
+ 
   const selectedImage = useMemo(
     () => generatedImages.find((image) => image.id === selectedImageId) ?? null,
     [generatedImages, selectedImageId],
@@ -183,6 +184,7 @@ export function AIRecommendation({
     setIsGenerating(true);
     setMessage("");
     setSelectedImageId(null);
+    setShowGame(true);
 
     try {
       const nextImages = await requestGeneratedImages([activePrompt]);
@@ -356,7 +358,13 @@ export function AIRecommendation({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden relative">
+      {showGame && (
+        <HouseCatchGame
+          isGenerating={isGenerating}
+          onClose={() => setShowGame(false)}
+        />
+      )}
       {screen === "init" && (
         <div className="flex flex-1 flex-col items-center justify-center gap-5 overflow-y-auto px-5 py-8">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#e8e0d5] bg-[#f5f0eb]">
