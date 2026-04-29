@@ -87,6 +87,14 @@ export function ListingPanel({
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState<PanelTab>("list");
   const currentTab = !isLoggedIn && activeTab === "wish" ? "list" : activeTab;
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleReset = () => {
+    if (!onSortChange) return;
+    setIsResetting(true);
+    onSortChange("latest");
+    setTimeout(() => setIsResetting(false), 400);
+  };
 
   useEffect(() => {
     if (currentTab !== "list") return;
@@ -207,12 +215,22 @@ export function ListingPanel({
                 보증금 + 월세 × 100 기준
               </div>
             </div>
-            <button
-              onClick={() => onSortChange("latest")}
-              className="text-stone-400 hover:text-stone-600 transition-colors duration-200"
-            >
-              <RotateCcw className="h-3 w-3" />
-            </button>
+            <div className="relative group/reset">
+              <button
+                onClick={handleReset}
+                className="cursor-pointer flex h-6 w-6 items-center justify-center rounded-full text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600"
+              >
+                <RotateCcw
+                  className={cn(
+                    "h-3 w-3 transition-transform",
+                    isResetting && "animate-spin"
+                  )}
+                />
+              </button>
+              <div className="absolute bottom-7 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-[10px] px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover/reset:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                등록순으로 초기화
+              </div>
+            </div>
           </div>
         )}
       </div>
