@@ -302,7 +302,7 @@ export function AIRecommendation({
           ...buildSearchBody({
             ...(similarSearchParams ?? {}),
             offset: 0,
-            limit: 20,
+            limit: 4,
           }),
           image_url: selectedImage.url,
         }),
