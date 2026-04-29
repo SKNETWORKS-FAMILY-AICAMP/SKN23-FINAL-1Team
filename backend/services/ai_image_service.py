@@ -18,9 +18,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 client = OpenAI(api_key=OPENAI_API_KEY)
 GEN_PROMPT_MODEL = os.getenv("IMAGE_GEN_GPT_MODEL", "gpt-4o")
 GEN_IMAGE_MODEL = (
-    os.getenv("IMAGE_GEN_DALLE_MODEL")
-    or os.getenv("IMAGE_GEN_IMAGE_MODEL")
-    or "dall-e-3"
+    os.getenv("IMAGE_GEN_IMAGE_MODEL")
+    or "gpt-image-1"
 )
 EDIT_PROMPT_MODEL = os.getenv("IMAGE_EDIT_GPT_MODEL") or GEN_PROMPT_MODEL
 EDIT_IMAGE_MODEL = os.getenv("IMAGE_EDIT_IMAGE_MODEL") or "gpt-image-1"
@@ -104,7 +103,7 @@ def _build_generate_system_role():
     return """
         You are a Korean real estate photographer.
 
-        Create a DALL-E prompt for a realistic Korean studio apartment (one-room).
+        Create an image generation prompt for a realistic Korean studio apartment (one-room).
         Return a JSON object with two keys:
         - "prompt": the detailed image generation prompt in English
         - "summary": a short English filename summary (snake_case, max 30 chars)
@@ -172,8 +171,8 @@ def _normalize_image_size(size: str):
 
 
 def _normalize_image_quality(quality: str):
-    """이미지 생성 품질은 항상 medium으로 고정"""
-    return "medium"
+    """이미지 생성 품질은 항상 low으로 고정"""
+    return "low"
 
 
 def _normalize_generate_image_size(size: str):
@@ -196,7 +195,10 @@ def _generate_single(user_prompt: str, size: str, quality: str, index: int):
             _build_generate_system_role(),
         )
 
-        print(f"[generate_image] Generating image {index + 1} for: {file_summary}")
+        print(
+            f"[generate_image] Generating image {index + 1} "
+            f"with {GEN_IMAGE_MODEL} for: {file_summary}"
+        )
 
         if GEN_IMAGE_MODEL.startswith("gpt-image"):
             response = client.images.generate(
@@ -235,13 +237,12 @@ def _generate_single(user_prompt: str, size: str, quality: str, index: int):
 def generate_image(
     user_prompt: str,
     size: str = "1792x1024",
-    quality: str = "medium",
+    quality: str = "low",
     n: int = 4,
 ):
     image_count = max(1, n)
     max_workers = min(image_count, 4)
 
-    # ?? 4??? ?? ??
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
             executor.submit(_generate_single, user_prompt, size, quality, index)
@@ -294,15 +295,38 @@ def _build_edit_prompt(base_prompt: str, edit_prompt: str):
     )
 
 
-def _build_edit_batch_prompt(refined_prompt: str, image_count: int):
-    """한 번의 수정 요청으로 여러 결과를 생성하기 위한 변주 지시를 추가"""
+def _build_edit_variant_prompt(refined_prompt: str, variant_index: int):
+    """수정 결과가 서로 다른 후보가 되도록 변주 지시를 추가"""
+    variant_guides = [
+        (
+            "Variation direction: create a distinct layout option. Keep the requested edit, "
+            "but change the furniture arrangement, appliance placement, and visible storage details."
+        ),
+        (
+            "Variation direction: create a different camera viewpoint option. Keep the requested edit, "
+            "but use a noticeably different angle, crop, depth, and foreground/background balance."
+        ),
+        (
+            "Variation direction: create an alternative room concept. Keep the requested edit, "
+            "but change the bed/desk/sofa placement, kitchen-wall relationship, and open floor area."
+        ),
+        (
+            "Variation direction: create a different real-estate listing candidate. Keep the requested edit, "
+            "but vary the room proportions, window position impression, built-in closet placement, and small fixtures."
+        ),
+    ]
+    guide = variant_guides[variant_index % len(variant_guides)]
+
     return (
         f"{refined_prompt}\n\n"
         "Output requirement:\n"
-        f"- Generate {image_count} edited variations.\n"
-        "- Every variation must clearly apply the requested edit.\n"
-        "- Keep the overall room and camera angle close to the original image.\n"
-        "- Vary lighting, crop, textures, and small surrounding details across the variations so the outputs are not identical."
+        "- Generate one edited room image for this output.\n"
+        "- Do not create a collage, split screen, contact sheet, or grid.\n"
+        "- The requested edit must be clearly applied.\n"
+        "- Use the source image as a reference, but do not merely recolor it.\n"
+        "- Make this output meaningfully different from the other candidates in layout, composition, and object placement.\n"
+        "- Preserve realism as a Korean real-estate listing photo.\n"
+        f"- {guide}"
     )
 
 
@@ -331,6 +355,7 @@ def _request_gpt_image_edit(file_id: str, prompt: str, size: str, n: int):
             "images": [{"file_id": file_id}],
             "prompt": prompt,
             "size": normalized_size,
+            "quality": _normalize_image_quality("low"),
             "n": n,
         },
         timeout=180,
@@ -339,6 +364,45 @@ def _request_gpt_image_edit(file_id: str, prompt: str, size: str, n: int):
 
     response_body = response.json()
     return response_body["data"]
+
+
+def _edit_single(file_id: str, prompt: str, size: str, file_summary: str, index: int):
+    try:
+        print(
+            f"[edit_image] Editing image {index + 1} "
+            f"with {EDIT_IMAGE_MODEL} for: {file_summary}"
+        )
+        image_results = _request_gpt_image_edit(
+            file_id=file_id,
+            prompt=prompt,
+            size=size,
+            n=1,
+        )
+        image_result = image_results[0] if image_results else {}
+
+        if image_result.get("b64_json"):
+            file_path = _save_base64_image(
+                image_result["b64_json"],
+                file_summary,
+                prefix="edit",
+            )
+            return {"file_path": file_path, "error": None}
+
+        if image_result.get("url"):
+            file_path = _save_remote_image(
+                image_result["url"],
+                file_summary,
+                prefix="edit",
+            )
+            return {"file_path": file_path, "error": None}
+
+        return {
+            "file_path": None,
+            "error": "OpenAI image edit response did not include b64_json or url.",
+        }
+    except Exception as exc:
+        print(f"[edit_image] Error on image {index + 1}: {exc}")
+        return {"file_path": None, "error": str(exc)}
 
 
 def edit_image(
@@ -355,28 +419,27 @@ def edit_image(
     image_path = resolve_saved_image_path(source_image_url)
     refined_prompt, file_summary = _build_edit_prompt(base_prompt, edit_prompt)
     uploaded_file_id = _upload_image_file_to_openai(image_path)
-    image_count = max(1, n)
-    batch_prompt = _build_edit_batch_prompt(refined_prompt, image_count)
+    image_count = max(1, min(n, 4))
 
     try:
-        print(f"[edit_image] Editing {image_count} images for: {file_summary}")
-        image_results = _request_gpt_image_edit(
-            file_id=uploaded_file_id,
-            prompt=batch_prompt,
-            size=size,
-            n=image_count,
-        )
+        with ThreadPoolExecutor(max_workers=image_count) as executor:
+            futures = [
+                executor.submit(
+                    _edit_single,
+                    uploaded_file_id,
+                    _build_edit_variant_prompt(refined_prompt, index),
+                    size,
+                    file_summary,
+                    index,
+                )
+                for index in range(image_count)
+            ]
+            results = [future.result() for future in futures]
     finally:
         try:
             client.files.delete(uploaded_file_id)
         except Exception as exc:
             print(f"[edit_image] Failed to delete uploaded source file: {exc}")
 
-    file_paths = [
-        _save_base64_image(image_result["b64_json"], file_summary, prefix="edit")
-        if image_result.get("b64_json")
-        else _save_remote_image(image_result["url"], file_summary, prefix="edit")
-        for image_result in image_results
-        if image_result.get("b64_json") or image_result.get("url")
-    ]
+    file_paths = [result["file_path"] for result in results if result["file_path"]]
     return file_paths if file_paths else None
