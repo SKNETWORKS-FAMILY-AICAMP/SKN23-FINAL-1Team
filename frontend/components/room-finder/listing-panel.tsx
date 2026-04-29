@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Listing } from "@/components/room-finder/map-view";
 import { ListingCard } from "@/components/common/ListingCards";
 import { AIRecommendation } from "@/components/room-finder/ai-recommendation";
-import { Sparkles, House, Heart, RotateCcw } from "lucide-react";
+import { Sparkles, House, Heart, RotateCcw, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRecentStore } from "@/store/recentStore";
 import type { RoomSearchParams } from "@/lib/api/rooms";
@@ -18,6 +18,7 @@ interface ListingPanelProps {
   isLoading?: boolean;
   scrollResetKey?: number;
   onSimilarListingsFound?: (listings: Listing[], imageUrl?: string) => void;
+  aiRecommendedListings?: Listing[];
   favoriteIds: number[];
   favoriteLoadingIds: number[];
   onToggleFavorite: (listingId: number) => void;
@@ -41,6 +42,7 @@ export function ListingPanel({
   isLoading = false,
   scrollResetKey = 0,
   onSimilarListingsFound,
+  aiRecommendedListings = [],
   favoriteIds,
   favoriteLoadingIds,
   onToggleFavorite,
@@ -98,6 +100,8 @@ export function ListingPanel({
     onSortChange("latest");
     setTimeout(() => setIsResetting(false), 400);
   };
+
+  const topAiRecommendedListings = aiRecommendedListings.slice(0, 4);
 
   useEffect(() => {
     if (currentTab !== "list") return;
@@ -241,6 +245,40 @@ export function ListingPanel({
       <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
         {activeTab === "list" && (
           <div ref={scrollContainerRef} className="h-full overflow-y-auto px-4 py-4">
+            {topAiRecommendedListings.length > 0 && (
+              <section className="-mx-4 -mt-4 mb-4 border-b border-emerald-200 bg-emerald-50/70">
+                <div className="flex items-center gap-2 border-b border-emerald-200 px-5 py-3 text-sm font-bold text-emerald-800">
+                  <Star className="h-4 w-4 fill-emerald-700 text-emerald-700" />
+                  AI 추천 매물
+                </div>
+                <div className="space-y-3 px-4 py-4">
+                  {topAiRecommendedListings.map((listing, index) => (
+                    <div
+                      key={`ai-${listing.id}`}
+                      className="relative pl-10"
+                    >
+                      <div className="absolute left-0 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white shadow-sm">
+                        {index + 1}
+                      </div>
+                      <ListingCard
+                        listing={listing}
+                        isSelected={selectedListing?.id === listing.id}
+                        onClick={handleListingClick}
+                        onImageClick={handleListingClick}
+                        isFavorite={favoriteIds.includes(Number(listing.id))}
+                        isFavoriteLoading={favoriteLoadingIds.includes(Number(listing.id))}
+                        onToggleFavorite={() => onToggleFavorite(Number(listing.id))}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+            {topAiRecommendedListings.length > 0 && (
+              <div className="-mx-4 mb-4 border-y border-stone-200 bg-stone-100/70 px-5 py-3 text-sm font-bold text-stone-700">
+                전체 매물
+              </div>
+            )}
             <div className="space-y-4">
               {listings.map((listing) => (
                 <div key={listing.id} className="cursor-pointer transition-transform duration-200">
