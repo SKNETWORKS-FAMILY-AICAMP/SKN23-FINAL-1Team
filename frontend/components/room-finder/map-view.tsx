@@ -27,6 +27,7 @@ export interface Listing {
   lng: number;
   structure: string;
   options: string[];
+  embeddingSimilarity?: number;
 }
 
 export interface ClusterMapItem {
@@ -53,6 +54,7 @@ export interface MarkerMapItem {
   lng: number;
   structure: string;
   options: string[];
+  embeddingSimilarity?: number;
 }
 
 export type MapItem = ClusterMapItem | MarkerMapItem;
