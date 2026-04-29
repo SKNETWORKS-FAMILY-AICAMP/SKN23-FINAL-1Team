@@ -25,7 +25,14 @@ from services.ai_image_service import (
     generate_image,
     resolve_saved_image_path,
 )
-from services.ai_image_job_service import create_edit_job, get_edit_job, update_edit_job
+from services.ai_image_job_service import (
+    create_edit_job,
+    create_generate_job,
+    get_edit_job,
+    get_generate_job,
+    update_edit_job,
+    update_generate_job,
+)
 from services.embedding_service import EmbeddingService
 from services.room_service import get_rooms_by_similarity
 from services.user_credit_service import decrement_user_remain, get_user_by_id
@@ -68,12 +75,24 @@ class EditImageJobCreateResponse(BaseModel):
     status: str
 
 
+class GenerateImageJobCreateResponse(BaseModel):
+    job_id: str
+    status: str
+
+
 class EditImageJobStatusResponse(BaseModel):
     job_id: str
     status: str
     file_paths: list[str] = []
     remain: int | None = None
     credit: int | None = None
+    error: str | None = None
+
+
+class GenerateImageJobStatusResponse(BaseModel):
+    job_id: str
+    status: str
+    file_paths: list[str] = []
     error: str | None = None
 
 
@@ -126,6 +145,55 @@ async def generate_image_endpoint(body: GenerateImageRequest):
         raise HTTPException(status_code=500, detail="이미지 생성에 실패했습니다.")
 
     return {"file_paths": file_paths}
+
+
+def _run_generate_image_job(job_id: str, body: GenerateImageRequest):
+    try:
+        update_generate_job(job_id, status="running")
+
+        file_paths = generate_image(
+            user_prompt=body.user_prompt,
+            size=body.size,
+            quality=body.quality,
+            n=body.n,
+        )
+
+        if not file_paths:
+            update_generate_job(job_id, status="failed", error="이미지 생성에 실패했습니다.")
+            return
+
+        update_generate_job(
+            job_id,
+            status="completed",
+            file_paths=file_paths,
+        )
+    except Exception as exc:
+        update_generate_job(job_id, status="failed", error=str(exc))
+
+
+@router.post("/generate-image-jobs", response_model=GenerateImageJobCreateResponse)
+async def create_generate_image_job(
+    body: GenerateImageRequest,
+    background_tasks: BackgroundTasks,
+):
+    print(f"[generate-image-job] user_prompt={body.user_prompt}")
+    job = create_generate_job()
+    background_tasks.add_task(_run_generate_image_job, job["job_id"], body)
+
+    return {
+        "job_id": job["job_id"],
+        "status": job["status"],
+    }
+
+
+@router.get("/generate-image-jobs/{job_id}", response_model=GenerateImageJobStatusResponse)
+async def read_generate_image_job(job_id: str):
+    job = get_generate_job(job_id)
+
+    if job is None:
+        raise HTTPException(status_code=404, detail="이미지 생성 작업을 찾을 수 없습니다.")
+
+    return job
 
 
 @router.post("/edit-image", response_model=EditImageResponse)
