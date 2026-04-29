@@ -116,8 +116,42 @@ export function AIRecommendation({
       throw new Error(errorBody?.error ?? "이미지 생성에 실패했습니다.");
     }
 
-    const data = (await response.json()) as { images?: GeneratedImageResponse[] };
-    return buildSessionImages(data.images ?? [], nextPromptHistory, 0);
+    const startData = (await response.json()) as {
+      jobId?: string;
+      status?: string;
+    };
+
+    if (!startData.jobId) {
+      throw new Error("이미지 생성 작업을 시작하지 못했습니다.");
+    }
+
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const statusResponse = await fetch(
+        `/api/generate-image?jobId=${encodeURIComponent(startData.jobId)}`,
+      );
+
+      const data = (await statusResponse.json().catch(() => null)) as {
+        status?: string;
+        error?: string;
+        images?: GeneratedImageResponse[];
+      } | null;
+
+      if (!statusResponse.ok) {
+        throw new Error(data?.error ?? "이미지 생성 상태 조회에 실패했습니다.");
+      }
+
+      if (data?.status === "completed") {
+        return buildSessionImages(data.images ?? [], nextPromptHistory, 0);
+      }
+
+      if (data?.status === "failed") {
+        throw new Error(data.error ?? "이미지 생성에 실패했습니다.");
+      }
+    }
+
+    throw new Error("이미지 생성 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
   };
 
   const requestEditedImage = async (
