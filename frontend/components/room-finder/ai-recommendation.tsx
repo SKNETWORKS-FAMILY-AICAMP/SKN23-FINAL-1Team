@@ -357,37 +357,6 @@ export function AIRecommendation({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {/* 풀스크린 모달 */}
-      {fullscreenImage && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80"
-          onClick={() => setFullscreenImage(null)}
-        >
-          <div
-            className="relative w-[420px] max-w-[90vw] overflow-hidden rounded-2xl bg-white"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="relative aspect-square w-full">
-              <Image
-                src={fullscreenImage.url}
-                alt={fullscreenImage.prompt}
-                fill
-                unoptimized
-                className="object-cover"
-              />
-            </div>
-            <div className="flex items-center justify-between p-4">
-              <p className="text-sm font-medium text-stone-700 line-clamp-2">{fullscreenImage.prompt}</p>
-              <button
-                onClick={() => setFullscreenImage(null)}
-                className="ml-3 flex-shrink-0 cursor-pointer text-stone-400 hover:text-stone-600"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {screen === "init" && (
         <div className="flex flex-1 flex-col items-center justify-center gap-5 overflow-y-auto px-5 py-8">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#e8e0d5] bg-[#f5f0eb]">
@@ -508,10 +477,11 @@ export function AIRecommendation({
                       </div>
                     )}
 
+                    {/* 왼쪽 상단 확대 버튼 */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onPhotoClick?.(image.url);
+                        setFullscreenImage({ url: image.url, prompt: image.prompt });
                       }}
                       className="absolute left-2 top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-white/80 opacity-0 transition-opacity duration-150 hover:bg-white group-hover:opacity-100"
                     >
