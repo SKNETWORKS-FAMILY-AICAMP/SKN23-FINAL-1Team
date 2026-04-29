@@ -72,8 +72,7 @@ export function AIRecommendation({
   const [isEditing, setIsEditing] = useState(false);
   const [isFindingSimilar, setIsFindingSimilar] = useState(false);
   const [showGame, setShowGame] = useState(false);
-  const [showGame, setShowGame] = useState(false);
-
+ 
   const selectedImage = useMemo(
     () => generatedImages.find((image) => image.id === selectedImageId) ?? null,
     [generatedImages, selectedImageId],
