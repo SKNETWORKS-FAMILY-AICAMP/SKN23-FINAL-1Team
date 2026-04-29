@@ -72,7 +72,8 @@ export function AIRecommendation({
   const [isEditing, setIsEditing] = useState(false);
   const [isFindingSimilar, setIsFindingSimilar] = useState(false);
   const [showGame, setShowGame] = useState(false);
- 
+  const [showGame, setShowGame] = useState(false);
+
   const selectedImage = useMemo(
     () => generatedImages.find((image) => image.id === selectedImageId) ?? null,
     [generatedImages, selectedImageId],
@@ -365,6 +366,7 @@ export function AIRecommendation({
           onClose={() => setShowGame(false)}
         />
       )}
+      <div style={{ visibility: showGame ? "hidden" : "visible", display: "contents" }}>
       {screen === "init" && (
         <div className="flex flex-1 flex-col items-center justify-center gap-5 overflow-y-auto px-5 py-8">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#e8e0d5] bg-[#f5f0eb]">
@@ -600,6 +602,7 @@ export function AIRecommendation({
           )}
         </>
       )}
+      </div>
     </div>
   );
 }
