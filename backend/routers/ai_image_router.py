@@ -106,8 +106,8 @@ def _read_similarity_image(image_url: str) -> bytes:
 @router.post("/generate-image", response_model=ImageResponse)
 async def generate_image_endpoint(body: GenerateImageRequest):
     """
-    ??? ??? ???? ? GPT? ?? ???? ?? ? ??? ??
-    ??? ???? create_image/ ??? ???? ??? ?????.
+    사용자 프롬프트로 AI 이미지를 생성하고,
+    생성된 이미지를 create_image/ 폴더에 저장한 뒤 경로를 반환합니다.
     """
     print(f"[generate-image] user_prompt={body.user_prompt}")
     try:
@@ -123,7 +123,7 @@ async def generate_image_endpoint(body: GenerateImageRequest):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     if not file_paths:
-        raise HTTPException(status_code=500, detail="??? ??? ??????.")
+        raise HTTPException(status_code=500, detail="이미지 생성에 실패했습니다.")
 
     return {"file_paths": file_paths}
 
