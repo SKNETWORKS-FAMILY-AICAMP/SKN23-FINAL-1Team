@@ -32,18 +32,6 @@ def is_valid_image_value(value) -> bool:
     )
 
 
-def s3_to_https_url(s3_uri: str) -> str:
-    if not s3_uri:
-        return s3_uri
-
-    if not s3_uri.startswith("s3://"):
-        return s3_uri
-
-    without_scheme = s3_uri.replace("s3://", "", 1)
-    bucket, key = without_scheme.split("/", 1)
-    return f"https://{bucket}.s3.ap-northeast-2.amazonaws.com/{key}"
-
-
 def to_public_image_url(value: str) -> str:
     if value.startswith("s3://"):
         return create_presigned_get_url(value, expires_in=3600)
