@@ -18,7 +18,11 @@ def parse_s3_uri(s3_uri: str) -> tuple[str, str]:
 
 
 def get_s3_client():
-    return boto3.client("s3", region_name=AWS_REGION)
+    return boto3.client(
+        "s3",
+        region_name=AWS_REGION,
+        endpoint_url=f"https://s3.{AWS_REGION}.amazonaws.com",
+    )
 
 
 def create_presigned_get_url(s3_uri: str, expires_in: int = 3600) -> str:
