@@ -33,7 +33,7 @@ def is_valid_image_value(value) -> bool:
 
 def to_public_image_url(item_id: int, image_id: int, value: str) -> str:
     if value.startswith("s3://"):
-        return f"/backend/api/rooms/{item_id}/images/{image_id}"
+        return f"/api/rooms/{item_id}/images/{image_id}"
     return value
 
 
