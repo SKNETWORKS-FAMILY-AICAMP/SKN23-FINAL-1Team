@@ -802,7 +802,6 @@ export function HomeContainer() {
             fill
             className="object-contain"
             sizes="100vw"
-            unoptimized
           />
           {fullscreenImages.length > 1 && (
             <>
