@@ -19,7 +19,7 @@ import {
   fetchRoomDetail,
   type RoomSearchParams,
 } from "@/lib/api/rooms";
-import { mapItemToListing } from "@/utils/roomMappers";
+import { mapItemToListing, mapSimilarItemToListing } from "@/utils/roomMappers";
 import { ListingDetailPanel } from "@/components/room-finder/listing-detail-panel";
 import { useAuthStore } from "@/store/authStore";
 import { usePendingListingStore } from "@/store/pendingListingStore";
@@ -373,7 +373,7 @@ export function HomeContainer() {
 
         const data = await response.json();
         const similar = Array.isArray(data.items)
-          ? (data.items as Listing[]).slice(0, 4)
+          ? data.items.map(mapSimilarItemToListing).slice(0, 4)
           : [];
         logSimilarRoomScores(similar, "filter refresh");
         setRecommendedListings(similar);
@@ -802,6 +802,7 @@ export function HomeContainer() {
             fill
             className="object-contain"
             sizes="100vw"
+            unoptimized
           />
           {fullscreenImages.length > 1 && (
             <>

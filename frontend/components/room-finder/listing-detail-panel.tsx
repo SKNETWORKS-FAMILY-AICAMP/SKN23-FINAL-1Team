@@ -106,6 +106,7 @@ export function ListingDetailPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [areaUnit, setAreaUnit] = useState<"m2" | "pyeong">("m2");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
   const listingId = Number(listing?.id ?? 0);
   const isFavorite = favoriteIds.includes(listingId);
   const isFavoriteLoading = favoriteLoadingIds.includes(listingId);
@@ -140,14 +141,24 @@ export function ListingDetailPanel({
   }, [listing?.id, isOpen]);
 
   const imageUrls = useMemo(() => {
-    const rawUrls = detail?.images?.length
+    const detailUrls = detail?.images?.length
       ? detail.images.map((image) => image.url)
-      : listing?.images
-        ? [listing.images[0]]
-        : [];
+      : [];
+    const listingUrls = listing?.images ?? [];
+
+    const validDetailUrls = detailUrls
+      .filter((url): url is string => isValidImageSrc(url))
+      .filter((url) => !failedImageUrls.includes(url));
+
+    const rawUrls = validDetailUrls.length > 0 ? validDetailUrls : listingUrls;
 
     return rawUrls.filter((url): url is string => isValidImageSrc(url));
-  }, [detail?.images, listing?.images]);
+  }, [detail?.images, failedImageUrls, listing?.images]);
+
+  useEffect(() => {
+    setFailedImageUrls([]);
+  }, [detail?.images, listing?.id]);
+
   useEffect(() => {
     setCurrentImageIndex(0);
   }, [imageUrls.length, listing?.id]);
@@ -224,7 +235,13 @@ export function ListingDetailPanel({
                           } ${index + 1}`}
                           fill
                           sizes="(min-width: 1280px) 440px, 380px"
+                          unoptimized
                           className="object-cover transition-transform duration-700 hover:scale-105"
+                          onError={() => {
+                            setFailedImageUrls((prev) =>
+                              prev.includes(url) ? prev : [...prev, url],
+                            );
+                          }}
                         />
 
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
