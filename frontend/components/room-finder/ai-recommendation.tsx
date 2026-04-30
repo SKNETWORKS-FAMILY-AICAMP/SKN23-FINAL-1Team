@@ -13,6 +13,7 @@ import {
   useAIImageSessionStore,
 } from "@/store/aiImageSessionStore";
 import { buildSearchBody, type RoomSearchParams } from "@/lib/api/rooms";
+import { mapSimilarItemToListing } from "@/utils/roomMappers";
 
 interface AIRecommendationProps {
   onSimilarListingsFound: (listings: Listing[], imageUrl?: string) => void;
@@ -349,7 +350,7 @@ export function AIRecommendation({
       const data = await response.json();
 
       if (data.items && data.items.length > 0) {
-        const similarItems = data.items as Listing[];
+        const similarItems = data.items.map(mapSimilarItemToListing) as Listing[];
         logSimilarRoomScores(similarItems, "manual search");
         onSimilarListingsFound(similarItems, selectedImage.url);
       } else {
