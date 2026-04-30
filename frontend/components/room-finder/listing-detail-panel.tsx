@@ -4,10 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { MapPin, Building2, CreditCard, Ruler, X, Car } from "lucide-react";
 import type { Listing } from "@/components/room-finder/map-view";
-import {
-  fetchRoomDetail,
-  type ListingDetailResponse,
-} from "@/lib/api/rooms";
+import { fetchRoomDetail, type ListingDetailResponse } from "@/lib/api/rooms";
 import {
   Carousel,
   CarouselContent,
@@ -183,7 +180,7 @@ export function ListingDetailPanel({
   return (
     <div className="flex h-full flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(248,246,241,0.96)_100%)] backdrop-blur-xl">
       <div className="flex h-full flex-col">
-      <div className="border-b border-stone-200/80 bg-white/70 px-5 py-4 backdrop-blur-md">
+        <div className="border-b border-stone-200/80 bg-white/70 px-5 py-4 backdrop-blur-md">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-stone-800">
@@ -248,13 +245,28 @@ export function ListingDetailPanel({
 
                         {/* 확대 힌트 */}
                         <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs text-white backdrop-blur-sm opacity-0 hover:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="0.5" y="0.5" width="7" height="7" rx="1.5" stroke="white" strokeWidth="1"/><path d="M6 6L11 11" stroke="white" strokeWidth="1" strokeLinecap="round"/></svg>
-                          크게 보기
-                        </div>
-
-                        {/* 확대 힌트 */}
-                        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs text-white backdrop-blur-sm opacity-0 hover:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="0.5" y="0.5" width="7" height="7" rx="1.5" stroke="white" strokeWidth="1"/><path d="M6 6L11 11" stroke="white" strokeWidth="1" strokeLinecap="round"/></svg>
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                          >
+                            <rect
+                              x="0.5"
+                              y="0.5"
+                              width="7"
+                              height="7"
+                              rx="1.5"
+                              stroke="white"
+                              strokeWidth="1"
+                            />
+                            <path
+                              d="M6 6L11 11"
+                              stroke="white"
+                              strokeWidth="1"
+                              strokeLinecap="round"
+                            />
+                          </svg>
                           크게 보기
                         </div>
 
