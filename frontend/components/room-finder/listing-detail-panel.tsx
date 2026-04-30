@@ -222,6 +222,7 @@ export function ListingDetailPanel({
                           } ${index + 1}`}
                           fill
                           sizes="(min-width: 1280px) 440px, 380px"
+                          unoptimized
                           className="object-cover transition-transform duration-700 hover:scale-105"
                         />
 
