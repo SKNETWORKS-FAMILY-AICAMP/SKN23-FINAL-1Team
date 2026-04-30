@@ -149,6 +149,43 @@ export function ListingDetailPanel({
   useEffect(() => {
     setCurrentImageIndex(0);
   }, [imageUrls.length, listing?.id]);
+
+  useEffect(() => {
+    if (!listing?.id || !isOpen) return;
+
+    console.table(
+      imageUrls.map((url, index) => {
+        try {
+          const parsedUrl = new URL(url, window.location.origin);
+          return {
+            index: index + 1,
+            host: parsedUrl.host,
+            path: parsedUrl.pathname,
+            hasQuery: parsedUrl.search.length > 0,
+            proxiedByNext: parsedUrl.pathname === "/_next/image",
+          };
+        } catch {
+          return {
+            index: index + 1,
+            host: "",
+            path: url,
+            hasQuery: url.includes("?"),
+            proxiedByNext: url.includes("/_next/image"),
+          };
+        }
+      }),
+    );
+    console.log(
+      "[listing-detail-images]",
+      {
+        listingId: listing.id,
+        detailImageCount: detail?.images?.length ?? 0,
+        renderedImageCount: imageUrls.length,
+        firstUrl: imageUrls[0] ?? null,
+      },
+    );
+  }, [detail?.images?.length, imageUrls, isOpen, listing?.id]);
+
   const currentItem = detail?.item;
   const features = detail?.features;
 
@@ -224,6 +261,17 @@ export function ListingDetailPanel({
                           sizes="(min-width: 1280px) 440px, 380px"
                           unoptimized
                           className="object-cover transition-transform duration-700 hover:scale-105"
+                          onError={(event) => {
+                            const imageElement = event.currentTarget;
+                            console.error("[listing-detail-image-error]", {
+                              listingId: listing.id,
+                              index: index + 1,
+                              src: url,
+                              currentSrc: imageElement.currentSrc,
+                              currentSrcUsesNextOptimizer:
+                                imageElement.currentSrc.includes("/_next/image"),
+                            });
+                          }}
                         />
 
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />

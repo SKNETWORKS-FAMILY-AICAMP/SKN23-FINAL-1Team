@@ -1,6 +1,10 @@
+import os
+from urllib.parse import urlparse
+
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload, joinedload
 from utils.s3 import create_presigned_get_url
+from utils.s3 import parse_s3_uri
 
 from models.room import Room
 from schemas.room_detail_schema import (
@@ -32,9 +36,34 @@ def is_valid_image_value(value) -> bool:
     )
 
 
-def to_public_image_url(value: str) -> str:
+ROOM_IMAGE_DEBUG = os.getenv("ROOM_IMAGE_DEBUG", "0") == "1"
+
+
+def _debug_presigned_url(image_id: int, s3_url: str, public_url: str):
+    if not ROOM_IMAGE_DEBUG:
+        return
+
+    try:
+        bucket, key = parse_s3_uri(s3_url)
+        parsed_public_url = urlparse(public_url)
+        print(
+            "[room-detail-image] "
+            f"image_id={image_id} "
+            f"bucket={bucket} "
+            f"key={key} "
+            f"public_host={parsed_public_url.netloc} "
+            f"public_path={parsed_public_url.path} "
+            f"has_query={bool(parsed_public_url.query)}"
+        )
+    except Exception as exc:
+        print(f"[room-detail-image] debug failed image_id={image_id}: {exc}")
+
+
+def to_public_image_url(image_id: int, value: str) -> str:
     if value.startswith("s3://"):
-        return create_presigned_get_url(value, expires_in=3600)
+        public_url = create_presigned_get_url(value, expires_in=3600)
+        _debug_presigned_url(image_id, value, public_url)
+        return public_url
     return value
 
 
@@ -117,7 +146,7 @@ def get_room_detail(db, item_id: int):
     image_payload = [
         RoomImageResponse(
             id=image.id,
-            url=to_public_image_url(image.s3_url),
+            url=to_public_image_url(image.id, image.s3_url),
             is_main=image.is_main,
         )
         for image in valid_images
