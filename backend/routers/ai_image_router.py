@@ -1,0 +1,378 @@
+"""
+기존 FastAPI 앱에 아래 라우터를 추가하세요.
+
+사용법:
+  main.py (또는 app.py) 에서:
+    from routers.ai_image_router import router as ai_image_router
+    app.include_router(ai_image_router)
+"""
+
+import os
+
+import requests
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi.responses import FileResponse
+from openai import BadRequestError
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from db.session import SessionLocal
+from db.session import get_db
+from schemas.room_schema import RoomListRequest
+from services.ai_image_service import (
+    ImageGenerationError,
+    edit_image,
+    generate_image,
+    resolve_saved_image_path,
+)
+from services.ai_image_job_service import (
+    create_edit_job,
+    create_generate_job,
+    get_edit_job,
+    get_generate_job,
+    update_edit_job,
+    update_generate_job,
+)
+from services.embedding_service import EmbeddingService
+from services.room_service import get_rooms_by_similarity
+from services.user_credit_service import decrement_user_remain, get_user_by_id
+
+router = APIRouter(prefix="/api")
+
+BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CREATE_IMAGE_DIR = os.path.join(BACKEND_DIR, "create_image")
+
+
+# ── 요청/응답 스키마 ───────────────────────────────────────────────────────────
+
+class GenerateImageRequest(BaseModel):
+    user_prompt: str
+    size: str = "1024x1024"
+    quality: str = "low"
+    n: int = 4
+
+
+class EditImageRequest(BaseModel):
+    user_id: int
+    source_image_url: str
+    base_prompt: str
+    edit_prompt: str
+    size: str = "1024x1024"
+    n: int = 4
+
+
+class ImageResponse(BaseModel):
+    file_paths: list[str]
+
+
+class EditImageResponse(ImageResponse):
+    remain: int
+    credit: int
+
+
+class EditImageJobCreateResponse(BaseModel):
+    job_id: str
+    status: str
+
+
+class GenerateImageJobCreateResponse(BaseModel):
+    job_id: str
+    status: str
+
+
+class EditImageJobStatusResponse(BaseModel):
+    job_id: str
+    status: str
+    file_paths: list[str] = []
+    remain: int | None = None
+    credit: int | None = None
+    error: str | None = None
+
+
+class GenerateImageJobStatusResponse(BaseModel):
+    job_id: str
+    status: str
+    file_paths: list[str] = []
+    error: str | None = None
+
+
+class FindSimilarRoomsRequest(RoomListRequest):
+    image_url: str
+
+
+def _read_similarity_image(image_url: str) -> bytes:
+    """
+    create_image에 저장된 생성/수정 이미지는 자기 자신에게 HTTP 요청하지 않고
+    로컬 파일에서 바로 읽는다.
+    """
+    if "/api/images/" in image_url or "/backend/api/images/" in image_url:
+        image_path = resolve_saved_image_path(image_url)
+        with open(image_path, "rb") as image_file:
+            return image_file.read()
+
+    image_response = requests.get(image_url, timeout=15)
+    if image_response.status_code != 200:
+        raise HTTPException(
+            status_code=400,
+            detail="이미지를 불러올 수 없습니다.",
+        )
+
+    return image_response.content
+
+
+# ── 엔드포인트 ─────────────────────────────────────────────────────────────────
+
+@router.post("/generate-image", response_model=ImageResponse)
+async def generate_image_endpoint(body: GenerateImageRequest):
+    """
+    사용자 프롬프트로 AI 이미지를 생성하고,
+    생성된 이미지를 create_image/ 폴더에 저장한 뒤 경로를 반환합니다.
+    """
+    print(f"[generate-image] user_prompt={body.user_prompt}")
+    try:
+        file_paths = generate_image(
+            user_prompt=body.user_prompt,
+            size=body.size,
+            quality=body.quality,
+            n=body.n,
+        )
+    except ImageGenerationError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    if not file_paths:
+        raise HTTPException(status_code=500, detail="이미지 생성에 실패했습니다.")
+
+    return {"file_paths": file_paths}
+
+
+def _run_generate_image_job(job_id: str, body: GenerateImageRequest):
+    try:
+        update_generate_job(job_id, status="running")
+
+        file_paths = generate_image(
+            user_prompt=body.user_prompt,
+            size=body.size,
+            quality=body.quality,
+            n=body.n,
+        )
+
+        if not file_paths:
+            update_generate_job(job_id, status="failed", error="이미지 생성에 실패했습니다.")
+            return
+
+        update_generate_job(
+            job_id,
+            status="completed",
+            file_paths=file_paths,
+        )
+    except Exception as exc:
+        update_generate_job(job_id, status="failed", error=str(exc))
+
+
+@router.post("/generate-image-jobs", response_model=GenerateImageJobCreateResponse)
+async def create_generate_image_job(
+    body: GenerateImageRequest,
+    background_tasks: BackgroundTasks,
+):
+    print(f"[generate-image-job] user_prompt={body.user_prompt}")
+    job = create_generate_job()
+    background_tasks.add_task(_run_generate_image_job, job["job_id"], body)
+
+    return {
+        "job_id": job["job_id"],
+        "status": job["status"],
+    }
+
+
+@router.get("/generate-image-jobs/{job_id}", response_model=GenerateImageJobStatusResponse)
+async def read_generate_image_job(job_id: str):
+    job = get_generate_job(job_id)
+
+    if job is None:
+        raise HTTPException(status_code=404, detail="이미지 생성 작업을 찾을 수 없습니다.")
+
+    return job
+
+
+@router.post("/edit-image", response_model=EditImageResponse)
+async def edit_image_endpoint(body: EditImageRequest, db: Session = Depends(get_db)):
+    """
+    생성 후 저장된 원본 이미지를 create_image/ 폴더에서 다시 읽어와
+    수정 프롬프트를 반영한 새 이미지를 생성하고 경로를 반환합니다.
+    """
+    print(
+        f"[edit-image] user_id={body.user_id}, "
+        f"base_prompt={body.base_prompt}, edit_prompt={body.edit_prompt}"
+    )
+
+    user = get_user_by_id(db, body.user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    if user.remain <= 0:
+        raise HTTPException(status_code=400, detail="남은 수정 횟수가 없습니다.")
+
+    try:
+        file_paths = edit_image(
+            source_image_url=body.source_image_url,
+            base_prompt=body.base_prompt,
+            edit_prompt=body.edit_prompt,
+            size=body.size,
+            n=body.n,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except BadRequestError as exc:
+        detail = getattr(exc, "body", {}) or {}
+        message = detail.get("error", {}).get("message", str(exc))
+        raise HTTPException(status_code=400, detail=message) from exc
+    except requests.HTTPError as exc:
+        response = exc.response
+        detail = {}
+        if response is not None:
+            try:
+                detail = response.json()
+            except ValueError:
+                detail = {}
+
+        message = detail.get("error", {}).get("message", str(exc))
+        status_code = response.status_code if response is not None else 500
+        raise HTTPException(status_code=status_code, detail=message) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    if not file_paths:
+        raise HTTPException(status_code=500, detail="이미지 수정에 실패했습니다.")
+
+    updated_user = decrement_user_remain(db, body.user_id)
+    if updated_user is None:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+    if updated_user is False:
+        raise HTTPException(status_code=400, detail="남은 수정 횟수가 없습니다.")
+
+    return {
+        "file_paths": file_paths,
+        "remain": updated_user.remain,
+        "credit": updated_user.credit,
+    }
+
+
+def _run_edit_image_job(job_id: str, body: EditImageRequest):
+    db = SessionLocal()
+
+    try:
+        update_edit_job(job_id, status="running")
+
+        file_paths = edit_image(
+            source_image_url=body.source_image_url,
+            base_prompt=body.base_prompt,
+            edit_prompt=body.edit_prompt,
+            size=body.size,
+            n=body.n,
+        )
+
+        if not file_paths:
+            update_edit_job(job_id, status="failed", error="이미지 수정에 실패했습니다.")
+            return
+
+        updated_user = decrement_user_remain(db, body.user_id)
+        if updated_user is None:
+            update_edit_job(job_id, status="failed", error="사용자를 찾을 수 없습니다.")
+            return
+        if updated_user is False:
+            update_edit_job(job_id, status="failed", error="남은 수정 횟수가 없습니다.")
+            return
+
+        update_edit_job(
+            job_id,
+            status="completed",
+            file_paths=file_paths,
+            remain=updated_user.remain,
+            credit=updated_user.credit,
+        )
+    except Exception as exc:
+        update_edit_job(job_id, status="failed", error=str(exc))
+    finally:
+        db.close()
+
+
+@router.post("/edit-image-jobs", response_model=EditImageJobCreateResponse)
+async def create_edit_image_job(
+    body: EditImageRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    print(
+        f"[edit-image-job] user_id={body.user_id}, "
+        f"base_prompt={body.base_prompt}, edit_prompt={body.edit_prompt}"
+    )
+
+    user = get_user_by_id(db, body.user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    if user.remain <= 0:
+        raise HTTPException(status_code=400, detail="남은 수정 횟수가 없습니다.")
+
+    job = create_edit_job(body.user_id)
+    background_tasks.add_task(_run_edit_image_job, job["job_id"], body)
+
+    return {
+        "job_id": job["job_id"],
+        "status": job["status"],
+    }
+
+
+@router.get("/edit-image-jobs/{job_id}", response_model=EditImageJobStatusResponse)
+async def read_edit_image_job(job_id: str):
+    job = get_edit_job(job_id)
+
+    if job is None:
+        raise HTTPException(status_code=404, detail="이미지 수정 작업을 찾을 수 없습니다.")
+
+    return job
+
+
+@router.get("/images/{filename}")
+async def serve_image(filename: str):
+    """
+    생성된 이미지를 정적 파일로 서빙합니다.
+    Next.js에서 /api/images/{filename} 으로 접근합니다.
+    """
+    file_path = os.path.join(CREATE_IMAGE_DIR, filename)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.")
+
+    return FileResponse(file_path, media_type="image/png")
+
+
+@router.post("/find-similar-rooms")
+async def find_similar_rooms_endpoint(
+    body: FindSimilarRoomsRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    1. 생성된 이미지 URL로 다운로드
+    2. 실시간 CLIP 임베딩 추출
+    3. DB에서 유사도 정렬 + 필터 적용 검색
+    4. 무한 스크롤 지원 형식으로 반환
+    """
+    try:
+        image_data = _read_similarity_image(body.image_url)
+        embedding = EmbeddingService.get_image_embedding(image_data)
+
+        if not embedding:
+            raise HTTPException(
+                status_code=500,
+                detail="이미지 임베딩 추출에 실패했습니다.",
+            )
+
+        return get_rooms_by_similarity(db, req=body, embedding=embedding)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        print(f"[ERROR] find-similar-rooms: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
