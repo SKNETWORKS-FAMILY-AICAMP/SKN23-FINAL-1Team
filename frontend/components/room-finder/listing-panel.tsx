@@ -29,6 +29,8 @@ interface ListingPanelProps {
   onSortChange?: (sort: "latest" | "price_asc" | "price_desc") => void;
   onAIPhotoClick?: (url: string) => void;
   similarSearchParams?: RoomSearchParams;
+  canFindSimilarRooms?: boolean;
+  onFindSimilarBlocked?: () => void;
 }
 
 type PanelTab = "list" | "ai" | "wish";
@@ -53,6 +55,8 @@ export function ListingPanel({
   onSortChange,
   onAIPhotoClick,
   similarSearchParams,
+  canFindSimilarRooms = true,
+  onFindSimilarBlocked,
 }: ListingPanelProps) {
   const addRecent = useRecentStore((state) => state.addRecent);
 
@@ -325,6 +329,8 @@ export function ListingPanel({
               setActiveTab("list");
             }}
             onPhotoClick={onAIPhotoClick}
+            canFindSimilarRooms={canFindSimilarRooms}
+            onFindSimilarBlocked={onFindSimilarBlocked}
           />
         </div>
 
