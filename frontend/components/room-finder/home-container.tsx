@@ -440,12 +440,13 @@ export function HomeContainer() {
     if (isPendingOpenRef.current) return;  // pending으로 열린 매물은 스킵
     const stillExistsInPanel =
       panelListings.some((listing) => listing.id === selectedListing.id) ||
+      (recommendedListings ?? []).some((listing) => listing.id === selectedListing.id) ||
       favoriteListings.some((listing) => listing.id === selectedListing.id);
     if (!stillExistsInPanel) {
       setSelectedListing(null);
       setIsDetailOpen(false);
     }
-  }, [panelListings, favoriteListings, selectedListing]);
+  }, [panelListings, recommendedListings, favoriteListings, selectedListing]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -592,9 +593,9 @@ export function HomeContainer() {
   }, [mapBounds, listings.length]);
 
   const loadMore = useCallback(() => {
-    if (isLoading || !hasMore || recommendedListings) return;
+    if (isLoading || !hasMore) return;
     setOffset((prev) => prev + PAGE_SIZE);
-  }, [hasMore, isLoading, recommendedListings]);
+  }, [hasMore, isLoading]);
 
   // 매물목록 클릭 → 지도 이동 + 상세패널 오픈
   const handleListingClick = useCallback((listing: Listing) => {
