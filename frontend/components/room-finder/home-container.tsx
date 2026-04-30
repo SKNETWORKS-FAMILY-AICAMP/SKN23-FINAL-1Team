@@ -36,6 +36,7 @@ import { Toast } from "@/components/common/Toast";
 const PAGE_SIZE = 20;
 const BOUNDS_PRECISION = 5;
 const MAP_BOUNDS_DEBOUNCE_MS = 350;
+const MAX_SIMILAR_SEARCH_LEVEL = 7;
 const ONE_ROOM_MAX_DEPOSIT = 20000;
 const TWO_ROOM_MAX_DEPOSIT = 60000;
 const ONE_ROOM_MAX_SIZE_M2 = 66;
@@ -174,6 +175,9 @@ export function HomeContainer() {
   const user = useAuthStore((state) => state.user);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const addRecent = useRecentStore((state) => state.addRecent);
+  const canFindSimilarRooms = Boolean(
+    mapBounds && mapBounds.level <= MAX_SIMILAR_SEARCH_LEVEL,
+  );
 
   const recordRecentListing = useCallback(
     (listing: Listing) => {
@@ -268,12 +272,13 @@ export function HomeContainer() {
     floor: filters.floor,
     options: filters.options,
     sort,
-    lat: mapBounds?.centerLat,
-    lng: mapBounds?.centerLng,
-    swLat: mapBounds?.swLat,
-    swLng: mapBounds?.swLng,
-    neLat: mapBounds?.neLat,
-    neLng: mapBounds?.neLng,
+    lat: canFindSimilarRooms ? mapBounds?.centerLat : undefined,
+    lng: canFindSimilarRooms ? mapBounds?.centerLng : undefined,
+    swLat: canFindSimilarRooms ? mapBounds?.swLat : undefined,
+    swLng: canFindSimilarRooms ? mapBounds?.swLng : undefined,
+    neLat: canFindSimilarRooms ? mapBounds?.neLat : undefined,
+    neLng: canFindSimilarRooms ? mapBounds?.neLng : undefined,
+    level: mapBounds?.level,
   }), [
     debouncedSearchQuery,
     filters.transactionType,
@@ -286,8 +291,19 @@ export function HomeContainer() {
     filters.options,
     roomType,
     sort,
-    mapBounds,
+    canFindSimilarRooms,
+    mapBounds?.centerLat,
+    mapBounds?.centerLng,
+    mapBounds?.swLat,
+    mapBounds?.swLng,
+    mapBounds?.neLat,
+    mapBounds?.neLng,
+    mapBounds?.level,
   ]);
+
+  const handleFindSimilarBlocked = useCallback(() => {
+    showToast("지역을 검색하거나, 지도를 확대해주세요", "info");
+  }, [showToast]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -342,6 +358,8 @@ export function HomeContainer() {
 
   useEffect(() => {
     if (!similarImageUrl) return;
+    if (!canFindSimilarRooms) return;
+    if (mapBounds?.source === "user" || mapBounds?.source === "selection") return;
 
     const nextSimilarRequestKey = getSimilarRequestKey(similarImageUrl);
     if (prevSimilarRequestKeyRef.current === nextSimilarRequestKey) return;
@@ -391,7 +409,13 @@ export function HomeContainer() {
 
     refreshSimilarListings();
     return () => { controller.abort(); };
-  }, [getSimilarRequestKey, similarImageUrl, similarSearchParams]);
+  }, [
+    canFindSimilarRooms,
+    getSimilarRequestKey,
+    mapBounds?.source,
+    similarImageUrl,
+    similarSearchParams,
+  ]);
 
   const handleInitialLocationResolved = useCallback(() => {
     setIsLocationReady((prev) => (prev ? prev : true));
@@ -950,6 +974,8 @@ export function HomeContainer() {
             onSortChange={setSort}
             onAIPhotoClick={(url) => setAiFullscreenUrl(url)}
             similarSearchParams={similarSearchParams}
+            canFindSimilarRooms={canFindSimilarRooms}
+            onFindSimilarBlocked={handleFindSimilarBlocked}
           />
 
           {/* 상세 패널 — 목록 위에 슬라이드로 덮음 */}
@@ -1020,6 +1046,8 @@ export function HomeContainer() {
               onWishClick={handleWishClick}
               onAIPhotoClick={(url) => setAiFullscreenUrl(url)}
               similarSearchParams={similarSearchParams}
+              canFindSimilarRooms={canFindSimilarRooms}
+              onFindSimilarBlocked={handleFindSimilarBlocked}
             />
           </aside>
         )}
