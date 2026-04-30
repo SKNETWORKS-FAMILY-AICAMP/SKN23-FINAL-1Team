@@ -261,17 +261,6 @@ export function ListingDetailPanel({
                           sizes="(min-width: 1280px) 440px, 380px"
                           unoptimized
                           className="object-cover transition-transform duration-700 hover:scale-105"
-                          onError={(event) => {
-                            const imageElement = event.currentTarget;
-                            console.error("[listing-detail-image-error]", {
-                              listingId: listing.id,
-                              index: index + 1,
-                              src: url,
-                              currentSrc: imageElement.currentSrc,
-                              currentSrcUsesNextOptimizer:
-                                imageElement.currentSrc.includes("/_next/image"),
-                            });
-                          }}
                         />
 
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
