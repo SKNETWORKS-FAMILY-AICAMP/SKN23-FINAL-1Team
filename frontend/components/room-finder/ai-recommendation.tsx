@@ -21,6 +21,8 @@ interface AIRecommendationProps {
   similarSearchParams?: RoomSearchParams;
   compact?: boolean;
   onPhotoClick?: (url: string) => void;
+  canFindSimilarRooms?: boolean;
+  onFindSimilarBlocked?: () => void;
 }
 
 type GeneratedImageResponse = {
@@ -69,6 +71,8 @@ export function AIRecommendation({
   similarSearchParams,
   compact = false,
   onPhotoClick,
+  canFindSimilarRooms = true,
+  onFindSimilarBlocked,
 }: AIRecommendationProps) {
   const user = useAuthStore((state) => state.user);
   const updateUser = useAuthStore((state) => state.updateUser);
@@ -304,6 +308,10 @@ export function AIRecommendation({
 
   const handleFindSimilar = async () => {
     if (!selectedImage || isFindingSimilar) return;
+    if (!canFindSimilarRooms) {
+      onFindSimilarBlocked?.();
+      return;
+    }
 
     setIsFindingSimilar(true);
     setMessage("");
