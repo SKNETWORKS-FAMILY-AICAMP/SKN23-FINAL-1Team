@@ -108,3 +108,4 @@ class RoomListRequest(BaseModel):
     ne_lng: float | None = None
     level: int | None = None
     sort: SortLiteral = "latest"
+    exclude_item_id: int | None = None
