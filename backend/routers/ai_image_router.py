@@ -104,6 +104,7 @@ class GenerateImageJobStatusResponse(BaseModel):
 class FindSimilarRoomsRequest(RoomListRequest):
     image_url: str
     exclude_item_id: int | None = None
+    source_image_id: int | None = None
 
 
 ROOM_IMAGE_API_PATTERN = re.compile(r"/api/rooms/(\d+)/images/(\d+)")
@@ -442,11 +443,22 @@ async def find_similar_rooms_endpoint(
     """
     try:
         embedding = None
-        room_image_match = ROOM_IMAGE_API_PATTERN.search(body.image_url)
+        is_existing_room_image = body.source_image_id is not None
+        if body.source_image_id is not None:
+            embedding = _get_existing_room_image_embedding(db, body.source_image_id)
 
-        if room_image_match:
-            image_id = int(room_image_match.group(2))
-            embedding = _get_existing_room_image_embedding(db, image_id)
+        if embedding is None:
+            room_image_match = ROOM_IMAGE_API_PATTERN.search(body.image_url)
+            if room_image_match:
+                is_existing_room_image = True
+                image_id = int(room_image_match.group(2))
+                embedding = _get_existing_room_image_embedding(db, image_id)
+
+        if embedding is None and is_existing_room_image:
+            raise HTTPException(
+                status_code=404,
+                detail="해당 매물 사진의 임베딩을 찾을 수 없습니다.",
+            )
 
         if embedding is None:
             image_data = _read_similarity_image(body.image_url, db)
