@@ -8,6 +8,8 @@
 """
 
 import os
+import re
+import json
 
 import requests
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -15,6 +17,7 @@ from fastapi.responses import FileResponse
 from openai import BadRequestError
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from db.session import SessionLocal
 from db.session import get_db
@@ -36,6 +39,8 @@ from services.ai_image_job_service import (
 from services.embedding_service import EmbeddingService
 from services.room_service import get_rooms_by_similarity
 from services.user_credit_service import decrement_user_remain, get_user_by_id
+from models.item_image import ItemImage
+from utils.s3 import get_s3_client, parse_s3_uri
 
 router = APIRouter(prefix="/api")
 
@@ -101,7 +106,75 @@ class FindSimilarRoomsRequest(RoomListRequest):
     exclude_item_id: int | None = None
 
 
-def _read_similarity_image(image_url: str) -> bytes:
+ROOM_IMAGE_API_PATTERN = re.compile(r"/api/rooms/(\d+)/images/(\d+)")
+
+
+def _parse_vector_text(value) -> list[float] | None:
+    if value is None:
+        return None
+
+    if isinstance(value, list):
+        return [float(item) for item in value]
+
+    if isinstance(value, str):
+        try:
+            return [float(item) for item in json.loads(value)]
+        except Exception:
+            return [
+                float(item.strip())
+                for item in value.strip("[]").split(",")
+                if item.strip()
+            ]
+
+    return None
+
+
+def _get_existing_room_image_embedding(db: Session, image_id: int) -> list[float] | None:
+    row = db.execute(
+        text(
+            """
+            SELECT embedding::text
+            FROM public.item_image_embeddings
+            WHERE image_id = :image_id
+            LIMIT 1
+            """
+        ),
+        {"image_id": image_id},
+    ).scalar_one_or_none()
+
+    return _parse_vector_text(row)
+
+
+def _read_room_image_from_storage(db: Session, item_id: int, image_id: int) -> bytes:
+    image = (
+        db.query(ItemImage)
+        .filter(ItemImage.item_id == item_id, ItemImage.id == image_id)
+        .first()
+    )
+
+    if image is None:
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.")
+
+    image_url = image.s3_url
+
+    if image_url.startswith("http://") or image_url.startswith("https://"):
+        image_response = requests.get(image_url, timeout=15)
+        if image_response.status_code != 200:
+            raise HTTPException(status_code=400, detail="이미지를 불러올 수 없습니다.")
+        return image_response.content
+
+    if image_url.startswith("s3://"):
+        try:
+            bucket, key = parse_s3_uri(image_url)
+            s3_object = get_s3_client().get_object(Bucket=bucket, Key=key)
+            return s3_object["Body"].read()
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail="이미지를 불러올 수 없습니다.") from exc
+
+    raise HTTPException(status_code=400, detail="지원하지 않는 이미지 경로입니다.")
+
+
+def _read_similarity_image(image_url: str, db: Session) -> bytes:
     """
     create_image에 저장된 생성/수정 이미지는 자기 자신에게 HTTP 요청하지 않고
     로컬 파일에서 바로 읽는다.
@@ -110,6 +183,12 @@ def _read_similarity_image(image_url: str) -> bytes:
         image_path = resolve_saved_image_path(image_url)
         with open(image_path, "rb") as image_file:
             return image_file.read()
+
+    room_image_match = ROOM_IMAGE_API_PATTERN.search(image_url)
+    if room_image_match:
+        item_id = int(room_image_match.group(1))
+        image_id = int(room_image_match.group(2))
+        return _read_room_image_from_storage(db, item_id, image_id)
 
     image_response = requests.get(image_url, timeout=15)
     if image_response.status_code != 200:
@@ -362,8 +441,16 @@ async def find_similar_rooms_endpoint(
     4. 무한 스크롤 지원 형식으로 반환
     """
     try:
-        image_data = _read_similarity_image(body.image_url)
-        embedding = EmbeddingService.get_image_embedding(image_data)
+        embedding = None
+        room_image_match = ROOM_IMAGE_API_PATTERN.search(body.image_url)
+
+        if room_image_match:
+            image_id = int(room_image_match.group(2))
+            embedding = _get_existing_room_image_embedding(db, image_id)
+
+        if embedding is None:
+            image_data = _read_similarity_image(body.image_url, db)
+            embedding = EmbeddingService.get_image_embedding(image_data)
 
         if not embedding:
             raise HTTPException(
