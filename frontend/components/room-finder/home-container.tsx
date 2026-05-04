@@ -9,6 +9,7 @@ import {
   MapView,
   type Listing,
   type MapBounds,
+  type MapFocusRequest,
   type MapItem,
 } from "@/components/room-finder/map-view";
 import { ListingPanel } from "@/components/room-finder/listing-panel";
@@ -176,10 +177,13 @@ export function HomeContainer() {
   const [hasRequestFailed, setHasRequestFailed] = useState(false);
   const [isLocationReady, setIsLocationReady] = useState(false);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const [mapFocusRequest, setMapFocusRequest] =
+    useState<MapFocusRequest | null>(null);
   const [listScrollResetKey, setListScrollResetKey] = useState(0);
   const boundsDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const mapFocusRequestIdRef = useRef(0);
 
   const user = useAuthStore((state) => state.user);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
@@ -330,6 +334,7 @@ export function HomeContainer() {
 
   const prevRequestKeyRef = useRef<string>("");
   const prevSimilarRequestKeyRef = useRef<string>("");
+  const activeListRequestKeyRef = useRef<string>("");
 
   const getSimilarRequestKey = useCallback(
     (imageUrl: string) =>
@@ -422,13 +427,19 @@ export function HomeContainer() {
     if (!similarImageUrl) {
       setRecommendedListings(null);
     }
+    setListings([]);
+    setMapItems([]);
     setVisibleListings([]);
-    if (!isPendingOpenRef.current) setSelectedListing(null);
+    setListScrollResetKey((prev) => prev + 1);
+    if (!isPendingOpenRef.current) {
+      setSelectedListing(null);
+      setIsDetailOpen(false);
+    }
     setOffset(0);
     setHasMore(true);
     setHasRequestFailed(false);
-    setIsInitialLoading(listings.length === 0);
-  }, [requestKey, listings.length, similarImageUrl]);
+    setIsInitialLoading(false);
+  }, [requestKey, similarImageUrl]);
 
   useEffect(() => {
     if (!similarImageUrl) return;
@@ -565,8 +576,14 @@ export function HomeContainer() {
 
     const loadPagedItems = async () => {
       if (!isLocationReady || !mapBounds) return;
-      if (!shouldReloadByBounds(mapBounds.source)) return;
+      const isFilterReload = activeListRequestKeyRef.current !== requestKey;
+      if (!shouldReloadByBounds(mapBounds.source) && !isFilterReload) return;
+      if (activeListRequestKeyRef.current !== requestKey && offset !== 0) return;
       if (offset > 0 && (!hasMore || hasRequestFailed)) return;
+
+      if (offset === 0) {
+        activeListRequestKeyRef.current = requestKey;
+      }
 
       setIsLoading(true);
 
@@ -704,9 +721,9 @@ export function HomeContainer() {
     if (!shouldReloadByBounds(mapBounds.source)) return;
     setOffset(0);
     setHasMore(true);
-    setIsInitialLoading(listings.length === 0);
+    setIsInitialLoading(false);
     setHasRequestFailed(false);
-  }, [mapBounds, listings.length]);
+  }, [mapBounds]);
 
   const loadMore = useCallback(() => {
     if (isLoading || !hasMore) return;
@@ -729,6 +746,37 @@ export function HomeContainer() {
       recordRecentListing(listing);
       setSelectedListing(listing);
       setIsDetailOpen(true);
+    },
+    [recordRecentListing],
+  );
+
+  const handleSimilarOverlayListingClick = useCallback(
+    (listing: Listing) => {
+      const lat = Number(listing.lat);
+      const lng = Number(listing.lng);
+
+      recordRecentListing(listing);
+      setSelectedListing(listing);
+      setIsPanelOpen(true);
+      setIsDetailOpen(true);
+      setListings([]);
+      setMapItems([]);
+      setVisibleListings([]);
+      setOffset(0);
+      setHasMore(true);
+      setHasRequestFailed(false);
+      setListScrollResetKey((prev) => prev + 1);
+
+      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+        mapFocusRequestIdRef.current += 1;
+        setMapFocusRequest({
+          id: mapFocusRequestIdRef.current,
+          lat,
+          lng,
+          level: 2,
+          source: "search",
+        });
+      }
     },
     [recordRecentListing],
   );
@@ -1039,6 +1087,7 @@ export function HomeContainer() {
               searchQuery={debouncedSearchQuery}
               mapItems={mapItems}
               selectedListing={selectedListing}
+              focusRequest={mapFocusRequest}
               onMarkerClick={(listing) => {
                 recordRecentListing(listing);
                 setSelectedListing(listing);
@@ -1054,12 +1103,7 @@ export function HomeContainer() {
             listings={photoSimilarListings}
             isPanelOpen={isPanelOpen}
             onClose={() => setPhotoSimilarListings([])}
-            onListingClick={(listing) => {
-              recordRecentListing(listing);
-              setSelectedListing(listing);
-              setIsPanelOpen(true);
-              setIsDetailOpen(true);
-            }}
+            onListingClick={handleSimilarOverlayListingClick}
           />
 
           {/* 패널 토글 버튼 — 항상 표시 */}
@@ -1134,12 +1178,14 @@ export function HomeContainer() {
             {/* 상세 패널 — 목록 위에 슬라이드로 덮음 */}
             <div
               className={`absolute inset-0 z-10 transition-transform duration-300 ease-in-out ${
-                isDetailOpen ? "translate-x-0" : "translate-x-full"
+                isDetailOpen && selectedListing
+                  ? "translate-x-0 pointer-events-auto"
+                  : "translate-x-full pointer-events-none"
               }`}
             >
               <ListingDetailPanel
                 listing={selectedListing}
-                isOpen={isDetailOpen}
+                isOpen={isDetailOpen && !!selectedListing}
                 onClose={() => {
                   // X 버튼 → 목록으로 복귀 (① 상태)
                   setIsDetailOpen(false);
@@ -1171,6 +1217,7 @@ export function HomeContainer() {
                 searchQuery={debouncedSearchQuery}
                 mapItems={mapItems}
                 selectedListing={selectedListing}
+                focusRequest={mapFocusRequest}
                 onMarkerClick={(listing) => {
                   recordRecentListing(listing);
                   setSelectedListing(listing);
@@ -1208,7 +1255,8 @@ export function HomeContainer() {
           )}
         </main>
 
-        {(!isLocationReady || isInitialLoading) &&
+        {(!isLocationReady ||
+          (isInitialLoading && listings.length === 0 && !selectedListing)) &&
           !isPendingOpenRef.current && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/10">
               <div className="rounded-lg bg-white px-4 py-3 shadow-md">
