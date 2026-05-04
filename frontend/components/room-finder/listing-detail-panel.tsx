@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { MapPin, Building2, CreditCard, Ruler, X, Car } from "lucide-react";
+import { MapPin, Building2, CreditCard, Ruler, X, Car, Search } from "lucide-react";
 import type { Listing } from "@/components/room-finder/map-view";
 import { fetchRoomDetail, type ListingDetailResponse } from "@/lib/api/rooms";
 import {
@@ -24,6 +24,12 @@ interface ListingDetailPanelProps {
   favoriteLoadingIds: number[];
   onToggleFavorite: (listingId: number) => void;
   onPhotoClick?: (images: string[], index: number) => void;
+  onFindSimilarFromPhoto?: (
+    imageUrl: string,
+    listingId: number,
+    imageId?: number,
+  ) => void;
+  isFindingSimilarFromPhoto?: boolean;
 }
 
 const formatKoreanMoney = (value: number) => {
@@ -98,6 +104,8 @@ export function ListingDetailPanel({
   favoriteLoadingIds,
   onToggleFavorite,
   onPhotoClick,
+  onFindSimilarFromPhoto,
+  isFindingSimilarFromPhoto = false,
 }: ListingDetailPanelProps) {
   const [detail, setDetail] = useState<ListingDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -145,6 +153,22 @@ export function ListingDetailPanel({
 
     return rawUrls.filter((url): url is string => isValidImageSrc(url));
   }, [detail?.images, listing?.images]);
+
+  const similarSearchImageUrls = useMemo(() => {
+    if (detail?.images?.length) {
+      return detail.images.map((image) => `/api/rooms/${listingId}/images/${image.id}`);
+    }
+
+    return imageUrls;
+  }, [detail?.images, imageUrls, listingId]);
+
+  const similarSearchImageIds = useMemo(() => {
+    if (detail?.images?.length) {
+      return detail.images.map((image) => image.id);
+    }
+
+    return [];
+  }, [detail?.images]);
 
   useEffect(() => {
     setCurrentImageIndex(0);
@@ -264,6 +288,28 @@ export function ListingDetailPanel({
                         />
 
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
+
+                        {onFindSimilarFromPhoto && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onFindSimilarFromPhoto(
+                                similarSearchImageUrls[index] ?? url,
+                                listingId,
+                                similarSearchImageIds[index],
+                              );
+                            }}
+                            disabled={isFindingSimilarFromPhoto}
+                            className="absolute left-1/2 top-1/2 z-20 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm font-bold text-stone-900 opacity-0 shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70 group-hover:opacity-100"
+                            aria-label="이 사진으로 유사 매물 찾기"
+                          >
+                            <Search className="h-4 w-4" />
+                            {isFindingSimilarFromPhoto
+                              ? "검색 중"
+                              : "유사매물 찾기"}
+                          </button>
+                        )}
 
                         {/* 확대 힌트 */}
                         <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs text-white backdrop-blur-sm opacity-0 hover:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">

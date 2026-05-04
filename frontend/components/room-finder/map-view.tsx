@@ -59,10 +59,19 @@ export interface MarkerMapItem {
 
 export type MapItem = ClusterMapItem | MarkerMapItem;
 
+export interface MapFocusRequest {
+  id: number;
+  lat: number;
+  lng: number;
+  level: number;
+  source: MapBounds["source"];
+}
+
 interface MapViewProps {
   searchQuery: string;
   mapItems: MapItem[];
   selectedListing?: Listing | null;
+  focusRequest?: MapFocusRequest | null;
   onMarkerClick?: (listing: Listing) => void;
   onVisibleListingsChange?: (listings: Listing[]) => void;
   onInitialLocationResolved?: (coords: { lat: number; lng: number }) => void;
@@ -124,6 +133,7 @@ export function MapView({
   searchQuery,
   mapItems,
   selectedListing,
+  focusRequest,
   onMarkerClick,
   onVisibleListingsChange,
   onInitialLocationResolved,
@@ -581,6 +591,25 @@ export function MapView({
     pendingSourceRef.current = "selection";
     map.panTo(position);
   }, [selectedListing, isMapReady]);
+
+  useEffect(() => {
+    if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
+    if (!focusRequest) return;
+
+    const lat = Number(focusRequest.lat);
+    const lng = Number(focusRequest.lng);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+    const map = mapInstanceRef.current;
+    const kakao = window.kakao;
+    const position = new kakao.maps.LatLng(lat, lng);
+
+    pendingSourceRef.current = focusRequest.source;
+    map.setLevel(focusRequest.level, { anchor: position });
+    map.panTo(position);
+    window.setTimeout(() => emitBounds(map), 300);
+  }, [focusRequest, isMapReady]);
 
   useEffect(() => {
     const handleResize = () => {

@@ -21,6 +21,7 @@ export interface RoomSearchParams {
   neLng?: number;
   level?: number;
   sort?: "latest" | "price_asc" | "price_desc";
+  excludeItemId?: number;
   signal?: AbortSignal;
 }
 
@@ -149,6 +150,7 @@ export function buildSearchBody(params: RoomSearchParams) {
     ne_lng: params.neLng ?? null,
     level: params.level ?? null,
     sort: params.sort ?? "latest",
+    exclude_item_id: params.excludeItemId ?? null,
   };
 }
 
