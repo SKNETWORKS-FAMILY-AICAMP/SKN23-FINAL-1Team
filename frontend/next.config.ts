@@ -1,10 +1,13 @@
 import type { NextConfig } from "next";
 
 const s3Hostname = process.env.NEXT_IMAGE_S3_HOSTNAME;
+const backendUrl = process.env.BACKEND_URL?.replace(/\/+$/, "");
+
 const appImageHosts = [
   "3.37.97.17",
   "52.78.235.88",
   "127.0.0.1",
+  "localhost",
   "geumbang.duckdns.org",
 ];
 
@@ -42,6 +45,19 @@ if (s3Hostname) {
 const nextConfig: NextConfig = {
   images: {
     remotePatterns,
+  },
+
+  async rewrites() {
+    if (!backendUrl) {
+      return [];
+    }
+
+    return [
+      {
+        source: "/backend/:path*",
+        destination: `${backendUrl}/:path*`,
+      },
+    ];
   },
 };
 

@@ -245,6 +245,7 @@ def get_rooms_by_similarity(db: Session, req, embedding: list[float] | None = No
     """
     count_stmt = select(func.count(distinct(Room.item_id)))
     has_embedding = bool(embedding)
+    exclude_item_id = getattr(req, "exclude_item_id", None)
 
     if has_embedding:
         vector_str = "[" + ",".join(map(str, embedding)) + "]"
@@ -266,11 +267,18 @@ def get_rooms_by_similarity(db: Session, req, embedding: list[float] | None = No
         stmt = apply_room_filters(stmt, req)
         count_stmt = apply_room_filters(count_stmt, req)
 
+        if exclude_item_id is not None:
+            stmt = stmt.where(Room.item_id != exclude_item_id)
+            count_stmt = count_stmt.where(Room.item_id != exclude_item_id)
+
         stmt = stmt.group_by(Room.item_id).order_by(embedding_distance_expr)
     else:
         stmt = select(Room)
         stmt = apply_room_filters(stmt, req)
         count_stmt = apply_room_filters(count_stmt, req)
+        if exclude_item_id is not None:
+            stmt = stmt.where(Room.item_id != exclude_item_id)
+            count_stmt = count_stmt.where(Room.item_id != exclude_item_id)
         stmt = stmt.order_by(Room.first_crawled_at.desc().nullslast(), Room.item_id.desc())
 
     total = db.execute(count_stmt).scalar_one()

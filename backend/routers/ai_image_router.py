@@ -98,6 +98,7 @@ class GenerateImageJobStatusResponse(BaseModel):
 
 class FindSimilarRoomsRequest(RoomListRequest):
     image_url: str
+    exclude_item_id: int | None = None
 
 
 def _read_similarity_image(image_url: str) -> bytes:
