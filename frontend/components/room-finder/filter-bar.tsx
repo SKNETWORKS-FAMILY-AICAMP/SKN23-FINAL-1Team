@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -37,6 +37,7 @@ interface FilterBarProps {
   onFiltersChange: (filters: Filters) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  onSearchSubmit: (query: string) => void;
   roomType: "oneroom" | "tworoom";
 }
 
@@ -107,6 +108,7 @@ export function FilterBar({
   onFiltersChange,
   searchQuery,
   onSearchChange,
+  onSearchSubmit,
   roomType,
 }: FilterBarProps) {
   const [priceOpen, setPriceOpen] = useState(false);
@@ -117,6 +119,7 @@ export function FilterBar({
   const [sizeOpen, setSizeOpen] = useState(false);
   const [placeSuggestions, setPlaceSuggestions] = useState<PlaceSuggestion[]>([]);
   const [isPlaceSuggestionsOpen, setIsPlaceSuggestionsOpen] = useState(false);
+  const skipNextSuggestionFetchRef = useRef(false);
 
   const [depositDraft, setDepositDraft] = useState<number>(
     filters.deposit === "all" ? 0 : filters.deposit,
@@ -159,6 +162,13 @@ export function FilterBar({
 
   useEffect(() => {
     const query = searchQuery.trim();
+
+    if (skipNextSuggestionFetchRef.current) {
+      skipNextSuggestionFetchRef.current = false;
+      setPlaceSuggestions([]);
+      setIsPlaceSuggestionsOpen(false);
+      return;
+    }
 
     if (!query) {
       const resetTimer = window.setTimeout(() => {
@@ -383,12 +393,15 @@ export function FilterBar({
   };
 
   const selectPlaceSuggestion = (place: PlaceSuggestion) => {
-    onSearchChange(place.name);
+    skipNextSuggestionFetchRef.current = true;
+    setPlaceSuggestions([]);
     setIsPlaceSuggestionsOpen(false);
+    onSearchChange(place.name);
+    onSearchSubmit(place.name);
   };
 
   return (
-    <div className="border-b border-stone-200/80 bg-white/70 px-4 py-4 backdrop-blur-md md:px-6">
+    <div className="relative z-50 overflow-visible border-b border-stone-200/80 bg-white/70 px-4 py-4 backdrop-blur-md md:px-6">
       <div className="relative mb-3">
         <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-muted pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -403,7 +416,7 @@ export function FilterBar({
           className="w-full pl-10 pr-4 py-2.5 bg-stone-100 rounded-full border border-stone-200 text-neutral-dark placeholder:text-neutral-muted focus:outline-none focus:border-warm-brown text-sm"
         />
         {isPlaceSuggestionsOpen && (
-          <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-40 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.14)]">
+          <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-[60] overflow-hidden rounded-xl border border-stone-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.14)]">
             {placeSuggestions.map((place) => (
               <button
                 key={place.id}
