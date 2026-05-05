@@ -50,3 +50,4 @@ torch
 open_clip_torch
 transformers
 openai
+elasticsearch==8.13.2
