@@ -5,7 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from models.room import Room
-from services.seoul_places_seed import SEOUL_DISTRICTS, SEOUL_SUBWAY_STATIONS
+from services.seoul_places_seed import (
+    SEOUL_DISTRICTS,
+    SEOUL_DONGS_BY_DISTRICT,
+    SEOUL_SUBWAY_STATIONS,
+)
 
 try:
     from elasticsearch import Elasticsearch
@@ -17,6 +21,7 @@ except Exception:  # pragma: no cover - fallback when dependency is not installe
 
 PLACES_INDEX = os.getenv("ELASTICSEARCH_PLACES_INDEX", "seoul_places")
 ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "http://elasticsearch:9200")
+SEOUL_SIDO = "서울특별시"
 
 _index_ready = False
 
@@ -94,22 +99,55 @@ def _district_places() -> list[dict]:
 
 
 def _subway_places() -> list[dict]:
-    return [
-        {
+    places = []
+
+    for slug, name, aliases, lines, lat, lon in SEOUL_SUBWAY_STATIONS:
+        place = {
             "id": f"station-{slug}",
             "type": "subway_station",
             "name": name,
             "display_name": f"{name} {'/'.join(lines)}",
-            "sido": "서울특별시",
+            "sido": SEOUL_SIDO,
             "sigungu": None,
             "dong": None,
             "aliases": list(dict.fromkeys([name, name.removesuffix("역"), *aliases])),
             "lines": lines,
-            "location": {"lat": lat, "lon": lon},
             "priority": 20,
         }
-        for slug, name, aliases, lines, lat, lon in SEOUL_SUBWAY_STATIONS
-    ]
+
+        if lat is not None and lon is not None:
+            place["location"] = {"lat": lat, "lon": lon}
+
+        places.append(place)
+
+    return places
+
+
+def _static_dong_places() -> list[dict]:
+    places = []
+
+    for sigungu, dongs in SEOUL_DONGS_BY_DISTRICT.items():
+        for dong in dongs:
+            places.append(
+                {
+                    "id": f"dong-seoul-{sigungu}-{dong}",
+                    "type": "dong",
+                    "name": dong,
+                    "display_name": f"{SEOUL_SIDO} {sigungu} {dong}",
+                    "sido": SEOUL_SIDO,
+                    "sigungu": sigungu,
+                    "dong": dong,
+                    "aliases": [
+                        dong,
+                        dong.removesuffix("동"),
+                        f"{sigungu} {dong}",
+                    ],
+                    "lines": [],
+                    "priority": 35,
+                }
+            )
+
+    return places
 
 
 def _parse_seoul_dong(address: str) -> tuple[str, str] | None:
@@ -179,14 +217,19 @@ def _dong_places_from_rooms(db: Session) -> list[dict]:
 
 def build_places(db: Session) -> list[dict]:
     places = {}
-    for place in [*_district_places(), *_subway_places(), *_dong_places_from_rooms(db)]:
+    for place in [
+        *_district_places(),
+        *_static_dong_places(),
+        *_subway_places(),
+        *_dong_places_from_rooms(db),
+    ]:
         places[place["id"]] = place
     return list(places.values())
 
 
 def _create_index_if_needed(es) -> None:
     if es.indices.exists(index=PLACES_INDEX):
-        return
+        es.indices.delete(index=PLACES_INDEX)
 
     es.indices.create(
         index=PLACES_INDEX,
@@ -229,14 +272,12 @@ def ensure_places_index(db: Session) -> bool:
 
     try:
         _create_index_if_needed(es)
-        count = es.count(index=PLACES_INDEX).get("count", 0)
-        if count == 0:
-            actions = [
-                {"_index": PLACES_INDEX, "_id": place["id"], "_source": place}
-                for place in build_places(db)
-            ]
-            if actions and bulk is not None:
-                bulk(es, actions, refresh=True)
+        actions = [
+            {"_index": PLACES_INDEX, "_id": place["id"], "_source": place}
+            for place in build_places(db)
+        ]
+        if actions and bulk is not None:
+            bulk(es, actions, refresh=True)
 
         _index_ready = True
         return True
