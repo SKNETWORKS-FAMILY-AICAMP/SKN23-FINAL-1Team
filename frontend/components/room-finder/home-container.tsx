@@ -326,11 +326,13 @@ export function HomeContainer() {
   }, [showToast]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 500);
-    return () => clearTimeout(timer);
+    if (searchQuery.trim()) return;
+    setDebouncedSearchQuery("");
   }, [searchQuery]);
+
+  const handleSearchSubmit = useCallback((query: string) => {
+    setDebouncedSearchQuery(query.trim());
+  }, []);
 
   const prevRequestKeyRef = useRef<string>("");
   const prevSimilarRequestKeyRef = useRef<string>("");
@@ -1053,6 +1055,7 @@ export function HomeContainer() {
           onFiltersChange={setFilters}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          onSearchSubmit={handleSearchSubmit}
           roomType={roomType}
         />
 
