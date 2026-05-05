@@ -1,4 +1,17 @@
 services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: skn-elasticsearch-develop
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    restart: always
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+
   backend:
     build:
       context: ./backend
@@ -7,6 +20,8 @@ services:
     env_file:
       - ./backend/.env.production
     restart: always
+    depends_on:
+      - elasticsearch
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -24,3 +39,6 @@ services:
     restart: always
     ports:
       - "127.0.0.1:3000:3000"
+
+volumes:
+  es-data:

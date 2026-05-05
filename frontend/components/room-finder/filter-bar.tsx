@@ -16,6 +16,10 @@ import {
 } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { ChevronDown } from "lucide-react";
+import {
+  fetchPlaceSuggestions,
+  type PlaceSuggestion,
+} from "@/lib/api/places";
 
 export interface Filters {
   transactionType: string;
@@ -111,6 +115,8 @@ export function FilterBar({
   const [transactionOpen, setTransactionOpen] = useState(false);
   const [floorOpen, setFloorOpen] = useState(false);
   const [sizeOpen, setSizeOpen] = useState(false);
+  const [placeSuggestions, setPlaceSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [isPlaceSuggestionsOpen, setIsPlaceSuggestionsOpen] = useState(false);
 
   const [depositDraft, setDepositDraft] = useState<number>(
     filters.deposit === "all" ? 0 : filters.deposit,
@@ -150,6 +156,37 @@ export function FilterBar({
   useEffect(() => {
     setSizeDraft(filters.size === "all" ? 0 : Number(filters.size));
   }, [filters.size, filters.sizeUnit]);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+
+    if (!query) {
+      const resetTimer = window.setTimeout(() => {
+        setPlaceSuggestions([]);
+        setIsPlaceSuggestionsOpen(false);
+      }, 0);
+
+      return () => clearTimeout(resetTimer);
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const suggestions = await fetchPlaceSuggestions(query, controller.signal);
+        setPlaceSuggestions(suggestions);
+        setIsPlaceSuggestionsOpen(suggestions.length > 0);
+      } catch {
+        if (controller.signal.aborted) return;
+        setPlaceSuggestions([]);
+        setIsPlaceSuggestionsOpen(false);
+      }
+    }, 150);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
 
   useEffect(() => {
     const currentDeposit = filters.deposit === "all" ? 0 : filters.deposit;
@@ -339,6 +376,17 @@ export function FilterBar({
   const selectItemClass =
     "cursor-pointer rounded-xl px-3 py-2.5 text-sm font-medium tracking-tight text-stone-700 outline-none transition-colors focus:bg-stone-100 focus:text-stone-900 data-[highlighted]:bg-stone-100 data-[highlighted]:text-stone-900";
 
+  const getPlaceTypeLabel = (type: PlaceSuggestion["type"]) => {
+    if (type === "subway_station") return "역";
+    if (type === "dong") return "동";
+    return "구";
+  };
+
+  const selectPlaceSuggestion = (place: PlaceSuggestion) => {
+    onSearchChange(place.name);
+    setIsPlaceSuggestionsOpen(false);
+  };
+
   return (
     <div className="border-b border-stone-200/80 bg-white/70 px-4 py-4 backdrop-blur-md md:px-6">
       <div className="relative mb-3">
@@ -349,9 +397,38 @@ export function FilterBar({
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
+          onFocus={() => setIsPlaceSuggestionsOpen(placeSuggestions.length > 0)}
+          onBlur={() => window.setTimeout(() => setIsPlaceSuggestionsOpen(false), 120)}
           placeholder="찾고자 하는 지역을 검색해 주세요."
           className="w-full pl-10 pr-4 py-2.5 bg-stone-100 rounded-full border border-stone-200 text-neutral-dark placeholder:text-neutral-muted focus:outline-none focus:border-warm-brown text-sm"
         />
+        {isPlaceSuggestionsOpen && (
+          <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-40 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.14)]">
+            {placeSuggestions.map((place) => (
+              <button
+                key={place.id}
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  selectPlaceSuggestion(place);
+                }}
+                className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-stone-900">
+                    {place.name}
+                  </span>
+                  <span className="block truncate text-xs text-stone-500">
+                    {place.display_name}
+                  </span>
+                </span>
+                <span className="shrink-0 rounded-full border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-500">
+                  {getPlaceTypeLabel(place.type)}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div
         className={`flex gap-2 overflow-x-auto pb-2 md:grid md:gap-4 md:pb-0 ${
