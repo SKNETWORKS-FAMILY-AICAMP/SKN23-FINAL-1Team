@@ -144,7 +144,7 @@ export function HomeContainer() {
   const [roomType, setRoomType] = useState<"oneroom" | "tworoom">("oneroom");
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [mapSearchQuery, setMapSearchQuery] = useState("");
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
@@ -251,7 +251,7 @@ export function HomeContainer() {
 
   const requestKey = useMemo(() => {
     return JSON.stringify({
-      search: debouncedSearchQuery,
+      search: "",
       transactionType: filters.transactionType,
       deposit: filters.deposit,
       monthlyRent: filters.monthlyRent,
@@ -264,7 +264,6 @@ export function HomeContainer() {
       sort,
     });
   }, [
-    debouncedSearchQuery,
     filters.transactionType,
     filters.deposit,
     filters.monthlyRent,
@@ -279,7 +278,7 @@ export function HomeContainer() {
 
   const similarSearchParams = useMemo<RoomSearchParams>(
     () => ({
-      search: debouncedSearchQuery,
+      search: "",
       transactionType: filters.transactionType,
       roomType: roomType === "oneroom" ? "원룸" : "투룸",
       structure: roomType === "oneroom" ? filters.structure : [],
@@ -299,7 +298,6 @@ export function HomeContainer() {
       level: mapBounds?.level,
     }),
     [
-      debouncedSearchQuery,
       filters.transactionType,
       filters.deposit,
       filters.monthlyRent,
@@ -327,11 +325,11 @@ export function HomeContainer() {
 
   useEffect(() => {
     if (searchQuery.trim()) return;
-    setDebouncedSearchQuery("");
+    setMapSearchQuery("");
   }, [searchQuery]);
 
   const handleSearchSubmit = useCallback((query: string) => {
-    setDebouncedSearchQuery(query.trim());
+    setMapSearchQuery(query.trim());
   }, []);
 
   const prevRequestKeyRef = useRef<string>("");
@@ -593,7 +591,7 @@ export function HomeContainer() {
         const data = await fetchItems({
           offset,
           limit: PAGE_SIZE,
-          search: debouncedSearchQuery,
+          search: "",
           transactionType: filters.transactionType,
           roomType: roomType === "oneroom" ? "원룸" : "투룸",
           structure: roomType === "oneroom" ? filters.structure : [],
@@ -640,7 +638,6 @@ export function HomeContainer() {
     mapBounds,
     offset,
     requestKey,
-    debouncedSearchQuery,
     filters.transactionType,
     filters.deposit,
     filters.monthlyRent,
@@ -664,7 +661,7 @@ export function HomeContainer() {
 
       try {
         const data = await fetchMapItems({
-          search: debouncedSearchQuery,
+          search: "",
           transactionType: filters.transactionType,
           roomType: roomType === "oneroom" ? "원룸" : "투룸",
           structure: roomType === "oneroom" ? filters.structure : [],
@@ -699,7 +696,6 @@ export function HomeContainer() {
     isLocationReady,
     mapBounds,
     requestKey,
-    debouncedSearchQuery,
     filters.transactionType,
     filters.deposit,
     filters.monthlyRent,
@@ -1087,7 +1083,7 @@ export function HomeContainer() {
         <main className="relative hidden flex-1 overflow-hidden lg:block scroll-none">
           <section className="absolute inset-0 z-0">
             <MapView
-              searchQuery={debouncedSearchQuery}
+              searchQuery={mapSearchQuery}
               mapItems={mapItems}
               selectedListing={selectedListing}
               focusRequest={mapFocusRequest}
@@ -1217,7 +1213,7 @@ export function HomeContainer() {
           {mobileView === "map" ? (
             <section className="relative flex-1">
               <MapView
-                searchQuery={debouncedSearchQuery}
+                searchQuery={mapSearchQuery}
                 mapItems={mapItems}
                 selectedListing={selectedListing}
                 focusRequest={mapFocusRequest}
