@@ -99,7 +99,9 @@ export function AIRecommendation({
     [generatedImages, selectedImageId],
   );
 
-  const remainingEdits = user?.remain ?? 0;
+  const availableEditCount = Math.max(0, 2 - (selectedImage?.editCount ?? 0));
+  const remainingEdits = Math.min(user?.remain ?? 0, availableEditCount);
+  const hasReachedImageEditLimit = availableEditCount <= 0;
 
   useEffect(() => {
     setEditPrompt("");
@@ -176,6 +178,7 @@ export function AIRecommendation({
         sourceImageUrl,
         basePrompt,
         editPrompt: editRequest,
+        editCount: selectedImage?.editCount ?? 0,
       }),
     });
 
@@ -272,6 +275,10 @@ export function AIRecommendation({
       setMessage("남은 수정 횟수가 없습니다.");
       return;
     }
+    if (selectedImage.editCount >= 2) {
+      setMessage("이미지 수정은 최대 2번까지 가능합니다.");
+      return;
+    }
 
     setIsEditing(true);
     setMessage("이미지를 수정하는 중입니다. 잠시만 기다려주세요.");
@@ -348,6 +355,7 @@ export function AIRecommendation({
             limit: 4,
           }),
           image_url: selectedImage.url,
+          user_id: user?.user_id ?? null,
         }),
       });
 
@@ -356,6 +364,12 @@ export function AIRecommendation({
       }
 
       const data = await response.json();
+      if (typeof data.remain === "number" || typeof data.credit === "number") {
+        updateUser({
+          remain: typeof data.remain === "number" ? data.remain : user?.remain,
+          credit: typeof data.credit === "number" ? data.credit : user?.credit,
+        });
+      }
 
       if (data.items && data.items.length > 0) {
         const similarItems = data.items.map(mapSimilarItemToListing) as Listing[];
@@ -623,16 +637,23 @@ export function AIRecommendation({
                     onChange={(e) => setEditPrompt(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleEdit()}
                     placeholder={
-                      remainingEdits > 0
+                      remainingEdits > 0 && !hasReachedImageEditLimit
                         ? "변경사항을 입력하세요..."
-                        : "남은 수정 횟수가 없습니다"
+                        : hasReachedImageEditLimit
+                          ? "이미지 수정은 최대 2번까지 가능합니다"
+                          : "남은 수정 횟수가 없습니다"
                     }
-                    disabled={remainingEdits === 0}
+                    disabled={remainingEdits === 0 || hasReachedImageEditLimit}
                     className="flex-1 rounded-lg border border-[#d6cfc8] bg-white px-3 py-2 text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400/40 disabled:cursor-not-allowed disabled:bg-stone-100"
                   />
                   <button
                     onClick={handleEdit}
-                    disabled={isEditing || !editPrompt.trim() || remainingEdits === 0}
+                    disabled={
+                      isEditing ||
+                      !editPrompt.trim() ||
+                      remainingEdits === 0 ||
+                      hasReachedImageEditLimit
+                    }
                     className="whitespace-nowrap rounded-lg bg-stone-700 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isEditing ? (
