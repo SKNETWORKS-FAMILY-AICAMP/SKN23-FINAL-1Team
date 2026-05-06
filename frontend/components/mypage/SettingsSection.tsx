@@ -125,7 +125,7 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
               className="flex w-full items-center justify-between py-4 text-sm font-semibold tracking-tight text-stone-700 transition-colors duration-200 hover:text-stone-900"
             >
               <span>{item.label}</span>
-<ChevronDown className={cn("h-4 w-4 text-stone-400 transition-transform duration-200", openItem === item.label && "rotate-180")} />
+              <ChevronDown className={cn("h-4 w-4 text-stone-400 transition-transform duration-200", openItem === item.label && "rotate-180")} />
             </button>
             {openItem === item.label && (
               <div className="animate-in fade-in slide-in-from-top-1 duration-200">
