@@ -1,23 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { BadgeCheck } from "lucide-react";
 
+const PHONE_PATTERN = /^010-\d{4}-\d{4}$/;
+
 export function BrokerRegisterSection() {
   const user = useAuthStore((state) => state.user);
   const updateUser = useAuthStore((state) => state.updateUser);
-  const [officeName, setOfficeName] = useState("");
-  const [brokerNumber, setBrokerNumber] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const apiBaseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL;
 
+  const [name, setName] = useState(user?.nickname ?? "");
+  const [officeName, setOfficeName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const phoneError = useMemo(() => {
+    if (!phone) return "";
+    return PHONE_PATTERN.test(phone)
+      ? ""
+      : "연락처는 010-1234-5678 형식으로 입력해주세요.";
+  }, [phone]);
+
   const handleRegister = async () => {
-    if (!officeName.trim() || !brokerNumber.trim()) {
-      setMessage("모든 항목을 입력해주세요.");
+    if (!name.trim() || !officeName.trim() || !phone.trim()) {
+      setMessage("모든 필수 항목을 입력해주세요.");
+      return;
+    }
+
+    if (!PHONE_PATTERN.test(phone.trim())) {
+      setMessage("연락처는 010-1234-5678 형식으로 입력해주세요.");
       return;
     }
 
@@ -40,14 +57,17 @@ export function BrokerRegisterSection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: user.user_id,
-          office_name: officeName,
-          broker_number: brokerNumber,
+          name: name.trim(),
+          office_name: officeName.trim(),
+          phone: phone.trim(),
+          photo_url: photoUrl.trim() || null,
         }),
       });
 
+      const data = await res.json().catch(() => null);
+
       if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        setMessage(err?.detail ?? "인증 신청에 실패했습니다.");
+        setMessage(data?.detail ?? data?.error ?? "중개사 인증 신청에 실패했습니다.");
         return;
       }
 
@@ -72,9 +92,11 @@ export function BrokerRegisterSection() {
               <BadgeCheck className="h-8 w-8 text-blue-500" />
             </div>
             <div className="text-center">
-              <p className="text-base font-bold text-stone-800">인증된 중개사입니다</p>
+              <p className="text-base font-bold text-stone-800">
+                인증된 중개사입니다
+              </p>
               <p className="mt-1 text-sm text-stone-400">
-                중개사 매물관리 페이지에서 매물을 관리할 수 있어요.
+                중개사 매물 관리 페이지에서 매물을 관리할 수 있어요.
               </p>
             </div>
             <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-bold text-blue-600">
@@ -84,7 +106,21 @@ export function BrokerRegisterSection() {
         ) : (
           <div className="space-y-4">
             <div>
-              <p className="mb-1 text-sm font-semibold text-stone-700">사무소명 *</p>
+              <p className="mb-1 text-sm font-semibold text-stone-700">
+                이름 *
+              </p>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="예: 홍길동"
+                className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm focus:border-stone-400 focus:outline-none"
+              />
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-semibold text-stone-700">
+                중개사무소명 *
+              </p>
               <input
                 type="text"
                 value={officeName}
@@ -94,18 +130,42 @@ export function BrokerRegisterSection() {
               />
             </div>
             <div>
-              <p className="mb-1 text-sm font-semibold text-stone-700">중개사 등록번호 *</p>
+              <p className="mb-1 text-sm font-semibold text-stone-700">
+                연락처 *
+              </p>
               <input
                 type="text"
-                value={brokerNumber}
-                onChange={(e) => setBrokerNumber(e.target.value)}
-                placeholder="예: 11680-2024-00123"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="010-1234-5678"
+                className={cn(
+                  "w-full rounded-xl border bg-stone-50 px-3 py-2.5 text-sm focus:outline-none",
+                  phoneError
+                    ? "border-red-300 focus:border-red-400"
+                    : "border-stone-200 focus:border-stone-400",
+                )}
+              />
+              {phoneError && (
+                <p className="mt-1 text-xs text-red-500">{phoneError}</p>
+              )}
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-semibold text-stone-700">
+                프로필 이미지 URL
+              </p>
+              <input
+                type="text"
+                value={photoUrl}
+                onChange={(e) => setPhotoUrl(e.target.value)}
+                placeholder="https://..."
                 className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm focus:border-stone-400 focus:outline-none"
               />
             </div>
             {message && (
               <p className={cn("text-xs", message === "완료" ? "text-blue-500" : "text-red-500")}>
-                {message === "완료" ? "중개사 인증이 완료되었습니다." : message}
+                {message === "완료"
+                  ? "중개사 인증이 완료되었습니다."
+                  : message}
               </p>
             )}
             <button
@@ -116,7 +176,7 @@ export function BrokerRegisterSection() {
               {loading ? "처리 중..." : "인증 신청"}
             </button>
             <p className="text-center text-xs text-stone-400">
-              인증 후 중개사 매물관리 기능이 활성화됩니다.
+              인증 후 중개사 매물 관리 기능이 활성화됩니다.
             </p>
           </div>
         )}
