@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const response = await fetch(
-      buildBackendApiUrl(BACKEND_URL, "/generate-image"),
+      buildBackendApiUrl(BACKEND_URL, "/generate-image-jobs"),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -78,16 +78,11 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    const filePaths: string[] = data.file_paths ?? data.images ?? [];
 
-    const images = filePaths.map((filePath: string, index: number) => ({
-      id: `${Date.now()}-${index}`,
-      url: `/backend/api/images/${encodeURIComponent(
-        filePath.split(/[\\/]/).pop() ?? filePath,
-      )}`,
-    }));
-
-    return NextResponse.json({ images });
+    return NextResponse.json({
+      jobId: data.job_id,
+      status: data.status,
+    });
   } catch (error) {
     console.error("[generate-room-images] Error:", error);
     return NextResponse.json(
@@ -97,6 +92,62 @@ export async function POST(request: NextRequest) {
             ? error.message
             : "이미지 생성에 실패했습니다. 다시 시도해주세요.",
       },
+      { status: 500 },
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const jobId = request.nextUrl.searchParams.get("jobId");
+
+    if (!jobId) {
+      return NextResponse.json(
+        { error: "jobId가 필요합니다." },
+        { status: 400 },
+      );
+    }
+
+    const response = await fetch(
+      buildBackendApiUrl(BACKEND_URL, `/generate-image-jobs/${jobId}`),
+      {
+        method: "GET",
+        cache: "no-store",
+      },
+    );
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      return NextResponse.json(
+        {
+          error:
+            data?.detail ??
+            data?.error ??
+            "이미지 생성 상태 조회에 실패했습니다.",
+        },
+        { status: response.status },
+      );
+    }
+
+    const filePaths: string[] = data?.file_paths ?? data?.images ?? [];
+
+    const images = filePaths.map((filePath: string, index: number) => ({
+      id: `${Date.now()}-${index}`,
+      url: `/backend/api/images/${encodeURIComponent(
+        filePath.split(/[\\/]/).pop() ?? filePath,
+      )}`,
+    }));
+
+    return NextResponse.json({
+      status: data?.status,
+      error: data?.error,
+      images,
+    });
+  } catch (error) {
+    console.error("[generate-room-images][GET] Error:", error);
+    return NextResponse.json(
+      { error: "이미지 생성 상태 조회에 실패했습니다." },
       { status: 500 },
     );
   }

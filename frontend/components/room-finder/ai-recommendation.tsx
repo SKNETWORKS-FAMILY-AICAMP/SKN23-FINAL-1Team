@@ -12,12 +12,17 @@ import {
   type AIGeneratedImage,
   useAIImageSessionStore,
 } from "@/store/aiImageSessionStore";
+import { buildSearchBody, type RoomSearchParams } from "@/lib/api/rooms";
+import { mapSimilarItemToListing } from "@/utils/roomMappers";
 
 interface AIRecommendationProps {
-  onSimilarListingsFound: (listings: Listing[]) => void;
+  onSimilarListingsFound: (listings: Listing[], imageUrl?: string) => void;
   allListings: Listing[];
+  similarSearchParams?: RoomSearchParams;
   compact?: boolean;
   onPhotoClick?: (url: string) => void;
+  canFindSimilarRooms?: boolean;
+  onFindSimilarBlocked?: () => void;
 }
 
 type GeneratedImageResponse = {
@@ -47,11 +52,27 @@ function buildSessionImages(
   }));
 }
 
+function logSimilarRoomScores(items: Listing[], context: string) {
+  console.table(
+    items.map((item, index) => ({
+      rank: index + 1,
+      itemId: item.id,
+      similarity: item.embeddingSimilarity ?? null,
+      title: item.title,
+      address: item.address,
+    })),
+  );
+  console.log(`[find-similar-rooms] ${context}: ${items.length} items`);
+}
+
 export function AIRecommendation({
   onSimilarListingsFound,
   allListings,
+  similarSearchParams,
   compact = false,
   onPhotoClick,
+  canFindSimilarRooms = true,
+  onFindSimilarBlocked,
 }: AIRecommendationProps) {
   const user = useAuthStore((state) => state.user);
   const updateUser = useAuthStore((state) => state.updateUser);
@@ -100,8 +121,42 @@ export function AIRecommendation({
       throw new Error(errorBody?.error ?? "이미지 생성에 실패했습니다.");
     }
 
-    const data = (await response.json()) as { images?: GeneratedImageResponse[] };
-    return buildSessionImages(data.images ?? [], nextPromptHistory, 0);
+    const startData = (await response.json()) as {
+      jobId?: string;
+      status?: string;
+    };
+
+    if (!startData.jobId) {
+      throw new Error("이미지 생성 작업을 시작하지 못했습니다.");
+    }
+
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const statusResponse = await fetch(
+        `/api/generate-image?jobId=${encodeURIComponent(startData.jobId)}`,
+      );
+
+      const data = (await statusResponse.json().catch(() => null)) as {
+        status?: string;
+        error?: string;
+        images?: GeneratedImageResponse[];
+      } | null;
+
+      if (!statusResponse.ok) {
+        throw new Error(data?.error ?? "이미지 생성 상태 조회에 실패했습니다.");
+      }
+
+      if (data?.status === "completed") {
+        return buildSessionImages(data.images ?? [], nextPromptHistory, 0);
+      }
+
+      if (data?.status === "failed") {
+        throw new Error(data.error ?? "이미지 생성에 실패했습니다.");
+      }
+    }
+
+    throw new Error("이미지 생성 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
   };
 
   const requestEditedImage = async (
@@ -253,6 +308,10 @@ export function AIRecommendation({
 
   const handleFindSimilar = async () => {
     if (!selectedImage || isFindingSimilar) return;
+    if (!canFindSimilarRooms) {
+      onFindSimilarBlocked?.();
+      return;
+    }
 
     setIsFindingSimilar(true);
     setMessage("");
@@ -282,7 +341,14 @@ export function AIRecommendation({
       const response = await fetch("/api/find-similar-rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_url: selectedImage.url }),
+        body: JSON.stringify({
+          ...buildSearchBody({
+            ...(similarSearchParams ?? {}),
+            offset: 0,
+            limit: 4,
+          }),
+          image_url: selectedImage.url,
+        }),
       });
 
       if (!response.ok) {
@@ -292,7 +358,9 @@ export function AIRecommendation({
       const data = await response.json();
 
       if (data.items && data.items.length > 0) {
-        onSimilarListingsFound(data.items as Listing[]);
+        const similarItems = data.items.map(mapSimilarItemToListing) as Listing[];
+        logSimilarRoomScores(similarItems, "manual search");
+        onSimilarListingsFound(similarItems, selectedImage.url);
       } else {
         onSimilarListingsFound(allListings.slice(0, 4));
       }

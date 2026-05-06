@@ -2,12 +2,9 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { MapPin, Building2, CreditCard, Ruler, X, Car } from "lucide-react";
+import { MapPin, Building2, CreditCard, Ruler, X, Car, Search } from "lucide-react";
 import type { Listing } from "@/components/room-finder/map-view";
-import {
-  fetchRoomDetail,
-  type ListingDetailResponse,
-} from "@/lib/api/rooms";
+import { fetchRoomDetail, type ListingDetailResponse } from "@/lib/api/rooms";
 import {
   Carousel,
   CarouselContent,
@@ -27,6 +24,12 @@ interface ListingDetailPanelProps {
   favoriteLoadingIds: number[];
   onToggleFavorite: (listingId: number) => void;
   onPhotoClick?: (images: string[], index: number) => void;
+  onFindSimilarFromPhoto?: (
+    imageUrl: string,
+    listingId: number,
+    imageId?: number,
+  ) => void;
+  isFindingSimilarFromPhoto?: boolean;
 }
 
 const formatKoreanMoney = (value: number) => {
@@ -101,6 +104,8 @@ export function ListingDetailPanel({
   favoriteLoadingIds,
   onToggleFavorite,
   onPhotoClick,
+  onFindSimilarFromPhoto,
+  isFindingSimilarFromPhoto = false,
 }: ListingDetailPanelProps) {
   const [detail, setDetail] = useState<ListingDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -150,9 +155,63 @@ export function ListingDetailPanel({
       .filter((url): url is string => isValidImageSrc(url))
       .map((url) => url.startsWith("/api/images/") ? `/backend${url}` : url);
   }, [detail?.images, listing?.images]);
+
+  const similarSearchImageUrls = useMemo(() => {
+    if (detail?.images?.length) {
+      return detail.images.map((image) => `/api/rooms/${listingId}/images/${image.id}`);
+    }
+
+    return imageUrls;
+  }, [detail?.images, imageUrls, listingId]);
+
+  const similarSearchImageIds = useMemo(() => {
+    if (detail?.images?.length) {
+      return detail.images.map((image) => image.id);
+    }
+
+    return [];
+  }, [detail?.images]);
+
   useEffect(() => {
     setCurrentImageIndex(0);
   }, [imageUrls.length, listing?.id]);
+
+  useEffect(() => {
+    if (!listing?.id || !isOpen) return;
+
+    console.table(
+      imageUrls.map((url, index) => {
+        try {
+          const parsedUrl = new URL(url, window.location.origin);
+          return {
+            index: index + 1,
+            host: parsedUrl.host,
+            path: parsedUrl.pathname,
+            hasQuery: parsedUrl.search.length > 0,
+            proxiedByNext: parsedUrl.pathname === "/_next/image",
+          };
+        } catch {
+          return {
+            index: index + 1,
+            host: "",
+            path: url,
+            hasQuery: url.includes("?"),
+            proxiedByNext: url.includes("/_next/image"),
+          };
+        }
+      }),
+    );
+    console.log(
+      "[listing-detail-images]",
+      {
+        listingId: listing.id,
+        detailImageCount: detail?.images?.length ?? 0,
+        renderedImageCount: imageUrls.length,
+        firstUrl: imageUrls[0] ?? null,
+      },
+    );
+  }, [detail?.images?.length, imageUrls, isOpen, listing?.id]);
+
   const currentItem = detail?.item;
   const features = detail?.features;
 
@@ -174,7 +233,7 @@ export function ListingDetailPanel({
   return (
     <div className="flex h-full flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(248,246,241,0.96)_100%)] backdrop-blur-xl">
       <div className="flex h-full flex-col">
-      <div className="border-b border-stone-200/80 bg-white/70 px-5 py-4 backdrop-blur-md">
+        <div className="border-b border-stone-200/80 bg-white/70 px-5 py-4 backdrop-blur-md">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-stone-800">
@@ -226,17 +285,64 @@ export function ListingDetailPanel({
                           } ${index + 1}`}
                           fill
                           sizes="(min-width: 1280px) 440px, 380px"
+                          unoptimized
                           className="object-cover transition-transform duration-700 hover:scale-105"
                         />
 
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
 
+                        {onFindSimilarFromPhoto && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onFindSimilarFromPhoto(
+                                similarSearchImageUrls[index] ?? url,
+                                listingId,
+                                similarSearchImageIds[index],
+                              );
+                            }}
+                            disabled={isFindingSimilarFromPhoto}
+                            className="absolute left-1/2 top-1/2 z-20 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm font-bold text-stone-900 opacity-0 shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70 group-hover:opacity-100"
+                            aria-label="이 사진으로 유사 매물 찾기"
+                          >
+                            <Search className="h-4 w-4" />
+                            {isFindingSimilarFromPhoto
+                              ? "검색 중"
+                              : "유사매물 찾기"}
+                          </button>
+                        )}
+
+<<<<<<< HEAD
+=======
                         {/* 확대 힌트 */}
                         <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs text-white backdrop-blur-sm opacity-0 hover:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="0.5" y="0.5" width="7" height="7" rx="1.5" stroke="white" strokeWidth="1"/><path d="M6 6L11 11" stroke="white" strokeWidth="1" strokeLinecap="round"/></svg>
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                          >
+                            <rect
+                              x="0.5"
+                              y="0.5"
+                              width="7"
+                              height="7"
+                              rx="1.5"
+                              stroke="white"
+                              strokeWidth="1"
+                            />
+                            <path
+                              d="M6 6L11 11"
+                              stroke="white"
+                              strokeWidth="1"
+                              strokeLinecap="round"
+                            />
+                          </svg>
                           크게 보기
                         </div>
 
+>>>>>>> d3d7051ce3f4d2fd8182e59057fa42def717a8dd
                         {imageUrls.length > 1 && (
                           <div className="absolute bottom-4 right-4 z-10 rounded-full bg-black/55 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
                             {currentImageIndex + 1} / {imageUrls.length}

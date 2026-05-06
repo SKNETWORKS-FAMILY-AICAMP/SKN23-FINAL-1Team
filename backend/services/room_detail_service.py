@@ -1,6 +1,5 @@
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload, joinedload
-from utils.s3 import create_presigned_get_url
 
 from models.room import Room
 from schemas.room_detail_schema import (
@@ -32,21 +31,9 @@ def is_valid_image_value(value) -> bool:
     )
 
 
-def s3_to_https_url(s3_uri: str) -> str:
-    if not s3_uri:
-        return s3_uri
-
-    if not s3_uri.startswith("s3://"):
-        return s3_uri
-
-    without_scheme = s3_uri.replace("s3://", "", 1)
-    bucket, key = without_scheme.split("/", 1)
-    return f"https://{bucket}.s3.ap-northeast-2.amazonaws.com/{key}"
-
-
-def to_public_image_url(value: str) -> str:
+def to_public_image_url(item_id: int, image_id: int, value: str) -> str:
     if value.startswith("s3://"):
-        return create_presigned_get_url(value, expires_in=3600)
+        return f"/api/rooms/{item_id}/images/{image_id}"
     return value
 
 
@@ -129,7 +116,7 @@ def get_room_detail(db, item_id: int):
     image_payload = [
         RoomImageResponse(
             id=image.id,
-            url=to_public_image_url(image.s3_url),
+            url=to_public_image_url(room.item_id, image.id, image.s3_url),
             is_main=image.is_main,
         )
         for image in valid_images

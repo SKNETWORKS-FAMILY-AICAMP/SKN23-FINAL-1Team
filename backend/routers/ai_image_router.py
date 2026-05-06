@@ -8,6 +8,8 @@
 """
 
 import os
+import re
+import json
 
 import requests
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -15,15 +17,30 @@ from fastapi.responses import FileResponse
 from openai import BadRequestError
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from db.session import SessionLocal
 from db.session import get_db
 from schemas.room_schema import RoomListRequest
-from services.ai_image_service import ImageGenerationError, edit_image, generate_image
-from services.ai_image_job_service import create_edit_job, get_edit_job, update_edit_job
+from services.ai_image_service import (
+    ImageGenerationError,
+    edit_image,
+    generate_image,
+    resolve_saved_image_path,
+)
+from services.ai_image_job_service import (
+    create_edit_job,
+    create_generate_job,
+    get_edit_job,
+    get_generate_job,
+    update_edit_job,
+    update_generate_job,
+)
 from services.embedding_service import EmbeddingService
 from services.room_service import get_rooms_by_similarity
 from services.user_credit_service import decrement_user_remain, get_user_by_id
+from models.item_image import ItemImage
+from utils.s3 import get_s3_client, parse_s3_uri
 
 router = APIRouter(prefix="/api")
 
@@ -63,6 +80,11 @@ class EditImageJobCreateResponse(BaseModel):
     status: str
 
 
+class GenerateImageJobCreateResponse(BaseModel):
+    job_id: str
+    status: str
+
+
 class EditImageJobStatusResponse(BaseModel):
     job_id: str
     status: str
@@ -72,8 +94,111 @@ class EditImageJobStatusResponse(BaseModel):
     error: str | None = None
 
 
+class GenerateImageJobStatusResponse(BaseModel):
+    job_id: str
+    status: str
+    file_paths: list[str] = []
+    error: str | None = None
+
+
 class FindSimilarRoomsRequest(RoomListRequest):
     image_url: str
+    exclude_item_id: int | None = None
+    source_image_id: int | None = None
+
+
+ROOM_IMAGE_API_PATTERN = re.compile(r"/api/rooms/(\d+)/images/(\d+)")
+
+
+def _parse_vector_text(value) -> list[float] | None:
+    if value is None:
+        return None
+
+    if isinstance(value, list):
+        return [float(item) for item in value]
+
+    if isinstance(value, str):
+        try:
+            return [float(item) for item in json.loads(value)]
+        except Exception:
+            return [
+                float(item.strip())
+                for item in value.strip("[]").split(",")
+                if item.strip()
+            ]
+
+    return None
+
+
+def _get_existing_room_image_embedding(db: Session, image_id: int) -> list[float] | None:
+    row = db.execute(
+        text(
+            """
+            SELECT embedding::text
+            FROM public.item_image_embeddings
+            WHERE image_id = :image_id
+            LIMIT 1
+            """
+        ),
+        {"image_id": image_id},
+    ).scalar_one_or_none()
+
+    return _parse_vector_text(row)
+
+
+def _read_room_image_from_storage(db: Session, item_id: int, image_id: int) -> bytes:
+    image = (
+        db.query(ItemImage)
+        .filter(ItemImage.item_id == item_id, ItemImage.id == image_id)
+        .first()
+    )
+
+    if image is None:
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.")
+
+    image_url = image.s3_url
+
+    if image_url.startswith("http://") or image_url.startswith("https://"):
+        image_response = requests.get(image_url, timeout=15)
+        if image_response.status_code != 200:
+            raise HTTPException(status_code=400, detail="이미지를 불러올 수 없습니다.")
+        return image_response.content
+
+    if image_url.startswith("s3://"):
+        try:
+            bucket, key = parse_s3_uri(image_url)
+            s3_object = get_s3_client().get_object(Bucket=bucket, Key=key)
+            return s3_object["Body"].read()
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail="이미지를 불러올 수 없습니다.") from exc
+
+    raise HTTPException(status_code=400, detail="지원하지 않는 이미지 경로입니다.")
+
+
+def _read_similarity_image(image_url: str, db: Session) -> bytes:
+    """
+    create_image에 저장된 생성/수정 이미지는 자기 자신에게 HTTP 요청하지 않고
+    로컬 파일에서 바로 읽는다.
+    """
+    if "/api/images/" in image_url or "/backend/api/images/" in image_url:
+        image_path = resolve_saved_image_path(image_url)
+        with open(image_path, "rb") as image_file:
+            return image_file.read()
+
+    room_image_match = ROOM_IMAGE_API_PATTERN.search(image_url)
+    if room_image_match:
+        item_id = int(room_image_match.group(1))
+        image_id = int(room_image_match.group(2))
+        return _read_room_image_from_storage(db, item_id, image_id)
+
+    image_response = requests.get(image_url, timeout=15)
+    if image_response.status_code != 200:
+        raise HTTPException(
+            status_code=400,
+            detail="이미지를 불러올 수 없습니다.",
+        )
+
+    return image_response.content
 
 
 # ── 엔드포인트 ─────────────────────────────────────────────────────────────────
@@ -81,8 +206,8 @@ class FindSimilarRoomsRequest(RoomListRequest):
 @router.post("/generate-image", response_model=ImageResponse)
 async def generate_image_endpoint(body: GenerateImageRequest):
     """
-    ??? ??? ???? ? GPT? ?? ???? ?? ? ??? ??
-    ??? ???? create_image/ ??? ???? ??? ?????.
+    사용자 프롬프트로 AI 이미지를 생성하고,
+    생성된 이미지를 create_image/ 폴더에 저장한 뒤 경로를 반환합니다.
     """
     print(f"[generate-image] user_prompt={body.user_prompt}")
     try:
@@ -98,9 +223,58 @@ async def generate_image_endpoint(body: GenerateImageRequest):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     if not file_paths:
-        raise HTTPException(status_code=500, detail="??? ??? ??????.")
+        raise HTTPException(status_code=500, detail="이미지 생성에 실패했습니다.")
 
     return {"file_paths": file_paths}
+
+
+def _run_generate_image_job(job_id: str, body: GenerateImageRequest):
+    try:
+        update_generate_job(job_id, status="running")
+
+        file_paths = generate_image(
+            user_prompt=body.user_prompt,
+            size=body.size,
+            quality=body.quality,
+            n=body.n,
+        )
+
+        if not file_paths:
+            update_generate_job(job_id, status="failed", error="이미지 생성에 실패했습니다.")
+            return
+
+        update_generate_job(
+            job_id,
+            status="completed",
+            file_paths=file_paths,
+        )
+    except Exception as exc:
+        update_generate_job(job_id, status="failed", error=str(exc))
+
+
+@router.post("/generate-image-jobs", response_model=GenerateImageJobCreateResponse)
+async def create_generate_image_job(
+    body: GenerateImageRequest,
+    background_tasks: BackgroundTasks,
+):
+    print(f"[generate-image-job] user_prompt={body.user_prompt}")
+    job = create_generate_job()
+    background_tasks.add_task(_run_generate_image_job, job["job_id"], body)
+
+    return {
+        "job_id": job["job_id"],
+        "status": job["status"],
+    }
+
+
+@router.get("/generate-image-jobs/{job_id}", response_model=GenerateImageJobStatusResponse)
+async def read_generate_image_job(job_id: str):
+    job = get_generate_job(job_id)
+
+    if job is None:
+        raise HTTPException(status_code=404, detail="이미지 생성 작업을 찾을 수 없습니다.")
+
+    return job
 
 
 @router.post("/edit-image", response_model=EditImageResponse)
@@ -268,15 +442,27 @@ async def find_similar_rooms_endpoint(
     4. 무한 스크롤 지원 형식으로 반환
     """
     try:
-        image_response = requests.get(body.image_url, timeout=5)
-        if image_response.status_code != 200:
+        embedding = None
+        is_existing_room_image = body.source_image_id is not None
+        if body.source_image_id is not None:
+            embedding = _get_existing_room_image_embedding(db, body.source_image_id)
+
+        if embedding is None:
+            room_image_match = ROOM_IMAGE_API_PATTERN.search(body.image_url)
+            if room_image_match:
+                is_existing_room_image = True
+                image_id = int(room_image_match.group(2))
+                embedding = _get_existing_room_image_embedding(db, image_id)
+
+        if embedding is None and is_existing_room_image:
             raise HTTPException(
-                status_code=400,
-                detail="이미지를 불러올 수 없습니다.",
+                status_code=404,
+                detail="해당 매물 사진의 임베딩을 찾을 수 없습니다.",
             )
 
-        image_data = image_response.content
-        embedding = EmbeddingService.get_image_embedding(image_data)
+        if embedding is None:
+            image_data = _read_similarity_image(body.image_url, db)
+            embedding = EmbeddingService.get_image_embedding(image_data)
 
         if not embedding:
             raise HTTPException(

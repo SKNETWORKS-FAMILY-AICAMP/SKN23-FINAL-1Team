@@ -1,54 +1,63 @@
-import { mockRoomEmbeddings } from "@/lib/mock-data"
+import { NextRequest, NextResponse } from "next/server";
+import { buildBackendApiUrl, getBackendApiBaseUrl } from "@/lib/api/backend-url";
 
-// Cosine similarity function
-function cosineSimilarity(a: number[], b: number[]): number {
-  let dotProduct = 0
-  let normA = 0
-  let normB = 0
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
 
-  for (let i = 0; i < a.length; i++) {
-    dotProduct += a[i] * b[i]
-    normA += a[i] * a[i]
-    normB += b[i] * b[i]
+function toBackendReadableImageUrl(imageUrl: string) {
+  const backendApiBaseUrl = getBackendApiBaseUrl(BACKEND_URL);
+
+  if (imageUrl.startsWith("/backend/api/")) {
+    return `${backendApiBaseUrl}${imageUrl.replace(/^\/backend\/api/, "")}`;
   }
 
-  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))
+  if (imageUrl.startsWith("/api/")) {
+    return `${backendApiBaseUrl}${imageUrl.replace(/^\/api/, "")}`;
+  }
+
+  return imageUrl;
 }
 
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { imageUrl } = await req.json()
+    const body = await request.json();
+    const imageUrl = body.image_url ?? body.imageUrl;
 
-    if (!imageUrl) {
-      return Response.json({ error: "이미지 URL이 필요합니다." }, { status: 400 })
+    if (!imageUrl || typeof imageUrl !== "string") {
+      return NextResponse.json(
+        { error: "image_url is required." },
+        { status: 400 },
+      );
     }
 
-    // In a real implementation, we would:
-    // 1. Download the image from imageUrl
-    // 2. Generate an embedding using a vision model
-    // 3. Compare against stored embeddings in a vector database
+    const response = await fetch(
+      buildBackendApiUrl(BACKEND_URL, "/find-similar-rooms"),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...body,
+          image_url: toBackendReadableImageUrl(imageUrl),
+        }),
+        cache: "no-store",
+      },
+    );
 
-    // For demo, generate a mock embedding for the generated image
-    const generatedImageEmbedding = Array.from({ length: 128 }, () => Math.random())
+    const text = await response.text();
 
-    // Calculate similarity scores for all listings
-    const similarities = Object.entries(mockRoomEmbeddings).map(([listingId, embedding]) => ({
-      listingId,
-      similarity: cosineSimilarity(generatedImageEmbedding, embedding),
-    }))
+    if (!text) {
+      return new NextResponse(null, { status: response.status });
+    }
 
-    // Sort by similarity (highest first)
-    similarities.sort((a, b) => b.similarity - a.similarity)
-
-    // Return top 4 most similar listings
-    const topSimilar = similarities.slice(0, 4)
-
-    return Response.json({ similarListings: topSimilar })
+    try {
+      return NextResponse.json(JSON.parse(text), { status: response.status });
+    } catch {
+      return NextResponse.json({ message: text }, { status: response.status });
+    }
   } catch (error) {
-    console.error("[v0] Error in find-similar-rooms:", error)
-    return Response.json(
-      { error: "유사 매물 검색 중 오류가 발생했습니다." },
-      { status: 500 }
-    )
+    console.error("[find-similar-rooms] Error:", error);
+    return NextResponse.json(
+      { error: "유사 매물 검색에 실패했습니다." },
+      { status: 500 },
+    );
   }
 }

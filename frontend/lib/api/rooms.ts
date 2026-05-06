@@ -21,6 +21,7 @@ export interface RoomSearchParams {
   neLng?: number;
   level?: number;
   sort?: "latest" | "price_asc" | "price_desc";
+  excludeItemId?: number;
   signal?: AbortSignal;
 }
 
@@ -124,7 +125,7 @@ export interface ListingDetailResponse {
   }[];
 }
 
-function buildSearchBody(params: RoomSearchParams) {
+export function buildSearchBody(params: RoomSearchParams) {
   return {
     offset: params.offset ?? 0,
     limit: params.limit ?? 20,
@@ -149,6 +150,7 @@ function buildSearchBody(params: RoomSearchParams) {
     ne_lng: params.neLng ?? null,
     level: params.level ?? null,
     sort: params.sort ?? "latest",
+    exclude_item_id: params.excludeItemId ?? null,
   };
 }
 
