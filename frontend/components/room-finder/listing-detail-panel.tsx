@@ -151,7 +151,9 @@ export function ListingDetailPanel({
         ? [listing.images[0]]
         : [];
 
-    return rawUrls.filter((url): url is string => isValidImageSrc(url));
+    return rawUrls
+      .filter((url): url is string => isValidImageSrc(url))
+      .map((url) => url.startsWith("/api/images/") ? `/backend${url}` : url);
   }, [detail?.images, listing?.images]);
 
   const similarSearchImageUrls = useMemo(() => {
@@ -311,6 +313,8 @@ export function ListingDetailPanel({
                           </button>
                         )}
 
+<<<<<<< HEAD
+=======
                         {/* 확대 힌트 */}
                         <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs text-white backdrop-blur-sm opacity-0 hover:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                           <svg
@@ -338,6 +342,7 @@ export function ListingDetailPanel({
                           크게 보기
                         </div>
 
+>>>>>>> d3d7051ce3f4d2fd8182e59057fa42def717a8dd
                         {imageUrls.length > 1 && (
                           <div className="absolute bottom-4 right-4 z-10 rounded-full bg-black/55 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
                             {currentImageIndex + 1} / {imageUrls.length}
