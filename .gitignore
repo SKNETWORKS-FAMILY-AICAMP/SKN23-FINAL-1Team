@@ -201,3 +201,7 @@ backend/create_image/*
 # Models
 *.pt
 catboost_info/
+
+
+!models/xgb_오피스텔.json
+!models/xgb_원룸.json
