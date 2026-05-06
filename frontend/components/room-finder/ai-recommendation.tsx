@@ -322,6 +322,7 @@ export function AIRecommendation({
 
     setIsFindingSimilar(true);
     setMessage("");
+    const searchImageUrl = selectedImage.url;
 
     try {
       if (user?.user_id) {
@@ -330,7 +331,7 @@ export function AIRecommendation({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             user_id: user.user_id,
-            image_url: selectedImage.url,
+            image_url: searchImageUrl,
             prompt: selectedImage.prompt,
           }),
         });
@@ -354,7 +355,7 @@ export function AIRecommendation({
             offset: 0,
             limit: 4,
           }),
-          image_url: selectedImage.url,
+          image_url: searchImageUrl,
           user_id: user?.user_id ?? null,
         }),
       });
@@ -374,10 +375,11 @@ export function AIRecommendation({
       if (data.items && data.items.length > 0) {
         const similarItems = data.items.map(mapSimilarItemToListing) as Listing[];
         logSimilarRoomScores(similarItems, "manual search");
-        onSimilarListingsFound(similarItems, selectedImage.url);
+        onSimilarListingsFound(similarItems, searchImageUrl);
       } else {
         onSimilarListingsFound(allListings.slice(0, 4));
       }
+      handleReset();
     } catch (error) {
       console.error("Error finding similar rooms:", error);
       setMessage(
