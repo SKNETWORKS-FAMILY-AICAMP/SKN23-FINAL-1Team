@@ -110,6 +110,12 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
               마이페이지
             </button>
           )}
+          <button
+            onClick={() => isLoggedIn ? router.push("/register") : router.push("/login")}
+            className={cn(navButtonBase, navButtonInactive)}
+          >
+            매물등록
+          </button>
         </div>
 
         {isLoggedIn && user ? (
