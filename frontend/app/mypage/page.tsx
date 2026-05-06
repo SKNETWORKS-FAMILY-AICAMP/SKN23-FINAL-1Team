@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { cn } from "@/lib/utils";
-import { Heart, Clock, Sparkles, Settings, Menu, X } from "lucide-react";
+import { Heart, Clock, Sparkles, Settings, Menu, X, Building2, BadgeCheck } from "lucide-react";
 import { useState } from "react";
 import Image from "next/image";
 import Logo from "@/assets/Logo.png";
@@ -11,8 +11,10 @@ import { LikedSection } from "@/components/mypage/LikedSection";
 import { RecentSection } from "@/components/mypage/RecentSection";
 import { GallerySection } from "@/components/mypage/GallerySection";
 import { SettingsSection } from "@/components/mypage/SettingsSection";
+import { BrokerSection } from "@/components/mypage/BrokerSection";
+import { BrokerRegisterSection } from "@/components/mypage/BrokerRegisterSection";
 
-type Section = "liked" | "recent" | "gallery" | "settings";
+type Section = "liked" | "recent" | "gallery" | "broker-register" | "broker" | "settings";
 
 export default function MyPage() {
   const user = useAuthStore((state) => state.user);
@@ -49,6 +51,10 @@ export default function MyPage() {
     { id: "liked" as Section, label: "찜한 매물", icon: Heart },
     { id: "recent" as Section, label: "최근 본 매물", icon: Clock },
     { id: "gallery" as Section, label: "AI 생성 갤러리", icon: Sparkles },
+    { id: "broker-register" as Section, label: "중개사 인증", icon: BadgeCheck },
+    ...(user.role === "BROKER"
+      ? [{ id: "broker" as Section, label: "중개사 매물관리", icon: Building2 }]
+      : []),
     { id: "settings" as Section, label: "계정 설정", icon: Settings },
   ];
 
@@ -65,7 +71,14 @@ export default function MyPage() {
             {user.nickname?.charAt(0) ?? "?"}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold tracking-tight text-stone-900">{user.nickname}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="truncate text-sm font-bold tracking-tight text-stone-900">{user.nickname}</p>
+              {user.role === "BROKER" && (
+                <span className="flex-shrink-0 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-600">
+                  중개사
+                </span>
+              )}
+            </div>
             <p className="truncate text-xs text-stone-400">{user.email}</p>
           </div>
         </div>
@@ -128,6 +141,8 @@ export default function MyPage() {
           {activeSection === "liked" && <LikedSection userId={user.user_id!} />}
           {activeSection === "recent" && <RecentSection />}
           {activeSection === "gallery" && <GallerySection userId={user.user_id!} />}
+          {activeSection === "broker-register" && <BrokerRegisterSection />}
+          {activeSection === "broker" && <BrokerSection userId={user.user_id!} />}
           {activeSection === "settings" && <SettingsSection />}
         </main>
       </div>

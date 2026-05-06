@@ -148,6 +148,7 @@ export default function RegisterPage() {
 
     try {
       const body = {
+        user_id: user?.user_id,
         title: form.title,
         address: form.address,
         lat: parseFloat(form.lat),
@@ -170,20 +171,21 @@ export default function RegisterPage() {
         ...selectedEnv,
       };
 
-      const res = await fetch("/api/listing", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/rooms/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "등록에 실패했습니다.");
+        const err = await res.json();
+        setError(err.detail ?? "등록에 실패했습니다.");
+        return;
       }
 
       router.push("/home");
-    } catch (err: any) {
-      setError(err.message);
+    } catch {
+      setError("오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setIsSubmitting(false);
     }
