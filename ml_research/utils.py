@@ -2,11 +2,11 @@ import pandas as pd
 import numpy as np
 import os
 
-def preprocess_for_inference(df, drop_invalid=True):
+def preprocess_for_inference(df, drop_invalid=False):
     """
     추론을 위한 공통 전처리 로직.
-    사용자의 요청에 따라 필수 값(품질 점수, 방향 등)이 없는 '가짜 매물'은 
-    필터링(Drop)하거나 예측에서 제외함.
+    기본적으로 데이터를 버리지 않고(drop_invalid=False), 결측치 처리에 집중함.
+    배치 작업 시에는 호출 전 미리 필터링하는 것을 권장.
     """
     df = df.copy()
     
