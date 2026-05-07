@@ -10,6 +10,7 @@ type AuthUser = {
   provider_id?: string;
   remain?: number;
   credit?: number;
+  role?: string;  // 추가
   image?: string | null;
   backend_access_token?: string;
   backend_refresh_token?: string;

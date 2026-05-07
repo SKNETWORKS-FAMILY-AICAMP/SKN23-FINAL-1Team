@@ -16,5 +16,5 @@ class User(Base):
     credit = Column(Integer, nullable=False, default=0)
     favorites = relationship("Favorite", back_populates="user", cascade="all, delete-orphan")
     gallery = relationship("UserItemImage", back_populates="user", cascade="all, delete-orphan")
-
+    role = Column(String(20), nullable=False, default="USER")
 
