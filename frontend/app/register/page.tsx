@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useRegisterStore } from "@/store/registerStore";
-import { ChevronUp, ChevronDown } from "lucide-react";
 
 declare global {
   interface Window { daum: any; }
@@ -40,9 +39,10 @@ const ENVIRONMENTS = [
 
 const inputClass = "w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm focus:border-stone-400 focus:outline-none";
 const labelClass = "mb-1 block text-xs font-semibold text-stone-500";
-const tagBase = "rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer";
+const tagBase = "rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-150 cursor-pointer";
 const tagActive = "border-[#A8896C] bg-[#A8896C] text-white";
 const tagInactive = "border-stone-200 bg-white text-stone-500 hover:border-stone-400";
+const btnBase = "rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-150 cursor-pointer";
 
 type SectionId = "basic" | "transaction" | "room" | "options" | "description";
 
@@ -118,17 +118,20 @@ export default function RegisterPage() {
     document.head.appendChild(script);
   };
 
+  const currentIndex = SECTIONS.findIndex((s) => s.id === activeSection);
+
   const handleNext = () => {
+    if (currentIndex < SECTIONS.length - 1) {
+      setActiveSection(SECTIONS[currentIndex + 1].id);
+      return;
+    }
+    // 마지막 섹션 → register-photo로 이동
     if (!isLoggedIn) { router.push("/login"); return; }
     if (!form.title || !form.address || !form.lat || !form.lng || !form.deposit) {
       setError("필수 항목(제목, 주소, 보증금)을 모두 입력해주세요.");
       return;
     }
-
-    const fullAddress = form.address_detail
-      ? `${form.address} ${form.address_detail}`
-      : form.address;
-
+    const fullAddress = form.address_detail ? `${form.address} ${form.address_detail}` : form.address;
     setRegisterForm({
       user_id: user?.user_id,
       title: form.title,
@@ -168,7 +171,6 @@ export default function RegisterPage() {
       is_school_area: selectedEnv.is_school_area,
       is_convenient_area: selectedEnv.is_convenient_area,
     });
-
     router.push("/register-photo");
   };
 
@@ -336,11 +338,12 @@ export default function RegisterPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <div className="flex gap-6">
+      <div className="mx-auto max-w-4xl px-6 py-8">
+        <div className="flex items-stretch gap-6">
+
           {/* 좌측 네비게이션 */}
           <aside className="w-44 flex-shrink-0">
-            <nav className="sticky top-8 space-y-1 rounded-[20px] border border-stone-200/80 bg-white/80 p-3">
+            <nav className="sticky top-8 rounded-[20px] border border-stone-200/80 bg-white/80 p-3 h-full flex flex-col gap-1">
               {SECTIONS.map(({ id, label }) => (
                 <button
                   key={id}
@@ -358,49 +361,36 @@ export default function RegisterPage() {
           </aside>
 
           {/* 우측 콘텐츠 */}
-          <main className="flex-1">
-            <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+          <main className="flex-1 flex flex-col">
+            <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] flex-1 flex flex-col">
               <p className="mb-5 text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400">
                 {SECTIONS.find((s) => s.id === activeSection)?.label}
               </p>
-              {renderSection()}
-            </div>
+              <div className="flex-1">
+                {renderSection()}
+              </div>
 
-            {error && <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-500">{error}</p>}
+              {error && <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-500">{error}</p>}
 
-            <div className="mt-4 flex justify-between">
-              {SECTIONS.findIndex((s) => s.id === activeSection) > 0 ? (
-                <button
-                  onClick={() => {
-                    const idx = SECTIONS.findIndex((s) => s.id === activeSection);
-                    setActiveSection(SECTIONS[idx - 1].id);
-                  }}
-                  className="rounded-xl border border-stone-200 bg-white px-5 py-2.5 text-sm font-semibold text-stone-600 hover:bg-stone-50"
-                >
-                  ← 이전
-                </button>
-              ) : <div />}
-
-              {SECTIONS.findIndex((s) => s.id === activeSection) < SECTIONS.length - 1 ? (
-                <button
-                  onClick={() => {
-                    const idx = SECTIONS.findIndex((s) => s.id === activeSection);
-                    setActiveSection(SECTIONS[idx + 1].id);
-                  }}
-                  className="rounded-xl bg-stone-800 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-                >
-                  다음 →
-                </button>
-              ) : (
+              <div className="mt-6 pt-5 border-t border-stone-200/80 flex justify-between">
+                {currentIndex > 0 ? (
+                  <button
+                    onClick={() => setActiveSection(SECTIONS[currentIndex - 1].id)}
+                    className={`${btnBase} border-stone-200 bg-white text-stone-500 hover:border-stone-400`}
+                  >
+                    ← 이전
+                  </button>
+                ) : <div />}
                 <button
                   onClick={handleNext}
-                  className="rounded-xl bg-stone-800 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+                  className={`${btnBase} bg-stone-800 border-stone-800 text-white hover:opacity-90`}
                 >
-                  사진 등록 →
+                  {currentIndex === SECTIONS.length - 1 ? "사진 등록 →" : "다음 →"}
                 </button>
-              )}
+              </div>
             </div>
           </main>
+
         </div>
       </div>
     </div>
