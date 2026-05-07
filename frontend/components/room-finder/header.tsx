@@ -133,15 +133,16 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
             <div className="rounded-md bg-stone-100 px-2 py-1 text-[11px] font-semibold tracking-tight text-stone-700">
               {user.credit ?? 0}
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
+              {user.role === "BROKER" && (
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+                  <circle cx="9" cy="9" r="9" fill="#2563EB"/>
+                  <path d="M5 9l2.5 2.5L13 6" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              )}
               <span className="text-[12px] font-semibold tracking-tight text-stone-800 sm:text-sm">
                 {user.nickname}
               </span>
-              {user.role === "BROKER" && (
-                <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-600">
-                  중개사
-                </span>
-              )}
             </div>
             <div className="h-4 w-px bg-stone-200 sm:h-5" />
             <button

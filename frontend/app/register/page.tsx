@@ -7,9 +7,7 @@ import { useRegisterStore } from "@/store/registerStore";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
 declare global {
-  interface Window {
-    daum: any;
-  }
+  interface Window { daum: any; }
 }
 
 const ROOM_TYPES = ["오픈형원룸", "분리형원룸", "복층형원룸", "투룸"];
@@ -34,31 +32,40 @@ const OPTIONS = [
 ];
 
 const ENVIRONMENTS = [
-  { key: "is_subway_area", label: "역세권" },
-  { key: "is_park_area", label: "공세권" },
-  { key: "is_school_area", label: "학세권" },
-  { key: "is_convenient_area", label: "슬세권" },
+  { key: "is_subway_area", label: "역세권", tooltip: "지하철역 도보 10분 이내" },
+  { key: "is_park_area", label: "공세권", tooltip: "공원이 가까운 주거 환경" },
+  { key: "is_school_area", label: "학세권", tooltip: "학교·학원가가 가까운 환경" },
+  { key: "is_convenient_area", label: "슬세권", tooltip: "슬리퍼 신고 편의시설 이용 가능" },
 ];
 
 const inputClass = "w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm focus:border-stone-400 focus:outline-none";
 const labelClass = "mb-1 block text-xs font-semibold text-stone-500";
-const sectionLabelClass = "mb-4 text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400";
-const tagBase = "rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-150";
-const tagActive = "border-stone-800 bg-stone-800 text-white";
+const tagBase = "rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer";
+const tagActive = "border-[#A8896C] bg-[#A8896C] text-white";
 const tagInactive = "border-stone-200 bg-white text-stone-500 hover:border-stone-400";
+
+type SectionId = "basic" | "transaction" | "room" | "options" | "description";
+
+const SECTIONS: { id: SectionId; label: string }[] = [
+  { id: "basic", label: "기본 정보" },
+  { id: "transaction", label: "거래 정보" },
+  { id: "room", label: "방 정보" },
+  { id: "options", label: "옵션 · 환경" },
+  { id: "description", label: "상세 설명" },
+];
 
 export default function RegisterPage() {
   const router = useRouter();
   const { user, isLoggedIn } = useAuthStore();
   const setRegisterForm = useRegisterStore((state) => state.setForm);
-
-  const [optionsOpen, setOptionsOpen] = useState(true);
-  const [envOpen, setEnvOpen] = useState(true);
+  const [activeSection, setActiveSection] = useState<SectionId>("basic");
   const [error, setError] = useState<string | null>(null);
+  const [tooltip, setTooltip] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     title: "",
     address: "",
+    address_detail: "",
     lat: "",
     lng: "",
     transaction_type: "monthly",
@@ -102,9 +109,7 @@ export default function RegisterPage() {
             .then((r) => r.json())
             .then((d) => {
               const doc = d.documents?.[0];
-              if (doc) {
-                setForm((prev) => ({ ...prev, lat: doc.y, lng: doc.x }));
-              }
+              if (doc) setForm((prev) => ({ ...prev, lat: doc.y, lng: doc.x }));
             })
             .catch(console.error);
         },
@@ -114,19 +119,20 @@ export default function RegisterPage() {
   };
 
   const handleNext = () => {
-    if (!isLoggedIn) {
-      router.push("/login");
-      return;
-    }
+    if (!isLoggedIn) { router.push("/login"); return; }
     if (!form.title || !form.address || !form.lat || !form.lng || !form.deposit) {
       setError("필수 항목(제목, 주소, 보증금)을 모두 입력해주세요.");
       return;
     }
 
+    const fullAddress = form.address_detail
+      ? `${form.address} ${form.address_detail}`
+      : form.address;
+
     setRegisterForm({
       user_id: user?.user_id,
       title: form.title,
-      address: form.address,
+      address: fullAddress,
       lat: parseFloat(form.lat),
       lng: parseFloat(form.lng),
       transaction_type: form.transaction_type,
@@ -166,48 +172,34 @@ export default function RegisterPage() {
     router.push("/register-photo");
   };
 
-  return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)]">
-      <header className="border-b border-stone-200/80 bg-white/70 backdrop-blur-xl">
-        <div className="flex h-16 items-center px-4 md:px-6">
-          <button onClick={() => router.back()} className="flex items-center gap-2 text-sm font-semibold text-stone-500 hover:text-stone-800">
-            ← 돌아가기
-          </button>
-          <p className="flex-1 text-center text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400">매물 등록</p>
-          <div className="w-20" />
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-lg px-4 py-8">
-        <div className="space-y-4">
-
-          {/* 기본 정보 */}
-          <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-            <p className={sectionLabelClass}>기본 정보</p>
-            <div className="space-y-3">
-              <div>
-                <label className={labelClass}>매물 제목 *</label>
-                <input name="title" value={form.title} onChange={handleChange} className={inputClass} placeholder="예) 강남역 도보 5분, 풀옵션 원룸" />
+  const renderSection = () => {
+    switch (activeSection) {
+      case "basic":
+        return (
+          <div className="space-y-3">
+            <div>
+              <label className={labelClass}>매물 제목 *</label>
+              <input name="title" value={form.title} onChange={handleChange} className={inputClass} placeholder="예) 강남역 도보 5분, 풀옵션 원룸" />
+            </div>
+            <div>
+              <label className={labelClass}>주소 *</label>
+              <div className="flex gap-2">
+                <input name="address" value={form.address} onChange={handleChange} className={inputClass} placeholder="주소를 검색해주세요" readOnly onClick={openAddressSearch} />
+                <button onClick={openAddressSearch} className="shrink-0 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-600 hover:border-stone-300">
+                  검색
+                </button>
               </div>
-              <div>
-                <label className={labelClass}>주소 *</label>
-                <div className="flex gap-2">
-                  <input name="address" value={form.address} onChange={handleChange} className={inputClass} placeholder="주소를 검색해주세요" readOnly onClick={openAddressSearch} />
-                  <button onClick={openAddressSearch} className="shrink-0 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-600 hover:border-stone-300 hover:text-stone-900">
-                    검색
-                  </button>
-                </div>
-                {form.lat && form.lng && (
-                  <p className="mt-1 text-xs text-stone-400">위도 {parseFloat(form.lat).toFixed(6)}, 경도 {parseFloat(form.lng).toFixed(6)}</p>
-                )}
-              </div>
+              {form.lat && form.lng && (
+                <p className="mt-1 text-xs text-stone-400">위도 {parseFloat(form.lat).toFixed(6)}, 경도 {parseFloat(form.lng).toFixed(6)}</p>
+              )}
+              <input name="address_detail" value={form.address_detail} onChange={handleChange} className={`${inputClass} mt-2`} placeholder="상세주소 (예: 101동 1234호)" />
             </div>
           </div>
-
-          {/* 거래 정보 */}
-          <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-            <p className={sectionLabelClass}>거래 정보</p>
-            <div className="mb-4 flex gap-2">
+        );
+      case "transaction":
+        return (
+          <div className="space-y-3">
+            <div className="flex gap-2">
               {["monthly", "jeonse"].map((type) => (
                 <button key={type} onClick={() => setForm((p) => ({ ...p, transaction_type: type }))}
                   className={`${tagBase} ${form.transaction_type === type ? tagActive : tagInactive}`}>
@@ -227,16 +219,16 @@ export default function RegisterPage() {
                 </div>
               )}
             </div>
-            <div className="mt-3">
+            <div>
               <label className={labelClass}>관리비 (만원)</label>
               <input name="manage_cost" value={form.manage_cost} onChange={handleChange} className={inputClass} placeholder="5" type="number" />
             </div>
           </div>
-
-          {/* 방 정보 */}
-          <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-            <p className={sectionLabelClass}>방 정보</p>
-            <div className="mb-4 flex flex-wrap gap-2">
+        );
+      case "room":
+        return (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
               {ROOM_TYPES.map((type) => (
                 <button key={type} onClick={() => setForm((p) => ({ ...p, room_type: type }))}
                   className={`${tagBase} ${form.room_type === type ? tagActive : tagInactive}`}>
@@ -244,12 +236,12 @@ export default function RegisterPage() {
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="grid grid-cols-3 gap-3">
               <div><label className={labelClass}>층수</label><input name="floor" value={form.floor} onChange={handleChange} className={inputClass} placeholder="3" /></div>
               <div><label className={labelClass}>전체 층수</label><input name="all_floors" value={form.all_floors} onChange={handleChange} className={inputClass} placeholder="5" /></div>
               <div><label className={labelClass}>면적 (m²)</label><input name="area_m2" value={form.area_m2} onChange={handleChange} className={inputClass} placeholder="33" type="number" /></div>
             </div>
-            <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>욕실 수</label>
                 <input name="bathroom_count" value={form.bathroom_count} onChange={handleChange} className={inputClass} placeholder="1" type="number" />
@@ -262,7 +254,7 @@ export default function RegisterPage() {
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>주거 형태</label>
                 <select name="residence_type" value={form.residence_type} onChange={handleChange} className={inputClass}>
@@ -280,59 +272,135 @@ export default function RegisterPage() {
               <input name="movein_date" value={form.movein_date} onChange={handleChange} className={inputClass} type="date" />
             </div>
           </div>
-
-          {/* 옵션 */}
-          <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-            <button onClick={() => setOptionsOpen((p) => !p)} className="flex w-full items-center justify-between">
-              <p className={sectionLabelClass + " mb-0"}>옵션</p>
-              {optionsOpen ? <ChevronUp className="h-4 w-4 text-stone-400" /> : <ChevronDown className="h-4 w-4 text-stone-400" />}
-            </button>
-            {optionsOpen && (
-              <div className="mt-4 flex flex-wrap gap-2">
+        );
+      case "options":
+        return (
+          <div className="space-y-5">
+            <div>
+              <p className="mb-3 text-xs font-semibold text-stone-500">옵션</p>
+              <div className="flex flex-wrap gap-2">
                 {OPTIONS.map((opt) => (
-                  <button key={opt.key} onClick={() => setSelectedOptions((p) => ({ ...p, [opt.key]: !p[opt.key] }))}
+                  <button key={opt.key}
+                    onClick={() => setSelectedOptions((p) => ({ ...p, [opt.key]: !p[opt.key] }))}
                     className={`${tagBase} ${selectedOptions[opt.key] ? tagActive : tagInactive}`}>
                     {opt.label}
                   </button>
                 ))}
               </div>
-            )}
-          </div>
-
-          {/* 주변 환경 */}
-          <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-            <button onClick={() => setEnvOpen((p) => !p)} className="flex w-full items-center justify-between">
-              <p className={sectionLabelClass + " mb-0"}>주변 환경</p>
-              {envOpen ? <ChevronUp className="h-4 w-4 text-stone-400" /> : <ChevronDown className="h-4 w-4 text-stone-400" />}
-            </button>
-            {envOpen && (
-              <div className="mt-4 flex flex-wrap gap-2">
+            </div>
+            <div>
+              <p className="mb-3 text-xs font-semibold text-stone-500">주변 환경</p>
+              <div className="flex flex-wrap gap-2">
                 {ENVIRONMENTS.map((env) => (
-                  <button key={env.key} onClick={() => setSelectedEnv((p) => ({ ...p, [env.key]: !p[env.key] }))}
-                    className={`${tagBase} ${selectedEnv[env.key] ? tagActive : tagInactive}`}>
-                    {env.label}
-                  </button>
+                  <div key={env.key} className="relative">
+                    <button
+                      onClick={() => setSelectedEnv((p) => ({ ...p, [env.key]: !p[env.key] }))}
+                      onMouseEnter={() => setTooltip(env.key)}
+                      onMouseLeave={() => setTooltip(null)}
+                      className={`${tagBase} ${selectedEnv[env.key] ? tagActive : tagInactive}`}>
+                      {env.label}
+                    </button>
+                    {tooltip === env.key && (
+                      <div className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-stone-800 px-3 py-1.5 text-[11px] text-white shadow-lg z-10">
+                        {env.tooltip}
+                        <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-stone-800" />
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
-            )}
+            </div>
           </div>
-
-          {/* 상세 설명 */}
-          <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-            <p className={sectionLabelClass}>상세 설명</p>
+        );
+      case "description":
+        return (
+          <div>
+            <label className={labelClass}>상세 설명</label>
             <textarea name="description" value={form.description} onChange={handleChange}
-              className={`${inputClass} h-28 resize-none`}
+              className={`${inputClass} h-40 resize-none`}
               placeholder="매물에 대한 상세한 설명을 입력해주세요." />
           </div>
+        );
+    }
+  };
 
-          {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-500">{error}</p>}
-
-          <button
-            onClick={handleNext}
-            className="w-full cursor-pointer rounded-2xl bg-[#A8896C] py-4 text-sm font-bold text-white transition-opacity hover:opacity-90"
-          >
-            다음 →
+  return (
+    <div className="min-h-screen bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)]">
+      <header className="border-b border-stone-200/80 bg-white/70 backdrop-blur-xl">
+        <div className="flex h-16 items-center px-4 md:px-6">
+          <button onClick={() => router.back()} className="text-sm font-semibold text-stone-500 hover:text-stone-800">
+            ← 돌아가기
           </button>
+          <p className="flex-1 text-center text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400">매물 등록</p>
+          <div className="w-20" />
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <div className="flex gap-6">
+          {/* 좌측 네비게이션 */}
+          <aside className="w-44 flex-shrink-0">
+            <nav className="sticky top-8 space-y-1 rounded-[20px] border border-stone-200/80 bg-white/80 p-3">
+              {SECTIONS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveSection(id)}
+                  className={`flex w-full items-center rounded-xl px-4 py-3 text-sm font-semibold tracking-tight transition-all duration-200 ${
+                    activeSection === id
+                      ? "bg-[#A8896C] text-white"
+                      : "text-stone-500 hover:bg-stone-50 hover:text-stone-800"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+          </aside>
+
+          {/* 우측 콘텐츠 */}
+          <main className="flex-1">
+            <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+              <p className="mb-5 text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400">
+                {SECTIONS.find((s) => s.id === activeSection)?.label}
+              </p>
+              {renderSection()}
+            </div>
+
+            {error && <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-500">{error}</p>}
+
+            <div className="mt-4 flex justify-between">
+              {SECTIONS.findIndex((s) => s.id === activeSection) > 0 ? (
+                <button
+                  onClick={() => {
+                    const idx = SECTIONS.findIndex((s) => s.id === activeSection);
+                    setActiveSection(SECTIONS[idx - 1].id);
+                  }}
+                  className="rounded-xl border border-stone-200 bg-white px-5 py-2.5 text-sm font-semibold text-stone-600 hover:bg-stone-50"
+                >
+                  ← 이전
+                </button>
+              ) : <div />}
+
+              {SECTIONS.findIndex((s) => s.id === activeSection) < SECTIONS.length - 1 ? (
+                <button
+                  onClick={() => {
+                    const idx = SECTIONS.findIndex((s) => s.id === activeSection);
+                    setActiveSection(SECTIONS[idx + 1].id);
+                  }}
+                  className="rounded-xl bg-stone-800 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+                >
+                  다음 →
+                </button>
+              ) : (
+                <button
+                  onClick={handleNext}
+                  className="rounded-xl bg-stone-800 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+                >
+                  사진 등록 →
+                </button>
+              )}
+            </div>
+          </main>
         </div>
       </div>
     </div>
