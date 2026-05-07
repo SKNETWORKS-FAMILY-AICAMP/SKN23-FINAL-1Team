@@ -187,6 +187,7 @@ export function HomeContainer() {
 
   const user = useAuthStore((state) => state.user);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const updateUser = useAuthStore((state) => state.updateUser);
   const addRecent = useRecentStore((state) => state.addRecent);
   const canFindSimilarRooms = Boolean(
     mapBounds && mapBounds.level <= MAX_SIMILAR_SEARCH_LEVEL,
@@ -384,6 +385,7 @@ export function HomeContainer() {
               excludeItemId: listingId,
             }),
             image_url: imageUrl,
+            user_id: user?.user_id ?? null,
             source_image_id: imageId ?? null,
           }),
         });
@@ -396,6 +398,12 @@ export function HomeContainer() {
         }
 
         const data = await response.json();
+        if (typeof data.remain === "number" || typeof data.credit === "number") {
+          updateUser({
+            remain: typeof data.remain === "number" ? data.remain : user?.remain,
+            credit: typeof data.credit === "number" ? data.credit : user?.credit,
+          });
+        }
         const similar = Array.isArray(data.items)
           ? data.items.map(mapSimilarItemToListing).slice(0, 3)
           : [];
@@ -418,6 +426,10 @@ export function HomeContainer() {
       handleFindSimilarBlocked,
       similarSearchParams,
       showToast,
+      updateUser,
+      user?.credit,
+      user?.remain,
+      user?.user_id,
     ],
   );
 
@@ -467,6 +479,7 @@ export function HomeContainer() {
               limit: 4,
             }),
             image_url: similarImageUrl,
+            user_id: user?.user_id ?? null,
           }),
           signal: controller.signal,
         });
@@ -476,6 +489,12 @@ export function HomeContainer() {
         }
 
         const data = await response.json();
+        if (typeof data.remain === "number" || typeof data.credit === "number") {
+          updateUser({
+            remain: typeof data.remain === "number" ? data.remain : user?.remain,
+            credit: typeof data.credit === "number" ? data.credit : user?.credit,
+          });
+        }
         const similar = Array.isArray(data.items)
           ? data.items.map(mapSimilarItemToListing).slice(0, 4)
           : [];
@@ -503,6 +522,10 @@ export function HomeContainer() {
     mapBounds?.source,
     similarImageUrl,
     similarSearchParams,
+    updateUser,
+    user?.credit,
+    user?.remain,
+    user?.user_id,
   ]);
 
   const handleInitialLocationResolved = useCallback(() => {

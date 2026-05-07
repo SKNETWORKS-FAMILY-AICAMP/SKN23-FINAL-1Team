@@ -38,7 +38,12 @@ from services.ai_image_job_service import (
 )
 from services.embedding_service import EmbeddingService
 from services.room_service import get_rooms_by_similarity
-from services.user_credit_service import decrement_user_remain, get_user_by_id
+from services.user_credit_service import (
+    decrement_user_remain,
+    ensure_user_has_edit_remain,
+    get_user_by_id,
+    recharge_user_remain_from_credit,
+)
 from models.item_image import ItemImage
 from utils.s3 import get_s3_client, parse_s3_uri
 
@@ -62,6 +67,7 @@ class EditImageRequest(BaseModel):
     source_image_url: str
     base_prompt: str
     edit_prompt: str
+    edit_count: int = 0
     size: str = "1024x1024"
     n: int = 4
 
@@ -103,6 +109,7 @@ class GenerateImageJobStatusResponse(BaseModel):
 
 class FindSimilarRoomsRequest(RoomListRequest):
     image_url: str
+    user_id: int | None = None
     exclude_item_id: int | None = None
     source_image_id: int | None = None
 
@@ -288,12 +295,14 @@ async def edit_image_endpoint(body: EditImageRequest, db: Session = Depends(get_
         f"base_prompt={body.base_prompt}, edit_prompt={body.edit_prompt}"
     )
 
-    user = get_user_by_id(db, body.user_id)
+    user = ensure_user_has_edit_remain(db, body.user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
-    if user.remain <= 0:
+    if user is False:
         raise HTTPException(status_code=400, detail="남은 수정 횟수가 없습니다.")
+    if body.edit_count >= 2:
+        raise HTTPException(status_code=400, detail="이미지 수정은 최대 2번까지 가능합니다.")
 
     try:
         file_paths = edit_image(
@@ -390,12 +399,14 @@ async def create_edit_image_job(
         f"base_prompt={body.base_prompt}, edit_prompt={body.edit_prompt}"
     )
 
-    user = get_user_by_id(db, body.user_id)
+    user = ensure_user_has_edit_remain(db, body.user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
-    if user.remain <= 0:
+    if user is False:
         raise HTTPException(status_code=400, detail="남은 수정 횟수가 없습니다.")
+    if body.edit_count >= 2:
+        raise HTTPException(status_code=400, detail="이미지 수정은 최대 2번까지 가능합니다.")
 
     job = create_edit_job(body.user_id)
     background_tasks.add_task(_run_edit_image_job, job["job_id"], body)
@@ -470,7 +481,15 @@ async def find_similar_rooms_endpoint(
                 detail="이미지 임베딩 추출에 실패했습니다.",
             )
 
-        return get_rooms_by_similarity(db, req=body, embedding=embedding)
+        result = get_rooms_by_similarity(db, req=body, embedding=embedding)
+
+        if body.user_id is not None:
+            user = recharge_user_remain_from_credit(db, body.user_id)
+            if user is not None:
+                result["remain"] = user.remain
+                result["credit"] = user.credit
+
+        return result
     except HTTPException:
         raise
     except Exception as exc:
