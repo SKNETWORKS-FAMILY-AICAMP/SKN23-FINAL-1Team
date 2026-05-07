@@ -20,6 +20,8 @@ export default function RegisterPhotoPage() {
   const [isDone, setIsDone] = useState(false);
   const [registeredItemId, setRegisteredItemId] = useState<number | null>(null);
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+
   const addPhotos = useCallback((files: FileList | null) => {
     if (!files) return;
     const newPhotos = Array.from(files)
@@ -53,7 +55,7 @@ export default function RegisterPhotoPage() {
 
     try {
       // 1. 매물 먼저 등록 → item_id 받아오기
-      const registerRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/rooms/register`, {
+      const registerRes = await fetch(`${apiUrl}/api/rooms/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, image_thumbnail: null, image_urls: [] }),
@@ -76,7 +78,7 @@ export default function RegisterPhotoPage() {
         formData.append("item_id", String(item_id));
         formData.append("index", String(idx));
 
-        const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/rooms/upload-image`, {
+        const uploadRes = await fetch(`${apiUrl}/api/rooms/upload-image`, {
           method: "POST",
           body: formData,
         });
@@ -89,7 +91,7 @@ export default function RegisterPhotoPage() {
 
       // 3. 업로드된 이미지 URL 매물에 업데이트
       if (uploadedUrls.length > 0) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/rooms/update-images`, {
+        await fetch(`${apiUrl}/api/rooms/update-images`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -110,7 +112,6 @@ export default function RegisterPhotoPage() {
     }
   };
 
-  // 완료 화면
   if (isDone) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)]">
@@ -156,9 +157,7 @@ export default function RegisterPhotoPage() {
         </p>
 
         <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-          {/* 드래그 존 */}
           <div
-            ref={fileInputRef as any}
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
@@ -181,7 +180,6 @@ export default function RegisterPhotoPage() {
             onChange={(e) => addPhotos(e.target.files)}
           />
 
-          {/* 사진 미리보기 */}
           {photos.length > 0 && (
             <div className="mb-4">
               <div className="flex flex-wrap gap-2">
