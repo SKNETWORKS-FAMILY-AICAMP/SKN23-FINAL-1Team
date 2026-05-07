@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useRegisterStore } from "@/store/registerStore";
+import { toast } from "@/hooks/use-toast";
 
 declare global {
   interface Window { daum: any; }
@@ -59,7 +60,6 @@ export default function RegisterPage() {
   const { user, isLoggedIn } = useAuthStore();
   const setRegisterForm = useRegisterStore((state) => state.setForm);
   const [activeSection, setActiveSection] = useState<SectionId>("basic");
-  const [error, setError] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<string | null>(null);
 
   const [form, setForm] = useState({
@@ -122,14 +122,23 @@ export default function RegisterPage() {
 
   const handleNext = () => {
     if (currentIndex < SECTIONS.length - 1) {
+      if (activeSection === "basic") {
+        if (!form.title) { toast({ description: "매물 제목을 입력해주세요." }); return; }
+        if (!form.address) { toast({ description: "주소를 검색해주세요." }); return; }
+      }
+      if (activeSection === "transaction") {
+        if (!form.deposit) { toast({ description: "보증금을 입력해주세요." }); return; }
+      }
       setActiveSection(SECTIONS[currentIndex + 1].id);
       return;
     }
+
     if (!isLoggedIn) { router.push("/login"); return; }
-    if (!form.title || !form.address || !form.lat || !form.lng || !form.deposit) {
-      setError("필수 항목(제목, 주소, 보증금)을 모두 입력해주세요.");
-      return;
-    }
+    if (!form.title) { toast({ description: "매물 제목을 입력해주세요." }); return; }
+    if (!form.address) { toast({ description: "주소를 검색해주세요." }); return; }
+    if (!form.lat || !form.lng) { toast({ description: "주소 검색 후 좌표를 확인해주세요." }); return; }
+    if (!form.deposit) { toast({ description: "보증금을 입력해주세요." }); return; }
+
     const fullAddress = form.address_detail ? `${form.address} ${form.address_detail}` : form.address;
     setRegisterForm({
       user_id: user?.user_id,
@@ -346,7 +355,7 @@ export default function RegisterPage() {
               <button
                 key={id}
                 onClick={() => setActiveSection(id)}
-                className={`flex w-full items-center rounded-xl px-4 py-3 text-sm font-semibold tracking-tight transition-all duration-200 ${
+                className={`cursor-pointer flex w-full items-center rounded-xl px-4 py-3 text-sm font-semibold tracking-tight transition-all duration-200 ${
                   activeSection === id
                     ? "bg-[#A8896C] text-white"
                     : "text-stone-500 hover:bg-stone-50 hover:text-stone-800"
@@ -368,8 +377,6 @@ export default function RegisterPage() {
             <div className="flex-1 overflow-y-auto">
               {renderSection()}
             </div>
-
-            {error && <p className="mt-3 flex-shrink-0 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-500">{error}</p>}
 
             <div className="mt-5 flex-shrink-0 pt-4 border-t border-stone-200/80 flex justify-between">
               {currentIndex > 0 ? (
