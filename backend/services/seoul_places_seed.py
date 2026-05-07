@@ -72,11 +72,19 @@ SEOUL_SUBWAY_STATION_NAMES_BY_LINE = {
     "신림선": ["샛강", "대방", "서울지방병무청", "보라매", "보라매공원", "보라매병원", "당곡", "신림", "서원", "서울대벤처타운", "관악산"],
 }
 
+def _station_label(station: str) -> str:
+    return station if station.endswith("역") else f"{station}역"
+
+
 SEOUL_SUBWAY_STATIONS = [
     (
         station.lower().replace(" ", "-"),
-        f"{station}역",
-        [station, f"{station}역", *[f"{line} {station}역" for line in lines]],
+        _station_label(station),
+        [
+            station,
+            _station_label(station),
+            *[f"{line} {_station_label(station)}" for line in lines],
+        ],
         lines,
         None,
         None,
