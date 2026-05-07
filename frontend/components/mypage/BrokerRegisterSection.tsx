@@ -7,13 +7,20 @@ import { BadgeCheck } from "lucide-react";
 
 const PHONE_PATTERN = /^010-\d{4}-\d{4}$/;
 
+const formatPhone = (value: string) => {
+  const numbers = value.replace(/\D/g, "");
+  if (numbers.length <= 3) return numbers;
+  if (numbers.length <= 7) return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
+  return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
+};
+
 export function BrokerRegisterSection() {
   const user = useAuthStore((state) => state.user);
   const updateUser = useAuthStore((state) => state.updateUser);
   const apiBaseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL;
 
-  const [name, setName] = useState(user?.nickname ?? "");
+  const [name, setName] = useState("");
   const [officeName, setOfficeName] = useState("");
   const [phone, setPhone] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
@@ -22,9 +29,7 @@ export function BrokerRegisterSection() {
 
   const phoneError = useMemo(() => {
     if (!phone) return "";
-    return PHONE_PATTERN.test(phone)
-      ? ""
-      : "연락처는 010-1234-5678 형식으로 입력해주세요.";
+    return PHONE_PATTERN.test(phone) ? "" : "010-1234-5678 형식으로 입력해주세요.";
   }, [phone]);
 
   const handleRegister = async () => {
@@ -32,17 +37,14 @@ export function BrokerRegisterSection() {
       setMessage("모든 필수 항목을 입력해주세요.");
       return;
     }
-
     if (!PHONE_PATTERN.test(phone.trim())) {
-      setMessage("연락처는 010-1234-5678 형식으로 입력해주세요.");
+      setMessage("010-1234-5678 형식으로 입력해주세요.");
       return;
     }
-
     if (!user?.user_id) {
       setMessage("로그인 정보를 확인할 수 없습니다.");
       return;
     }
-
     if (!apiBaseUrl) {
       setMessage("API 주소가 설정되지 않았습니다.");
       return;
@@ -92,52 +94,45 @@ export function BrokerRegisterSection() {
               <BadgeCheck className="h-8 w-8 text-blue-500" />
             </div>
             <div className="text-center">
-              <p className="text-base font-bold text-stone-800">
-                인증된 중개사입니다
-              </p>
+              <p className="text-base font-bold text-stone-800">인증된 중개사입니다</p>
               <p className="mt-1 text-sm text-stone-400">
                 중개사 매물 관리 페이지에서 매물을 관리할 수 있어요.
               </p>
             </div>
             <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-bold text-blue-600">
-              중개사 인증 완료
+              중개사 인증 완료 ✓
             </span>
           </div>
         ) : (
           <div className="space-y-4">
             <div>
-              <p className="mb-1 text-sm font-semibold text-stone-700">
-                이름 *
-              </p>
+              <p className="mb-1 text-sm font-semibold text-stone-700">이름 *</p>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="예: 홍길동"
+                placeholder="예) 홍길동"
                 className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm focus:border-stone-400 focus:outline-none"
               />
             </div>
             <div>
-              <p className="mb-1 text-sm font-semibold text-stone-700">
-                중개사무소명 *
-              </p>
+              <p className="mb-1 text-sm font-semibold text-stone-700">중개사무소명 *</p>
               <input
                 type="text"
                 value={officeName}
                 onChange={(e) => setOfficeName(e.target.value)}
-                placeholder="예: 금방부동산중개사무소"
+                placeholder="예) 금방부동산중개사무소"
                 className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm focus:border-stone-400 focus:outline-none"
               />
             </div>
             <div>
-              <p className="mb-1 text-sm font-semibold text-stone-700">
-                연락처 *
-              </p>
+              <p className="mb-1 text-sm font-semibold text-stone-700">연락처 *</p>
               <input
                 type="text"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(formatPhone(e.target.value))}
                 placeholder="010-1234-5678"
+                maxLength={13}
                 className={cn(
                   "w-full rounded-xl border bg-stone-50 px-3 py-2.5 text-sm focus:outline-none",
                   phoneError
@@ -150,9 +145,7 @@ export function BrokerRegisterSection() {
               )}
             </div>
             <div>
-              <p className="mb-1 text-sm font-semibold text-stone-700">
-                프로필 이미지 URL
-              </p>
+              <p className="mb-1 text-sm font-semibold text-stone-700">프로필 이미지 URL</p>
               <input
                 type="text"
                 value={photoUrl}
@@ -163,9 +156,7 @@ export function BrokerRegisterSection() {
             </div>
             {message && (
               <p className={cn("text-xs", message === "완료" ? "text-blue-500" : "text-red-500")}>
-                {message === "완료"
-                  ? "중개사 인증이 완료되었습니다."
-                  : message}
+                {message === "완료" ? "중개사 인증이 완료되었습니다! 🎉" : message}
               </p>
             )}
             <button
