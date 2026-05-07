@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+import uuid
+import os
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -6,8 +9,12 @@ from sqlalchemy import func
 from db.session import get_db
 from models.room import Room
 from models.item_features import ItemFeatures
+from models.item_image import ItemImage
+from utils.s3 import get_s3_client
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
+
+BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "")
 
 
 class RoomRegisterRequest(BaseModel):
@@ -30,6 +37,8 @@ class RoomRegisterRequest(BaseModel):
     approve_date: str | None = None
     movein_date: str | None = None
     description: str | None = None
+    image_thumbnail: str | None = None
+    image_urls: list[str] = []
     # 옵션
     has_air_con: bool = False
     has_fridge: bool = False
@@ -52,12 +61,45 @@ class RoomRegisterRequest(BaseModel):
     is_convenient_area: bool = False
 
 
+class UpdateImagesRequest(BaseModel):
+    item_id: int
+    image_thumbnail: str | None = None
+    image_urls: list[str] = []
+
+
+@router.post("/upload-image")
+async def upload_room_image(
+    file: UploadFile = File(...),
+    item_id: int = Form(0),
+    index: int = Form(0),
+):
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="이미지 파일만 업로드 가능합니다.")
+
+    ext = file.filename.split(".")[-1] if file.filename else "jpg"
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    key = f"zigbang_data/images/seoul/{date_str}/{item_id}/{item_id}_{index + 1}.{ext}"
+
+    try:
+        s3 = get_s3_client()
+        contents = await file.read()
+        s3.put_object(
+            Bucket=BUCKET_NAME,
+            Key=key,
+            Body=contents,
+            ContentType=file.content_type,
+        )
+        s3_uri = f"s3://{BUCKET_NAME}/{key}"
+        return {"url": s3_uri}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"업로드 실패: {str(e)}")
+
+
 @router.post("/register")
 def register_room(payload: RoomRegisterRequest, db: Session = Depends(get_db)):
     max_9digit = db.query(func.max(Room.item_id)).filter(Room.item_id >= 100000000).scalar()
     new_item_id = (max_9digit + 1) if max_9digit else 100000000
 
-    # service_type: monthly → 월세, jeonse → 전세
     service_type = "월세" if payload.transaction_type == "monthly" else "전세"
 
     room = Room(
@@ -76,9 +118,10 @@ def register_room(payload: RoomRegisterRequest, db: Session = Depends(get_db)):
         floor=payload.floor,
         all_floors=payload.all_floors,
         area_m2=payload.area_m2,
+        image_thumbnail=payload.image_thumbnail,
     )
     db.add(room)
-    db.flush()  # item_id 확정
+    db.flush()
 
     features = ItemFeatures(
         item_id=new_item_id,
@@ -108,6 +151,15 @@ def register_room(payload: RoomRegisterRequest, db: Session = Depends(get_db)):
         is_convenient_area=payload.is_convenient_area,
     )
     db.add(features)
+
+    for idx, url in enumerate(payload.image_urls):
+        image = ItemImage(
+            item_id=new_item_id,
+            s3_url=url,
+            is_main=(idx == 0),
+        )
+        db.add(image)
+
     db.commit()
     db.refresh(room)
 
@@ -117,6 +169,26 @@ def register_room(payload: RoomRegisterRequest, db: Session = Depends(get_db)):
         "address": room.address,
         "status": room.status,
     }
+
+# 매물등록 이미지 s3업로드
+@router.patch("/update-images")
+def update_room_images(payload: UpdateImagesRequest, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.item_id == payload.item_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="매물을 찾을 수 없습니다.")
+
+    room.image_thumbnail = payload.image_thumbnail
+
+    for idx, url in enumerate(payload.image_urls):
+        image = ItemImage(
+            item_id=payload.item_id,
+            s3_url=url,
+            is_main=(idx == 0),
+        )
+        db.add(image)
+
+    db.commit()
+    return {"success": True}
 
 
 @router.get("/my-rooms")
@@ -143,7 +215,7 @@ def get_my_rooms(user_id: int, db: Session = Depends(get_db)):
 
 @router.delete("/my-rooms/{item_id}")
 def delete_my_room(item_id: int, user_id: int, db: Session = Depends(get_db)):
-    room = db.query(Room).filter(Room.item_id == item_id, Room.user_id == user_id).first()
+    room = db.query(Room).filter(Room.item_id == item_id, Room.broker_id == user_id).first()
 
     if not room:
         raise HTTPException(status_code=404, detail="매물을 찾을 수 없습니다.")

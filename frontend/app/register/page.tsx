@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
-import { ChevronLeft, ChevronUp, ChevronDown, Plus, X } from "lucide-react";
-import Image from "next/image";
-import Logo from "@/assets/Logo.png";
+import { useRegisterStore } from "@/store/registerStore";
+import { ChevronUp, ChevronDown } from "lucide-react";
 
 declare global {
   interface Window {
@@ -41,17 +40,20 @@ const ENVIRONMENTS = [
   { key: "is_convenient_area", label: "슬세권" },
 ];
 
+const inputClass = "w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm focus:border-stone-400 focus:outline-none";
+const labelClass = "mb-1 block text-xs font-semibold text-stone-500";
+const sectionLabelClass = "mb-4 text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400";
+const tagBase = "rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-150";
+const tagActive = "border-stone-800 bg-stone-800 text-white";
+const tagInactive = "border-stone-200 bg-white text-stone-500 hover:border-stone-400";
+
 export default function RegisterPage() {
   const router = useRouter();
   const { user, isLoggedIn } = useAuthStore();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const dropZoneRef = useRef<HTMLDivElement>(null);
+  const setRegisterForm = useRegisterStore((state) => state.setForm);
 
-  const [photos, setPhotos] = useState<{ file: File; preview: string }[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(true);
   const [envOpen, setEnvOpen] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
@@ -86,28 +88,6 @@ export default function RegisterPage() {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const addPhotos = useCallback((files: FileList | null) => {
-    if (!files) return;
-    const newPhotos = Array.from(files)
-      .filter((f) => f.type.startsWith("image/"))
-      .slice(0, 10 - photos.length)
-      .map((file) => ({ file, preview: URL.createObjectURL(file) }));
-    setPhotos((prev) => [...prev, ...newPhotos].slice(0, 10));
-  }, [photos.length]);
-
-  const removePhoto = (idx: number) => {
-    setPhotos((prev) => {
-      URL.revokeObjectURL(prev[idx].preview);
-      return prev.filter((_, i) => i !== idx);
-    });
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    addPhotos(e.dataTransfer.files);
-  };
-
   const openAddressSearch = () => {
     const script = document.createElement("script");
     script.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
@@ -133,7 +113,7 @@ export default function RegisterPage() {
     document.head.appendChild(script);
   };
 
-  const handleSubmit = async () => {
+  const handleNext = () => {
     if (!isLoggedIn) {
       router.push("/login");
       return;
@@ -143,124 +123,63 @@ export default function RegisterPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    setError(null);
+    setRegisterForm({
+      user_id: user?.user_id,
+      title: form.title,
+      address: form.address,
+      lat: parseFloat(form.lat),
+      lng: parseFloat(form.lng),
+      transaction_type: form.transaction_type,
+      deposit: parseInt(form.deposit),
+      rent: form.rent ? parseInt(form.rent) : 0,
+      manage_cost: form.manage_cost ? parseInt(form.manage_cost) : null,
+      room_type: form.room_type,
+      floor: form.floor || null,
+      all_floors: form.all_floors || null,
+      area_m2: form.area_m2 ? parseFloat(form.area_m2) : null,
+      bathroom_count: form.bathroom_count ? parseInt(form.bathroom_count) : null,
+      room_direction: form.room_direction || null,
+      residence_type: form.residence_type || null,
+      approve_date: form.approve_date || null,
+      movein_date: form.movein_date || null,
+      description: form.description || null,
+      has_air_con: selectedOptions.has_air_con,
+      has_fridge: selectedOptions.has_fridge,
+      has_washer: selectedOptions.has_washer,
+      has_gas_stove: selectedOptions.has_gas_stove,
+      has_induction: selectedOptions.has_induction,
+      has_microwave: selectedOptions.has_microwave,
+      has_desk: selectedOptions.has_desk,
+      has_bed: selectedOptions.has_bed,
+      has_closet: selectedOptions.has_closet,
+      has_shoe_rack: selectedOptions.has_shoe_rack,
+      has_bookcase: selectedOptions.has_bookcase,
+      has_sink: selectedOptions.has_sink,
+      has_parking: selectedOptions.has_parking,
+      has_elevator: selectedOptions.has_elevator,
+      is_subway_area: selectedEnv.is_subway_area,
+      is_park_area: selectedEnv.is_park_area,
+      is_school_area: selectedEnv.is_school_area,
+      is_convenient_area: selectedEnv.is_convenient_area,
+    });
 
-    try {
-      const body = {
-        user_id: user?.user_id,
-        title: form.title,
-        address: form.address,
-        lat: parseFloat(form.lat),
-        lng: parseFloat(form.lng),
-        transaction_type: form.transaction_type,
-        deposit: parseInt(form.deposit),
-        rent: form.rent ? parseInt(form.rent) : 0,
-        manage_cost: form.manage_cost ? parseInt(form.manage_cost) : null,
-        room_type: form.room_type,
-        floor: form.floor || null,
-        all_floors: form.all_floors || null,
-        area_m2: form.area_m2 ? parseFloat(form.area_m2) : null,
-        bathroom_count: form.bathroom_count ? parseInt(form.bathroom_count) : null,
-        room_direction: form.room_direction || null,
-        residence_type: form.residence_type || null,
-        approve_date: form.approve_date || null,
-        movein_date: form.movein_date || null,
-        description: form.description || null,
-        ...selectedOptions,
-        ...selectedEnv,
-      };
-
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/rooms/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        setError(err.detail ?? "등록에 실패했습니다.");
-        return;
-      }
-
-      router.push("/home");
-    } catch {
-      setError("오류가 발생했습니다. 다시 시도해주세요.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    router.push("/register-photo");
   };
 
-  const inputClass = "w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 focus:border-[#A8896C] focus:outline-none transition-colors";
-  const labelClass = "mb-1.5 block text-[13px] font-semibold text-stone-600";
-  const sectionLabelClass = "mb-4 text-[11px] font-semibold uppercase tracking-[0.15em] text-stone-400";
-  const tagBase = "rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer";
-  const tagInactive = "border-stone-200 bg-white text-stone-500 hover:border-stone-300";
-  const tagActive = "border-[#A8896C] bg-[#A8896C] text-white";
-
   return (
-    <div className="flex h-screen flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)]">
+    <div className="min-h-screen bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)]">
       <header className="border-b border-stone-200/80 bg-white/70 backdrop-blur-xl">
         <div className="flex h-16 items-center px-4 md:px-6">
-          <div className="flex w-14 items-center md:w-56">
-            <Image src={Logo} alt="로고" width={100} height={32} className="hidden cursor-pointer object-contain md:block" onClick={() => router.push("/home")} />
-            <button onClick={() => router.back()} className="flex items-center gap-1.5 text-stone-500 hover:text-stone-800 md:hidden">
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-          </div>
+          <button onClick={() => router.back()} className="flex items-center gap-2 text-sm font-semibold text-stone-500 hover:text-stone-800">
+            ← 돌아가기
+          </button>
           <p className="flex-1 text-center text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400">매물 등록</p>
-          <div className="flex w-14 justify-end md:w-56">
-            <button onClick={() => router.back()} className="hidden items-center gap-2 rounded-full border border-stone-200/80 bg-white/65 px-4 py-2.5 text-sm font-semibold tracking-tight text-stone-500 shadow-sm backdrop-blur-md transition-all hover:text-stone-800 md:inline-flex">
-              돌아가기 →
-            </button>
-          </div>
+          <div className="w-20" />
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-2xl space-y-4 px-4 py-6 md:px-6">
-
-          {/* 사진 등록 */}
-          <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-            <p className={sectionLabelClass}>사진 등록</p>
-            <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={(e) => addPhotos(e.target.files)} />
-            {photos.length === 0 ? (
-              <div
-                ref={dropZoneRef}
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleDrop}
-                className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed py-10 transition-colors ${isDragging ? "border-[#A8896C] bg-[#A8896C]/5" : "border-stone-200 hover:border-stone-300"}`}
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-stone-100">
-                  <Plus className="h-6 w-6 text-stone-400" />
-                </div>
-                <p className="text-sm font-semibold text-stone-600">사진을 드래그하거나 클릭해서 추가</p>
-                <p className="text-xs text-stone-400">JPG, PNG 최대 10장</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {photos.map((photo, idx) => (
-                    <div key={idx} className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border border-stone-200">
-                      <img src={photo.preview} alt="" className="h-full w-full object-cover" />
-                      <button onClick={() => removePhoto(idx)} className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                  {photos.length < 10 && (
-                    <button onClick={() => fileInputRef.current?.click()} className="flex h-20 w-20 flex-shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-stone-200 hover:border-stone-300">
-                      <Plus className="h-5 w-5 text-stone-400" />
-                      <span className="text-[11px] text-stone-400">추가</span>
-                    </button>
-                  )}
-                </div>
-                <p className="text-xs text-stone-400">{photos.length}/10장</p>
-              </div>
-            )}
-          </div>
+      <div className="mx-auto max-w-lg px-4 py-8">
+        <div className="space-y-4">
 
           {/* 기본 정보 */}
           <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
@@ -408,9 +327,11 @@ export default function RegisterPage() {
 
           {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-500">{error}</p>}
 
-          <button onClick={handleSubmit} disabled={isSubmitting}
-            className="w-full cursor-pointer rounded-2xl bg-[#A8896C] py-4 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
-            {isSubmitting ? "등록 중..." : "매물 등록하기"}
+          <button
+            onClick={handleNext}
+            className="w-full cursor-pointer rounded-2xl bg-[#A8896C] py-4 text-sm font-bold text-white transition-opacity hover:opacity-90"
+          >
+            다음 →
           </button>
         </div>
       </div>
