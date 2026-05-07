@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useRegisterStore } from "@/store/registerStore";
-import { toast } from "@/hooks/use-toast";
 import { Building2, CreditCard, Ruler, Sparkles, FileText } from "lucide-react";
 
 declare global {
@@ -39,7 +38,9 @@ const ENVIRONMENTS = [
   { key: "is_convenient_area", label: "슬세권", tooltip: "슬리퍼 신고 편의시설 이용 가능" },
 ];
 
-const inputClass = "w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm focus:border-stone-400 focus:outline-none";
+const inputBase = "w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none transition-colors";
+const inputNormal = `${inputBase} border-stone-200 bg-stone-50 focus:border-stone-400`;
+const inputError = `${inputBase} border-red-400 bg-red-50 focus:border-red-400`;
 const labelClass = "mb-1 block text-xs font-semibold text-stone-500";
 const tagBase = "rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-150 cursor-pointer";
 const tagActive = "border-[#A8896C] bg-[#A8896C] text-white";
@@ -60,12 +61,19 @@ const SECTIONS: { id: SectionId; label: string; icon: any }[] = [
   { id: "description", label: "상세 설명", icon: FileText },
 ];
 
+const ErrorMsg = ({ msg }: { msg?: string }) =>
+  msg ? <p className="mt-1 flex items-center gap-1 text-[11px] text-red-500">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5.5" stroke="#E24B4A"/><path d="M6 3.5v3M6 8h.01" stroke="#E24B4A" strokeLinecap="round"/></svg>
+    {msg}
+  </p> : null;
+
 export default function RegisterPage() {
   const router = useRouter();
   const { user, isLoggedIn } = useAuthStore();
   const setRegisterForm = useRegisterStore((state) => state.setForm);
   const [activeSection, setActiveSection] = useState<SectionId>("basic");
   const [tooltip, setTooltip] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [form, setForm] = useState({
     title: "",
@@ -97,7 +105,9 @@ export default function RegisterPage() {
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => { const n = { ...prev }; delete n[name]; return n; });
   };
 
   const openAddressSearch = () => {
@@ -107,12 +117,8 @@ export default function RegisterPage() {
       new window.daum.Postcode({
         oncomplete: (data: any) => {
           const address = data.roadAddress || data.jibunAddress;
-          setForm((prev) => ({
-            ...prev,
-            address,
-            lat: data.y,
-            lng: data.x,
-          }));
+          setForm((prev) => ({ ...prev, address, lat: data.y, lng: data.x }));
+          setErrors((prev) => { const n = { ...prev }; delete n.address; return n; });
         },
       }).open();
     };
@@ -121,24 +127,42 @@ export default function RegisterPage() {
 
   const currentIndex = SECTIONS.findIndex((s) => s.id === activeSection);
 
+  const validateSection = (sectionId: SectionId): Record<string, string> => {
+    const e: Record<string, string> = {};
+    if (sectionId === "basic") {
+      if (!form.title.trim()) e.title = "매물 제목을 입력해주세요.";
+      if (!form.address.trim()) e.address = "주소를 검색해주세요.";
+    }
+    if (sectionId === "transaction") {
+      if (!form.deposit) e.deposit = "보증금을 입력해주세요.";
+      if (form.transaction_type === "monthly" && !form.rent) e.rent = "월세를 입력해주세요.";
+    }
+    return e;
+  };
+
   const handleNext = () => {
     if (currentIndex < SECTIONS.length - 1) {
-      if (activeSection === "basic") {
-        if (!form.title) { toast({ description: "매물 제목을 입력해주세요." }); return; }
-        if (!form.address) { toast({ description: "주소를 검색해주세요." }); return; }
-      }
-      if (activeSection === "transaction") {
-        if (!form.deposit) { toast({ description: "보증금을 입력해주세요." }); return; }
-      }
+      const e = validateSection(activeSection);
+      if (Object.keys(e).length > 0) { setErrors(e); return; }
+      setErrors({});
       setActiveSection(SECTIONS[currentIndex + 1].id);
       return;
     }
 
+    // 마지막 섹션 → 전체 검사
+    const allErrors: Record<string, string> = {};
+    const basicErrors = validateSection("basic");
+    const txErrors = validateSection("transaction");
+    Object.assign(allErrors, basicErrors, txErrors);
+
+    if (Object.keys(allErrors).length > 0) {
+      setErrors(allErrors);
+      if (basicErrors && Object.keys(basicErrors).length > 0) setActiveSection("basic");
+      else setActiveSection("transaction");
+      return;
+    }
+
     if (!isLoggedIn) { router.push("/login"); return; }
-    if (!form.title) { toast({ description: "매물 제목을 입력해주세요." }); return; }
-    if (!form.address) { toast({ description: "주소를 검색해주세요." }); return; }
-    if (!form.lat || !form.lng) { toast({ description: "주소 검색 후 좌표를 확인해주세요." }); return; }
-    if (!form.deposit) { toast({ description: "보증금을 입력해주세요." }); return; }
 
     const fullAddress = form.address_detail ? `${form.address} ${form.address_detail}` : form.address;
     setRegisterForm({
@@ -195,20 +219,27 @@ export default function RegisterPage() {
             <div className={innerCard}>
               <div className="border-b border-stone-200/80 py-4">
                 <label className={labelClass}>매물 제목 *</label>
-                <input name="title" value={form.title} onChange={handleChange} className={inputClass} placeholder="예) 강남역 도보 5분, 풀옵션 원룸" />
+                <input name="title" value={form.title} onChange={handleChange}
+                  className={errors.title ? inputError : inputNormal}
+                  placeholder="예) 강남역 도보 5분, 풀옵션 원룸" />
+                <ErrorMsg msg={errors.title} />
               </div>
               <div className="py-4">
                 <label className={labelClass}>주소 *</label>
                 <div className="flex gap-2">
-                  <input name="address" value={form.address} onChange={handleChange} className={inputClass} placeholder="주소를 검색해주세요" readOnly onClick={openAddressSearch} />
+                  <input name="address" value={form.address} onChange={handleChange}
+                    className={errors.address ? inputError : inputNormal}
+                    placeholder="주소를 검색해주세요" readOnly onClick={openAddressSearch} />
                   <button onClick={openAddressSearch} className="shrink-0 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-600 hover:border-stone-300 cursor-pointer">
                     검색
                   </button>
                 </div>
+                <ErrorMsg msg={errors.address} />
                 {form.lat && form.lng && (
                   <p className="mt-1 text-xs text-stone-400">위도 {parseFloat(form.lat).toFixed(6)}, 경도 {parseFloat(form.lng).toFixed(6)}</p>
                 )}
-                <input name="address_detail" value={form.address_detail} onChange={handleChange} className={`${inputClass} mt-2`} placeholder="상세주소 (예: 101동 1234호)" />
+                <input name="address_detail" value={form.address_detail} onChange={handleChange}
+                  className={`${inputNormal} mt-2`} placeholder="상세주소 (예: 101동 1234호)" />
               </div>
             </div>
           </div>
@@ -236,19 +267,26 @@ export default function RegisterPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={labelClass}>보증금 (만원) *</label>
-                    <input name="deposit" value={form.deposit} onChange={handleChange} className={inputClass} placeholder="1000" type="number" />
+                    <input name="deposit" value={form.deposit} onChange={handleChange}
+                      className={errors.deposit ? inputError : inputNormal}
+                      placeholder="1000" type="number" />
+                    <ErrorMsg msg={errors.deposit} />
                   </div>
                   {form.transaction_type === "monthly" && (
                     <div>
-                      <label className={labelClass}>월세 (만원)</label>
-                      <input name="rent" value={form.rent} onChange={handleChange} className={inputClass} placeholder="50" type="number" />
+                      <label className={labelClass}>월세 (만원) *</label>
+                      <input name="rent" value={form.rent} onChange={handleChange}
+                        className={errors.rent ? inputError : inputNormal}
+                        placeholder="50" type="number" />
+                      <ErrorMsg msg={errors.rent} />
                     </div>
                   )}
                 </div>
               </div>
               <div className="py-4">
                 <label className={labelClass}>관리비 (만원)</label>
-                <input name="manage_cost" value={form.manage_cost} onChange={handleChange} className={inputClass} placeholder="5" type="number" />
+                <input name="manage_cost" value={form.manage_cost} onChange={handleChange}
+                  className={inputNormal} placeholder="5" type="number" />
               </div>
             </div>
           </div>
@@ -274,20 +312,29 @@ export default function RegisterPage() {
               </div>
               <div className="border-b border-stone-200/80 py-4">
                 <div className="grid grid-cols-3 gap-3">
-                  <div><label className={labelClass}>층수</label><input name="floor" value={form.floor} onChange={handleChange} className={inputClass} placeholder="3" /></div>
-                  <div><label className={labelClass}>전체 층수</label><input name="all_floors" value={form.all_floors} onChange={handleChange} className={inputClass} placeholder="5" /></div>
-                  <div><label className={labelClass}>면적 (m²)</label><input name="area_m2" value={form.area_m2} onChange={handleChange} className={inputClass} placeholder="33" type="number" /></div>
+                  <div>
+                    <label className={labelClass}>층수</label>
+                    <input name="floor" value={form.floor} onChange={handleChange} className={inputNormal} placeholder="3" />
+                  </div>
+                  <div>
+                    <label className={labelClass}>전체 층수</label>
+                    <input name="all_floors" value={form.all_floors} onChange={handleChange} className={inputNormal} placeholder="5" />
+                  </div>
+                  <div>
+                    <label className={labelClass}>면적 (m²)</label>
+                    <input name="area_m2" value={form.area_m2} onChange={handleChange} className={inputNormal} placeholder="33" type="number" />
+                  </div>
                 </div>
               </div>
               <div className="border-b border-stone-200/80 py-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={labelClass}>욕실 수</label>
-                    <input name="bathroom_count" value={form.bathroom_count} onChange={handleChange} className={inputClass} placeholder="1" type="number" />
+                    <input name="bathroom_count" value={form.bathroom_count} onChange={handleChange} className={inputNormal} placeholder="1" type="number" />
                   </div>
                   <div>
                     <label className={labelClass}>방향</label>
-                    <select name="room_direction" value={form.room_direction} onChange={handleChange} className={inputClass}>
+                    <select name="room_direction" value={form.room_direction} onChange={handleChange} className={inputNormal}>
                       <option value="">선택</option>
                       {DIRECTIONS.map((d) => <option key={d}>{d}</option>)}
                     </select>
@@ -298,20 +345,20 @@ export default function RegisterPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={labelClass}>주거 형태</label>
-                    <select name="residence_type" value={form.residence_type} onChange={handleChange} className={inputClass}>
+                    <select name="residence_type" value={form.residence_type} onChange={handleChange} className={inputNormal}>
                       <option value="">선택</option>
                       {RESIDENCE_TYPES.map((r) => <option key={r}>{r}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className={labelClass}>사용 승인일</label>
-                    <input name="approve_date" value={form.approve_date} onChange={handleChange} className={inputClass} type="date" />
+                    <input name="approve_date" value={form.approve_date} onChange={handleChange} className={inputNormal} type="date" />
                   </div>
                 </div>
               </div>
               <div className="py-4">
                 <label className={labelClass}>입주 가능일</label>
-                <input name="movein_date" value={form.movein_date} onChange={handleChange} className={inputClass} type="date" />
+                <input name="movein_date" value={form.movein_date} onChange={handleChange} className={inputNormal} type="date" />
               </div>
             </div>
           </div>
@@ -355,9 +402,9 @@ export default function RegisterPage() {
                       {env.label}
                     </button>
                     {tooltip === env.key && (
-                      <div className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-stone-800 px-3 py-1.5 text-[11px] text-white shadow-lg z-10">
+                      <div className="absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-stone-800 px-3 py-1.5 text-[11px] text-white shadow-lg z-10">
                         {env.tooltip}
-                        <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-stone-800" />
+                        <div className="absolute left-1/2 bottom-full -translate-x-1/2 border-4 border-transparent border-b-stone-800" />
                       </div>
                     )}
                   </div>
@@ -376,7 +423,7 @@ export default function RegisterPage() {
             <div className={innerCard}>
               <div className="py-4">
                 <textarea name="description" value={form.description} onChange={handleChange}
-                  className={`${inputClass} h-48 resize-none`}
+                  className={`${inputNormal} h-48 resize-none`}
                   placeholder="매물에 대한 상세한 설명을 입력해주세요." />
               </div>
             </div>
@@ -398,7 +445,6 @@ export default function RegisterPage() {
       </header>
 
       <div className="flex flex-1 gap-6 overflow-hidden p-6">
-
         <aside className="w-44 flex-shrink-0">
           <nav className="h-full rounded-[20px] border border-stone-200/80 bg-white/80 p-3 flex flex-col gap-1">
             {SECTIONS.map(({ id, label, icon: Icon }) => (
@@ -423,7 +469,6 @@ export default function RegisterPage() {
             <div className="flex-1 overflow-y-auto">
               {renderSection()}
             </div>
-
             <div className="mt-5 flex-shrink-0 pt-4 border-t border-stone-200/80 flex justify-between">
               {currentIndex > 0 ? (
                 <button
@@ -442,7 +487,6 @@ export default function RegisterPage() {
             </div>
           </div>
         </main>
-
       </div>
     </div>
   );
