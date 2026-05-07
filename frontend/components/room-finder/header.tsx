@@ -110,12 +110,15 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
               마이페이지
             </button>
           )}
-          <button
-            onClick={() => isLoggedIn ? router.push("/register") : router.push("/login")}
-            className={cn(navButtonBase, navButtonInactive)}
-          >
-            매물등록
-          </button>
+
+          {user?.role === "BROKER" && (
+            <button
+              onClick={() => router.push("/register")}
+              className={cn(navButtonBase, navButtonInactive)}
+            >
+              매물등록
+            </button>
+          )}
         </div>
 
         {isLoggedIn && user ? (
@@ -130,7 +133,16 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
             <div className="rounded-md bg-stone-100 px-2 py-1 text-[11px] font-semibold tracking-tight text-stone-700">
               {user.credit ?? 0}
             </div>
-            <span className="text-[12px] font-semibold tracking-tight text-stone-800 sm:text-sm">{user.nickname}</span>
+            <div className="flex items-center gap-1">
+              <span className="text-[12px] font-semibold tracking-tight text-stone-800 sm:text-sm">
+                {user.nickname}
+              </span>
+              {user.role === "BROKER" && (
+                <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-600">
+                  중개사
+                </span>
+              )}
+            </div>
             <div className="h-4 w-px bg-stone-200 sm:h-5" />
             <button
               onClick={openGuide}
