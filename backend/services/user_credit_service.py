@@ -52,9 +52,10 @@ def recharge_user_remain_from_credit(db: Session, user_id: int):
     if user is None:
         return None
 
-    if 0 <= user.remain <= 1 and user.credit > 0:
-        user.credit -= 1
-        user.remain = 2
+    if 0 <= user.remain <= 1 and user.credit >= 1:
+        recharge_count = min(2 - user.remain, user.credit, 2)
+        user.credit -= recharge_count
+        user.remain += recharge_count
         db.commit()
         db.refresh(user)
 

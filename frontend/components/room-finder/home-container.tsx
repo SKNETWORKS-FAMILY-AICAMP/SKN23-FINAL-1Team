@@ -826,36 +826,36 @@ export function HomeContainer() {
   }, [isLoggedIn, user?.user_id]);
 
   // favoriteListings DB에서 로드 — listings와 완전히 분리, 지도 이동해도 유지
+  const [hasLoadedFavoriteListings, setHasLoadedFavoriteListings] =
+    useState(false);
+
   useEffect(() => {
-    if (!isLoggedIn || !user?.user_id) {
-      setFavoriteListings([]);
-      return;
-    }
-
-    const controller = new AbortController();
-    const loadFavoriteListings = async () => {
-      try {
-        const data = await fetchFavorites(user.user_id!, controller.signal);
-        const ids = data.items.map((item) => item.item_id);
-
-        const details = await Promise.all(
-          ids.map((id) =>
-            fetchRoomDetail(id, controller.signal)
-              .then((d) => mapItemToListing(d.item))
-              .catch(() => null),
-          ),
-        );
-
-        setFavoriteListings(details.filter(Boolean) as Listing[]);
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        console.error(error);
-      }
-    };
-
-    loadFavoriteListings();
-    return () => controller.abort();
+    if (isLoggedIn && user?.user_id) return;
+    setFavoriteListings([]);
+    setHasLoadedFavoriteListings(false);
   }, [isLoggedIn, user?.user_id]);
+
+  const loadFavoriteListings = useCallback(async () => {
+    if (!isLoggedIn || !user?.user_id || hasLoadedFavoriteListings) return;
+
+    try {
+      const data = await fetchFavorites(user.user_id);
+      const ids = data.items.map((item) => item.item_id);
+
+      const details = await Promise.all(
+        ids.map((id) =>
+          fetchRoomDetail(id)
+            .then((d) => mapItemToListing(d.item))
+            .catch(() => null),
+        ),
+      );
+
+      setFavoriteListings(details.filter(Boolean) as Listing[]);
+      setHasLoadedFavoriteListings(true);
+    } catch (error) {
+      console.error(error);
+    }
+  }, [hasLoadedFavoriteListings, isLoggedIn, user?.user_id]);
 
   const handleToggleFavorite = useCallback(
     async (listingId: number) => {
@@ -1187,6 +1187,7 @@ export function HomeContainer() {
               onSimilarListingsFound={handleSimilarListingsFound}
               aiRecommendedListings={recommendedListings ?? []}
               favoriteListings={favoriteListings}
+              onWishTabOpen={loadFavoriteListings}
               isLoggedIn={isLoggedIn}
               onWishClick={handleWishClick}
               sort={sort}
@@ -1266,6 +1267,7 @@ export function HomeContainer() {
                 onSimilarListingsFound={handleSimilarListingsFound}
                 aiRecommendedListings={recommendedListings ?? []}
                 favoriteListings={favoriteListings}
+                onWishTabOpen={loadFavoriteListings}
                 isLoggedIn={isLoggedIn}
                 onWishClick={handleWishClick}
                 onAIPhotoClick={(url) => setAiFullscreenUrl(url)}
