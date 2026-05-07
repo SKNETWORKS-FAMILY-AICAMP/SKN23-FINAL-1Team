@@ -125,7 +125,6 @@ export default function RegisterPage() {
       setActiveSection(SECTIONS[currentIndex + 1].id);
       return;
     }
-    // 마지막 섹션 → register-photo로 이동
     if (!isLoggedIn) { router.push("/login"); return; }
     if (!form.title || !form.address || !form.lat || !form.lng || !form.deposit) {
       setError("필수 항목(제목, 주소, 보증금)을 모두 입력해주세요.");
@@ -316,10 +315,10 @@ export default function RegisterPage() {
         );
       case "description":
         return (
-          <div>
+          <div className="h-full">
             <label className={labelClass}>상세 설명</label>
             <textarea name="description" value={form.description} onChange={handleChange}
-              className={`${inputClass} h-40 resize-none`}
+              className={`${inputClass} h-48 resize-none`}
               placeholder="매물에 대한 상세한 설명을 입력해주세요." />
           </div>
         );
@@ -327,9 +326,9 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)]">
-      <header className="border-b border-stone-200/80 bg-white/70 backdrop-blur-xl">
-        <div className="flex h-16 items-center px-4 md:px-6">
+    <div className="flex h-screen flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)]">
+      <header className="border-b border-stone-200/80 bg-white/70 backdrop-blur-xl flex-shrink-0">
+        <div className="flex h-16 items-center px-6">
           <button onClick={() => router.back()} className="text-sm font-semibold text-stone-500 hover:text-stone-800">
             ← 돌아가기
           </button>
@@ -338,60 +337,59 @@ export default function RegisterPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-4xl px-6 py-8">
-        <div className="flex items-stretch gap-6">
+      <div className="flex flex-1 gap-6 overflow-hidden p-6">
 
-          {/* 좌측 네비게이션 */}
-          <aside className="w-44 flex-shrink-0">
-            <nav className="sticky top-8 rounded-[20px] border border-stone-200/80 bg-white/80 p-3 h-full flex flex-col gap-1">
-              {SECTIONS.map(({ id, label }) => (
-                <button
-                  key={id}
-                  onClick={() => setActiveSection(id)}
-                  className={`flex w-full items-center rounded-xl px-4 py-3 text-sm font-semibold tracking-tight transition-all duration-200 ${
-                    activeSection === id
-                      ? "bg-[#A8896C] text-white"
-                      : "text-stone-500 hover:bg-stone-50 hover:text-stone-800"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
-          </aside>
+        {/* 좌측 네비게이션 */}
+        <aside className="w-44 flex-shrink-0">
+          <nav className="h-full rounded-[20px] border border-stone-200/80 bg-white/80 p-3 flex flex-col gap-1">
+            {SECTIONS.map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => setActiveSection(id)}
+                className={`flex w-full items-center rounded-xl px-4 py-3 text-sm font-semibold tracking-tight transition-all duration-200 ${
+                  activeSection === id
+                    ? "bg-[#A8896C] text-white"
+                    : "text-stone-500 hover:bg-stone-50 hover:text-stone-800"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+        </aside>
 
-          {/* 우측 콘텐츠 */}
-          <main className="flex-1 flex flex-col">
-            <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] flex-1 flex flex-col">
-              <p className="mb-5 text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400">
-                {SECTIONS.find((s) => s.id === activeSection)?.label}
-              </p>
-              <div className="flex-1">
-                {renderSection()}
-              </div>
+        {/* 우측 콘텐츠 */}
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <div className="h-full rounded-[20px] border border-stone-200/80 bg-white/80 p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] flex flex-col">
+            <p className="mb-5 flex-shrink-0 text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400">
+              {SECTIONS.find((s) => s.id === activeSection)?.label}
+            </p>
 
-              {error && <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-500">{error}</p>}
-
-              <div className="mt-6 pt-5 border-t border-stone-200/80 flex justify-between">
-                {currentIndex > 0 ? (
-                  <button
-                    onClick={() => setActiveSection(SECTIONS[currentIndex - 1].id)}
-                    className={`${btnBase} border-stone-200 bg-white text-stone-500 hover:border-stone-400`}
-                  >
-                    ← 이전
-                  </button>
-                ) : <div />}
-                <button
-                  onClick={handleNext}
-                  className={`${btnBase} bg-stone-800 border-stone-800 text-white hover:opacity-90`}
-                >
-                  {currentIndex === SECTIONS.length - 1 ? "사진 등록 →" : "다음 →"}
-                </button>
-              </div>
+            <div className="flex-1 overflow-y-auto">
+              {renderSection()}
             </div>
-          </main>
 
-        </div>
+            {error && <p className="mt-3 flex-shrink-0 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-500">{error}</p>}
+
+            <div className="mt-5 flex-shrink-0 pt-4 border-t border-stone-200/80 flex justify-between">
+              {currentIndex > 0 ? (
+                <button
+                  onClick={() => setActiveSection(SECTIONS[currentIndex - 1].id)}
+                  className={`${btnBase} border-stone-200 bg-white text-stone-500 hover:border-stone-400`}
+                >
+                  ← 이전
+                </button>
+              ) : <div />}
+              <button
+                onClick={handleNext}
+                className={`${btnBase} bg-stone-800 border-stone-800 text-white hover:opacity-90`}
+              >
+                {currentIndex === SECTIONS.length - 1 ? "사진 등록 →" : "다음 →"}
+              </button>
+            </div>
+          </div>
+        </main>
+
       </div>
     </div>
   );
