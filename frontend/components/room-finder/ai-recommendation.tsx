@@ -40,6 +40,7 @@ const QUICK_PROMPTS = [
 function buildSessionImages(
   images: GeneratedImageResponse[],
   promptHistory: string[],
+  promptTimestamps: string[],
   editCount: number,
 ): AIGeneratedImage[] {
   const composedPrompt = composePromptHistory(promptHistory);
@@ -48,8 +49,18 @@ function buildSessionImages(
     ...image,
     prompt: composedPrompt,
     promptHistory: [...promptHistory],
+    promptTimestamps: [...promptTimestamps],
     editCount,
   }));
+}
+
+function formatPromptTime(timestamp?: string) {
+  if (!timestamp) return "";
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
 }
 
 function logSimilarRoomScores(items: Listing[], context: string) {
@@ -98,6 +109,8 @@ export function AIRecommendation({
     () => generatedImages.find((image) => image.id === selectedImageId) ?? null,
     [generatedImages, selectedImageId],
   );
+  const promptHistory = generatedImages[0]?.promptHistory ?? [];
+  const promptTimestamps = generatedImages[0]?.promptTimestamps ?? [];
 
   const availableEditCount = Math.max(0, 2 - (selectedImage?.editCount ?? 0));
   const remainingEdits = Math.min(user?.remain ?? 0, availableEditCount);
@@ -107,7 +120,10 @@ export function AIRecommendation({
     setEditPrompt("");
   }, [selectedImageId]);
 
-  const requestGeneratedImages = async (nextPromptHistory: string[]) => {
+  const requestGeneratedImages = async (
+    nextPromptHistory: string[],
+    nextPromptTimestamps: string[],
+  ) => {
     console.log("[AIRecommendation] generate prompt:", nextPromptHistory[0]);
     const response = await fetch("/api/generate-image", {
       method: "POST",
@@ -150,7 +166,12 @@ export function AIRecommendation({
       }
 
       if (data?.status === "completed") {
-        return buildSessionImages(data.images ?? [], nextPromptHistory, 0);
+        return buildSessionImages(
+          data.images ?? [],
+          nextPromptHistory,
+          nextPromptTimestamps,
+          0,
+        );
       }
 
       if (data?.status === "failed") {
@@ -167,6 +188,7 @@ export function AIRecommendation({
     basePrompt: string,
     editRequest: string,
     nextPromptHistory: string[],
+    nextPromptTimestamps: string[],
     nextEditCount: number,
   ) => {
     console.log("[AIRecommendation] edit prompt:", editRequest);
@@ -220,6 +242,7 @@ export function AIRecommendation({
           images: buildSessionImages(
             data.images ?? [],
             nextPromptHistory,
+            nextPromptTimestamps,
             nextEditCount,
           ),
           remain: data.remain,
@@ -245,7 +268,10 @@ export function AIRecommendation({
     setShowGame(true);
 
     try {
-      const nextImages = await requestGeneratedImages([activePrompt]);
+      const nextImages = await requestGeneratedImages(
+        [activePrompt],
+        [new Date().toISOString()],
+      );
       replaceSession(nextImages);
     } catch (error) {
       console.error("Error generating images:", error);
@@ -285,6 +311,11 @@ export function AIRecommendation({
 
     try {
       const nextPromptHistory = [...selectedImage.promptHistory, trimmedEditPrompt];
+      const nextPromptTimestamps = [
+        ...(selectedImage.promptTimestamps ??
+          selectedImage.promptHistory.map(() => new Date().toISOString())),
+        new Date().toISOString(),
+      ];
       const nextEditCount = selectedImage.editCount + 1;
       const result = await requestEditedImage(
         selectedImage.url,
@@ -292,6 +323,7 @@ export function AIRecommendation({
         selectedImage.prompt,
         trimmedEditPrompt,
         nextPromptHistory,
+        nextPromptTimestamps,
         nextEditCount,
       );
 
@@ -535,7 +567,7 @@ export function AIRecommendation({
       {screen === "generated" && (
         <>
           <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="grid grid-cols-2 gap-2 pb-2">
+            <div className="grid grid-cols-2 gap-2">
               {generatedImages.map((image, index) => {
                 const isSelected = selectedImage?.id === image.id;
                 const isDimmed = selectedImage !== null && !isSelected;
@@ -587,6 +619,29 @@ export function AIRecommendation({
                 );
               })}
             </div>
+
+            {!selectedImage && promptHistory.length > 0 && (
+              <div className="flex flex-col gap-2 py-4">
+                {promptHistory.map((historyPrompt, index) => {
+                  const promptTime = formatPromptTime(promptTimestamps[index]);
+
+                  return (
+                    <div key={`${historyPrompt}-${index}`} className="flex justify-end">
+                      <div className="max-w-[86%] rounded-2xl rounded-br-md bg-stone-700 px-3 py-2 text-white shadow-sm">
+                        {promptTime && (
+                          <p className="mb-1 text-[10px] font-semibold text-stone-200">
+                            {promptTime}
+                          </p>
+                        )}
+                        <p className="whitespace-pre-wrap break-words text-xs leading-relaxed">
+                          {historyPrompt}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {!selectedImage && (

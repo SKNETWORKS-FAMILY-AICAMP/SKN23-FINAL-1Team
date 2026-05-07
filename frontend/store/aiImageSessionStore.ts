@@ -7,6 +7,7 @@ export type AIGeneratedImage = {
   url: string;
   prompt: string;
   promptHistory: string[];
+  promptTimestamps?: string[];
   editCount: number;
 };
 
