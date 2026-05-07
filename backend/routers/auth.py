@@ -35,5 +35,6 @@ def social_login(payload: SocialLoginRequest, db: Session = Depends(get_db)):
             "remain": user.remain,
             "credit": user.credit,
             "is_new": is_new,
+            "role": user.role,
         },
     }

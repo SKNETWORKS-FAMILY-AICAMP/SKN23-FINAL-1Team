@@ -38,21 +38,14 @@ const handler = NextAuth({
 
         let providerId = "";
         let email: string | null = user.email ?? null;
-        // let name: string | null = user.name ?? null;
         let image: string | null = user.image ?? null;
 
         if (socialType === "google") {
           providerId = String((profile as any).sub || "");
-          // name = (profile as any).name || user.name || null;
           image = (profile as any).picture || user.image || null;
         } else if (socialType === "kakao") {
           providerId = String((profile as any).id || "");
           email = (profile as any)?.kakao_account?.email || user.email || null;
-          // name =
-          //   (profile as any)?.kakao_account?.profile?.nickname ||
-          //   (profile as any)?.properties?.nickname ||
-          //   user.name ||
-          //   null;
           image =
             (profile as any)?.kakao_account?.profile?.profile_image_url ||
             user.image ||
@@ -60,11 +53,6 @@ const handler = NextAuth({
         } else if (socialType === "naver") {
           providerId = String((profile as any)?.response?.id || "");
           email = (profile as any)?.response?.email || user.email || null;
-          // name =[
-          //   (profile as any)?.response?.name ||
-          //   (profile as any)?.response?.nickname ||
-          //   user.name ||
-          //   null;]
           image =
             (profile as any)?.response?.profile_image || user.image || null;
         }
@@ -99,6 +87,7 @@ const handler = NextAuth({
         (user as any).provider_id = data.user.provider_id;
         (user as any).remain = data.user.remain;
         (user as any).credit = data.user.credit;
+        (user as any).role = data.user.role;  // 추가
         (user as any).backend_access_token = data.access_token;
         (user as any).backend_refresh_token = data.refresh_token;
         (user as any).profile_image = image;
@@ -146,6 +135,7 @@ const handler = NextAuth({
         token.provider_id = (user as any).provider_id;
         token.remain = (user as any).remain;
         token.credit = (user as any).credit;
+        token.role = (user as any).role;  // 추가
         token.backend_access_token = (user as any).backend_access_token;
         token.backend_refresh_token = (user as any).backend_refresh_token;
         token.image = (user as any).profile_image || token.image;
@@ -162,9 +152,9 @@ const handler = NextAuth({
         (session.user as any).provider_id = token.provider_id;
         (session.user as any).remain = token.remain;
         (session.user as any).credit = token.credit;
+        (session.user as any).role = token.role;  // 추가
         (session.user as any).backend_access_token = token.backend_access_token;
-        (session.user as any).backend_refresh_token =
-          token.backend_refresh_token;
+        (session.user as any).backend_refresh_token = token.backend_refresh_token;
         session.user.name = token.name as string;
         session.user.image = token.image as string;
         session.user.email = (token.email as string) || session.user.email;

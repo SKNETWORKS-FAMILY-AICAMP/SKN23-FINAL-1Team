@@ -8,6 +8,7 @@ type EditImageRequestBody = {
   sourceImageUrl?: string;
   basePrompt?: string;
   editPrompt?: string;
+  editCount?: number;
 };
 
 function parseJsonSafely(rawBody: string) {
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
       sourceImageUrl = "",
       basePrompt = "",
       editPrompt = "",
+      editCount = 0,
     } = (await request.json()) as EditImageRequestBody;
 
     if (!userId) {
@@ -59,6 +61,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (editCount >= 2) {
+      return NextResponse.json(
+        { error: "이미지 수정은 최대 2번까지 가능합니다." },
+        { status: 400 },
+      );
+    }
+
     const response = await fetch(
       buildBackendApiUrl(BACKEND_URL, "/edit-image-jobs"),
       {
@@ -69,6 +78,7 @@ export async function POST(request: NextRequest) {
           source_image_url: sourceImageUrl,
           base_prompt: basePrompt,
           edit_prompt: editPrompt,
+          edit_count: editCount,
           size: "1024x1024",
           n: 4,
         }),

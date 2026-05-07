@@ -23,6 +23,7 @@ interface ListingPanelProps {
   favoriteLoadingIds: number[];
   onToggleFavorite: (listingId: number) => void;
   favoriteListings?: Listing[];
+  onWishTabOpen?: () => void;
   isLoggedIn?: boolean;
   onWishClick?: (listing: Listing) => void;
   sort?: "latest" | "price_asc" | "price_desc";
@@ -49,6 +50,7 @@ export function ListingPanel({
   favoriteLoadingIds,
   onToggleFavorite,
   favoriteListings = [],
+  onWishTabOpen,
   isLoggedIn = false,
   onWishClick,
   sort = "latest",
@@ -137,6 +139,11 @@ export function ListingPanel({
       behavior: "smooth",
     });
   }, [currentTab, scrollResetKey]);
+
+  useEffect(() => {
+    if (currentTab !== "wish") return;
+    onWishTabOpen?.();
+  }, [currentTab, onWishTabOpen]);
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white md:bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">

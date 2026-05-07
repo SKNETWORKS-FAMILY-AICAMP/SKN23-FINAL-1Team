@@ -19,6 +19,7 @@ export default function AuthSessionSync() {
         provider_id: (session.user as any).provider_id,
         remain: (session.user as any).remain,
         credit: (session.user as any).credit,
+        role: (session.user as any).role,  // 추가
         image: session.user.image,
         backend_access_token: (session.user as any).backend_access_token,
         backend_refresh_token: (session.user as any).backend_refresh_token,
@@ -52,6 +53,7 @@ export default function AuthSessionSync() {
           provider_id: (session?.user as any).provider_id,
           remain: data.remain,
           credit: data.credit,
+          role: (session?.user as any).role,  // 추가
           image: session?.user?.image,
           backend_access_token: (session?.user as any).backend_access_token,
           backend_refresh_token: (session?.user as any).backend_refresh_token,

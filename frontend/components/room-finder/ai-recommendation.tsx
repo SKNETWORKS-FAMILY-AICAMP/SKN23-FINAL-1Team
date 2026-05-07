@@ -40,6 +40,7 @@ const QUICK_PROMPTS = [
 function buildSessionImages(
   images: GeneratedImageResponse[],
   promptHistory: string[],
+  promptTimestamps: string[],
   editCount: number,
 ): AIGeneratedImage[] {
   const composedPrompt = composePromptHistory(promptHistory);
@@ -48,8 +49,18 @@ function buildSessionImages(
     ...image,
     prompt: composedPrompt,
     promptHistory: [...promptHistory],
+    promptTimestamps: [...promptTimestamps],
     editCount,
   }));
+}
+
+function formatPromptTime(timestamp?: string) {
+  if (!timestamp) return "";
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
 }
 
 function logSimilarRoomScores(items: Listing[], context: string) {
@@ -98,14 +109,21 @@ export function AIRecommendation({
     () => generatedImages.find((image) => image.id === selectedImageId) ?? null,
     [generatedImages, selectedImageId],
   );
+  const promptHistory = generatedImages[0]?.promptHistory ?? [];
+  const promptTimestamps = generatedImages[0]?.promptTimestamps ?? [];
 
-  const remainingEdits = user?.remain ?? 0;
+  const availableEditCount = Math.max(0, 2 - (selectedImage?.editCount ?? 0));
+  const remainingEdits = Math.min(user?.remain ?? 0, availableEditCount);
+  const hasReachedImageEditLimit = availableEditCount <= 0;
 
   useEffect(() => {
     setEditPrompt("");
   }, [selectedImageId]);
 
-  const requestGeneratedImages = async (nextPromptHistory: string[]) => {
+  const requestGeneratedImages = async (
+    nextPromptHistory: string[],
+    nextPromptTimestamps: string[],
+  ) => {
     console.log("[AIRecommendation] generate prompt:", nextPromptHistory[0]);
     const response = await fetch("/api/generate-image", {
       method: "POST",
@@ -148,7 +166,12 @@ export function AIRecommendation({
       }
 
       if (data?.status === "completed") {
-        return buildSessionImages(data.images ?? [], nextPromptHistory, 0);
+        return buildSessionImages(
+          data.images ?? [],
+          nextPromptHistory,
+          nextPromptTimestamps,
+          0,
+        );
       }
 
       if (data?.status === "failed") {
@@ -165,6 +188,7 @@ export function AIRecommendation({
     basePrompt: string,
     editRequest: string,
     nextPromptHistory: string[],
+    nextPromptTimestamps: string[],
     nextEditCount: number,
   ) => {
     console.log("[AIRecommendation] edit prompt:", editRequest);
@@ -176,6 +200,7 @@ export function AIRecommendation({
         sourceImageUrl,
         basePrompt,
         editPrompt: editRequest,
+        editCount: selectedImage?.editCount ?? 0,
       }),
     });
 
@@ -217,6 +242,7 @@ export function AIRecommendation({
           images: buildSessionImages(
             data.images ?? [],
             nextPromptHistory,
+            nextPromptTimestamps,
             nextEditCount,
           ),
           remain: data.remain,
@@ -242,7 +268,10 @@ export function AIRecommendation({
     setShowGame(true);
 
     try {
-      const nextImages = await requestGeneratedImages([activePrompt]);
+      const nextImages = await requestGeneratedImages(
+        [activePrompt],
+        [new Date().toISOString()],
+      );
       replaceSession(nextImages);
     } catch (error) {
       console.error("Error generating images:", error);
@@ -272,12 +301,21 @@ export function AIRecommendation({
       setMessage("남은 수정 횟수가 없습니다.");
       return;
     }
+    if (selectedImage.editCount >= 2) {
+      setMessage("이미지 수정은 최대 2번까지 가능합니다.");
+      return;
+    }
 
     setIsEditing(true);
     setMessage("이미지를 수정하는 중입니다. 잠시만 기다려주세요.");
 
     try {
       const nextPromptHistory = [...selectedImage.promptHistory, trimmedEditPrompt];
+      const nextPromptTimestamps = [
+        ...(selectedImage.promptTimestamps ??
+          selectedImage.promptHistory.map(() => new Date().toISOString())),
+        new Date().toISOString(),
+      ];
       const nextEditCount = selectedImage.editCount + 1;
       const result = await requestEditedImage(
         selectedImage.url,
@@ -285,6 +323,7 @@ export function AIRecommendation({
         selectedImage.prompt,
         trimmedEditPrompt,
         nextPromptHistory,
+        nextPromptTimestamps,
         nextEditCount,
       );
 
@@ -315,6 +354,7 @@ export function AIRecommendation({
 
     setIsFindingSimilar(true);
     setMessage("");
+    const searchImageUrl = selectedImage.url;
 
     try {
       if (user?.user_id) {
@@ -323,7 +363,7 @@ export function AIRecommendation({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             user_id: user.user_id,
-            image_url: selectedImage.url,
+            image_url: searchImageUrl,
             prompt: selectedImage.prompt,
           }),
         });
@@ -347,7 +387,8 @@ export function AIRecommendation({
             offset: 0,
             limit: 4,
           }),
-          image_url: selectedImage.url,
+          image_url: searchImageUrl,
+          user_id: user?.user_id ?? null,
         }),
       });
 
@@ -356,14 +397,21 @@ export function AIRecommendation({
       }
 
       const data = await response.json();
+      if (typeof data.remain === "number" || typeof data.credit === "number") {
+        updateUser({
+          remain: typeof data.remain === "number" ? data.remain : user?.remain,
+          credit: typeof data.credit === "number" ? data.credit : user?.credit,
+        });
+      }
 
       if (data.items && data.items.length > 0) {
         const similarItems = data.items.map(mapSimilarItemToListing) as Listing[];
         logSimilarRoomScores(similarItems, "manual search");
-        onSimilarListingsFound(similarItems, selectedImage.url);
+        onSimilarListingsFound(similarItems, searchImageUrl);
       } else {
         onSimilarListingsFound(allListings.slice(0, 4));
       }
+      handleReset();
     } catch (error) {
       console.error("Error finding similar rooms:", error);
       setMessage(
@@ -519,7 +567,7 @@ export function AIRecommendation({
       {screen === "generated" && (
         <>
           <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="grid grid-cols-2 gap-2 pb-2">
+            <div className="grid grid-cols-2 gap-2">
               {generatedImages.map((image, index) => {
                 const isSelected = selectedImage?.id === image.id;
                 const isDimmed = selectedImage !== null && !isSelected;
@@ -571,6 +619,29 @@ export function AIRecommendation({
                 );
               })}
             </div>
+
+            {!selectedImage && promptHistory.length > 0 && (
+              <div className="flex flex-col gap-2 py-4">
+                {promptHistory.map((historyPrompt, index) => {
+                  const promptTime = formatPromptTime(promptTimestamps[index]);
+
+                  return (
+                    <div key={`${historyPrompt}-${index}`} className="flex justify-end">
+                      <div className="max-w-[86%] rounded-2xl rounded-br-md bg-stone-700 px-3 py-2 text-white shadow-sm">
+                        {promptTime && (
+                          <p className="mb-1 text-[10px] font-semibold text-stone-200">
+                            {promptTime}
+                          </p>
+                        )}
+                        <p className="whitespace-pre-wrap break-words text-xs leading-relaxed">
+                          {historyPrompt}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {!selectedImage && (
@@ -623,16 +694,23 @@ export function AIRecommendation({
                     onChange={(e) => setEditPrompt(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleEdit()}
                     placeholder={
-                      remainingEdits > 0
+                      remainingEdits > 0 && !hasReachedImageEditLimit
                         ? "변경사항을 입력하세요..."
-                        : "남은 수정 횟수가 없습니다"
+                        : hasReachedImageEditLimit
+                          ? "이미지 수정은 최대 2번까지 가능합니다"
+                          : "남은 수정 횟수가 없습니다"
                     }
-                    disabled={remainingEdits === 0}
+                    disabled={remainingEdits === 0 || hasReachedImageEditLimit}
                     className="flex-1 rounded-lg border border-[#d6cfc8] bg-white px-3 py-2 text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400/40 disabled:cursor-not-allowed disabled:bg-stone-100"
                   />
                   <button
                     onClick={handleEdit}
-                    disabled={isEditing || !editPrompt.trim() || remainingEdits === 0}
+                    disabled={
+                      isEditing ||
+                      !editPrompt.trim() ||
+                      remainingEdits === 0 ||
+                      hasReachedImageEditLimit
+                    }
                     className="whitespace-nowrap rounded-lg bg-stone-700 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isEditing ? (

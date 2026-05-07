@@ -187,6 +187,7 @@ export function HomeContainer() {
 
   const user = useAuthStore((state) => state.user);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const updateUser = useAuthStore((state) => state.updateUser);
   const addRecent = useRecentStore((state) => state.addRecent);
   const canFindSimilarRooms = Boolean(
     mapBounds && mapBounds.level <= MAX_SIMILAR_SEARCH_LEVEL,
@@ -384,6 +385,7 @@ export function HomeContainer() {
               excludeItemId: listingId,
             }),
             image_url: imageUrl,
+            user_id: user?.user_id ?? null,
             source_image_id: imageId ?? null,
           }),
         });
@@ -396,6 +398,12 @@ export function HomeContainer() {
         }
 
         const data = await response.json();
+        if (typeof data.remain === "number" || typeof data.credit === "number") {
+          updateUser({
+            remain: typeof data.remain === "number" ? data.remain : user?.remain,
+            credit: typeof data.credit === "number" ? data.credit : user?.credit,
+          });
+        }
         const similar = Array.isArray(data.items)
           ? data.items.map(mapSimilarItemToListing).slice(0, 3)
           : [];
@@ -418,6 +426,10 @@ export function HomeContainer() {
       handleFindSimilarBlocked,
       similarSearchParams,
       showToast,
+      updateUser,
+      user?.credit,
+      user?.remain,
+      user?.user_id,
     ],
   );
 
@@ -467,6 +479,7 @@ export function HomeContainer() {
               limit: 4,
             }),
             image_url: similarImageUrl,
+            user_id: user?.user_id ?? null,
           }),
           signal: controller.signal,
         });
@@ -476,6 +489,12 @@ export function HomeContainer() {
         }
 
         const data = await response.json();
+        if (typeof data.remain === "number" || typeof data.credit === "number") {
+          updateUser({
+            remain: typeof data.remain === "number" ? data.remain : user?.remain,
+            credit: typeof data.credit === "number" ? data.credit : user?.credit,
+          });
+        }
         const similar = Array.isArray(data.items)
           ? data.items.map(mapSimilarItemToListing).slice(0, 4)
           : [];
@@ -503,6 +522,10 @@ export function HomeContainer() {
     mapBounds?.source,
     similarImageUrl,
     similarSearchParams,
+    updateUser,
+    user?.credit,
+    user?.remain,
+    user?.user_id,
   ]);
 
   const handleInitialLocationResolved = useCallback(() => {
@@ -803,36 +826,36 @@ export function HomeContainer() {
   }, [isLoggedIn, user?.user_id]);
 
   // favoriteListings DB에서 로드 — listings와 완전히 분리, 지도 이동해도 유지
+  const [hasLoadedFavoriteListings, setHasLoadedFavoriteListings] =
+    useState(false);
+
   useEffect(() => {
-    if (!isLoggedIn || !user?.user_id) {
-      setFavoriteListings([]);
-      return;
-    }
-
-    const controller = new AbortController();
-    const loadFavoriteListings = async () => {
-      try {
-        const data = await fetchFavorites(user.user_id!, controller.signal);
-        const ids = data.items.map((item) => item.item_id);
-
-        const details = await Promise.all(
-          ids.map((id) =>
-            fetchRoomDetail(id, controller.signal)
-              .then((d) => mapItemToListing(d.item))
-              .catch(() => null),
-          ),
-        );
-
-        setFavoriteListings(details.filter(Boolean) as Listing[]);
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        console.error(error);
-      }
-    };
-
-    loadFavoriteListings();
-    return () => controller.abort();
+    if (isLoggedIn && user?.user_id) return;
+    setFavoriteListings([]);
+    setHasLoadedFavoriteListings(false);
   }, [isLoggedIn, user?.user_id]);
+
+  const loadFavoriteListings = useCallback(async () => {
+    if (!isLoggedIn || !user?.user_id || hasLoadedFavoriteListings) return;
+
+    try {
+      const data = await fetchFavorites(user.user_id);
+      const ids = data.items.map((item) => item.item_id);
+
+      const details = await Promise.all(
+        ids.map((id) =>
+          fetchRoomDetail(id)
+            .then((d) => mapItemToListing(d.item))
+            .catch(() => null),
+        ),
+      );
+
+      setFavoriteListings(details.filter(Boolean) as Listing[]);
+      setHasLoadedFavoriteListings(true);
+    } catch (error) {
+      console.error(error);
+    }
+  }, [hasLoadedFavoriteListings, isLoggedIn, user?.user_id]);
 
   const handleToggleFavorite = useCallback(
     async (listingId: number) => {
@@ -1164,6 +1187,7 @@ export function HomeContainer() {
               onSimilarListingsFound={handleSimilarListingsFound}
               aiRecommendedListings={recommendedListings ?? []}
               favoriteListings={favoriteListings}
+              onWishTabOpen={loadFavoriteListings}
               isLoggedIn={isLoggedIn}
               onWishClick={handleWishClick}
               sort={sort}
@@ -1243,6 +1267,7 @@ export function HomeContainer() {
                 onSimilarListingsFound={handleSimilarListingsFound}
                 aiRecommendedListings={recommendedListings ?? []}
                 favoriteListings={favoriteListings}
+                onWishTabOpen={loadFavoriteListings}
                 isLoggedIn={isLoggedIn}
                 onWishClick={handleWishClick}
                 onAIPhotoClick={(url) => setAiFullscreenUrl(url)}

@@ -151,7 +151,9 @@ export function ListingDetailPanel({
         ? [listing.images[0]]
         : [];
 
-    return rawUrls.filter((url): url is string => isValidImageSrc(url));
+    return rawUrls
+      .filter((url): url is string => isValidImageSrc(url))
+      .map((url) => url.startsWith("/api/images/") ? `/backend${url}` : url);
   }, [detail?.images, listing?.images]);
 
   const similarSearchImageUrls = useMemo(() => {

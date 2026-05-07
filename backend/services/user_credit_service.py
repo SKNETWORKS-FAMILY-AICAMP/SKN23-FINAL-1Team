@@ -32,3 +32,31 @@ def decrement_user_remain(db: Session, user_id: int):
     db.commit()
     db.refresh(user)
     return user
+
+
+def ensure_user_has_edit_remain(db: Session, user_id: int):
+    user = get_user_by_id(db, user_id)
+
+    if user is None:
+        return None
+
+    if user.remain <= 0:
+        return False
+
+    return user
+
+
+def recharge_user_remain_from_credit(db: Session, user_id: int):
+    user = get_user_by_id(db, user_id)
+
+    if user is None:
+        return None
+
+    if 0 <= user.remain <= 1 and user.credit >= 1:
+        recharge_count = min(2 - user.remain, user.credit, 2)
+        user.credit -= recharge_count
+        user.remain += recharge_count
+        db.commit()
+        db.refresh(user)
+
+    return user
