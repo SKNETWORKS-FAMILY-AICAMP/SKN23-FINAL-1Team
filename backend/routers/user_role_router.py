@@ -10,7 +10,7 @@ from models.user import User
 
 router = APIRouter(prefix="/user-role", tags=["user-role"])
 
-PHONE_PATTERN = re.compile(r"^010-\d{4}-\d{4}$")
+PHONE_PATTERN = re.compile(r"^(010-\d{4}-\d{4}|0\d{1,2}-\d{3,4}-\d{4})$")
 
 
 class BrokerRegisterRequest(BaseModel):
