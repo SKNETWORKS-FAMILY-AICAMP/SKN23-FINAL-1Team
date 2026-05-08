@@ -117,8 +117,17 @@ export default function RegisterPage() {
       new window.daum.Postcode({
         oncomplete: (data: any) => {
           const address = data.roadAddress || data.jibunAddress;
-          setForm((prev) => ({ ...prev, address, lat: data.y, lng: data.x }));
+          setForm((prev) => ({ ...prev, address }));
           setErrors((prev) => { const n = { ...prev }; delete n.address; return n; });
+          fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`, {
+            headers: { Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}` },
+          })
+            .then((r) => r.json())
+            .then((d) => {
+              const doc = d.documents?.[0];
+              if (doc) setForm((prev) => ({ ...prev, lat: doc.y, lng: doc.x }));
+            })
+            .catch(console.error);
         },
       }).open();
     };
@@ -149,7 +158,6 @@ export default function RegisterPage() {
       return;
     }
 
-    // 마지막 섹션 → 전체 검사
     const allErrors: Record<string, string> = {};
     const basicErrors = validateSection("basic");
     const txErrors = validateSection("transaction");
@@ -157,20 +165,29 @@ export default function RegisterPage() {
 
     if (Object.keys(allErrors).length > 0) {
       setErrors(allErrors);
-      if (basicErrors && Object.keys(basicErrors).length > 0) setActiveSection("basic");
+      if (Object.keys(basicErrors).length > 0) setActiveSection("basic");
       else setActiveSection("transaction");
       return;
     }
 
     if (!isLoggedIn) { router.push("/login"); return; }
 
+    const lat = parseFloat(form.lat);
+    const lng = parseFloat(form.lng);
+
+    if (isNaN(lat) || isNaN(lng)) {
+      setErrors({ address: "주소를 다시 검색해주세요." });
+      setActiveSection("basic");
+      return;
+    }
+
     const fullAddress = form.address_detail ? `${form.address} ${form.address_detail}` : form.address;
     setRegisterForm({
       user_id: user?.user_id,
       title: form.title,
       address: fullAddress,
-      lat: parseFloat(form.lat),
-      lng: parseFloat(form.lng),
+      lat,
+      lng,
       transaction_type: form.transaction_type,
       deposit: parseInt(form.deposit),
       rent: form.rent ? parseInt(form.rent) : 0,
