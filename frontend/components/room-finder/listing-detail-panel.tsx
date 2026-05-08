@@ -300,7 +300,6 @@ export function ListingDetailPanel({
                         />
 
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
-
                       </div>
                     </CarouselItem>
                   ))}
@@ -494,14 +493,21 @@ export function ListingDetailPanel({
                       </span>
 
                       <div className="flex items-center gap-3">
-                        <div className="inline-flex overflow-hidden rounded-xl border border-stone-200 bg-stone-50 p-1 shadow-inner">
+                        <div className="relative inline-grid grid-cols-2 gap-4 rounded-xl border border-stone-200 bg-stone-50 p-1 shadow-inner">
+                          <span
+                            className={`absolute bottom-1 top-1 w-[calc(50%-0.625rem)] rounded-lg bg-stone-900 shadow-sm transition-transform duration-200 ease-out ${
+                              areaUnit === "pyeong"
+                                ? "translate-x-[calc(100%+1rem)]"
+                                : "translate-x-0"
+                            }`}
+                          />
                           <button
                             type="button"
                             onClick={() => setAreaUnit("m2")}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer scale-110 ${
+                            className={`relative z-10 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer scale-110 ${
                               areaUnit === "m2"
-                                ? "bg-stone-900 text-white shadow-sm"
-                                : "bg-transparent text-stone-600 hover:bg-white"
+                                ? "text-white"
+                                : "text-stone-600 hover:text-stone-900"
                             }`}
                           >
                             m²
@@ -509,10 +515,10 @@ export function ListingDetailPanel({
                           <button
                             type="button"
                             onClick={() => setAreaUnit("pyeong")}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer scale-110 ${
+                            className={`relative z-10 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer scale-110 ${
                               areaUnit === "pyeong"
-                                ? "bg-stone-900 text-white shadow-sm"
-                                : "bg-transparent text-stone-600 hover:bg-white"
+                                ? "text-white"
+                                : "text-stone-600 hover:text-stone-900"
                             }`}
                           >
                             평
