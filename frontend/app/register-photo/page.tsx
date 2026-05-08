@@ -40,6 +40,15 @@ export default function RegisterPhotoPage() {
     }
   }, [isDone, router, clearForm]);
 
+  useEffect(() => {
+    if (isDone) {
+      const timer = setTimeout(() => {
+        router.push("/home");
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isDone, router]);
+
   const addPhotos = useCallback((files: FileList | null) => {
     if (!files) return;
     const newPhotos = Array.from(files)
