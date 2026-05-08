@@ -23,10 +23,22 @@ export default function RegisterPhotoPage() {
   const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
   useEffect(() => {
-    if (!form) {
-      router.push("/register");
-    }
+    const timer = setTimeout(() => {
+      if (!form) {
+        router.push("/register");
+      }
+    }, 500);
+    return () => clearTimeout(timer);
   }, [form, router]);
+
+  useEffect(() => {
+    if (isDone) {
+      const timer = setTimeout(() => {
+        router.push("/home");
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isDone, router]);
 
   const addPhotos = useCallback((files: FileList | null) => {
     if (!files) return;
@@ -119,7 +131,11 @@ export default function RegisterPhotoPage() {
     }
   };
 
-  if (!form) return null;
+  if (!form) return (
+    <div className="flex min-h-screen items-center justify-center">
+      <p className="text-sm text-stone-400">불러오는 중...</p>
+    </div>
+  );
 
   if (isDone) {
     return (
@@ -131,20 +147,7 @@ export default function RegisterPhotoPage() {
           <div className="text-center">
             <p className="text-lg font-bold text-stone-900">매물이 등록되었습니다!</p>
             <p className="mt-1 text-sm text-stone-400">매물번호 {registeredItemId}</p>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => router.push("/mypage")}
-              className="rounded-xl border border-stone-200 bg-white px-5 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 cursor-pointer"
-            >
-              매물 관리
-            </button>
-            <button
-              onClick={() => router.push("/home")}
-              className="rounded-xl bg-stone-800 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 cursor-pointer"
-            >
-              메인으로
-            </button>
+            <p className="mt-2 text-xs text-stone-300">잠시 후 메인페이지로 이동합니다...</p>
           </div>
         </div>
       </div>
