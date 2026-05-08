@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 import NextAuthProvider from "@/components/common/NextAuthProvider";
 import AuthSessionSync from "@/components/common/AuthSessionSync";
+import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
   title: "방찾기 - AI 기반 원룸/투룸 매물 검색",
@@ -45,6 +46,7 @@ export default function RootLayout({
           <AuthSessionSync />
           {children}
         </NextAuthProvider>
+        <Toaster />
       </body>
 
       <Script
