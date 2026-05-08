@@ -45,6 +45,7 @@ const labelClass = "mb-1 block text-xs font-semibold text-stone-500";
 const tagBase = "rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-150 cursor-pointer";
 const tagActive = "border-[#A8896C] bg-[#A8896C] text-white";
 const tagInactive = "border-stone-200 bg-white text-stone-500 hover:border-stone-400";
+const nextBtn = "cursor-pointer rounded-full bg-stone-800 border border-stone-800 px-5 py-2 text-xs font-semibold text-white hover:opacity-90";
 
 type SectionId = "basic" | "transaction" | "room" | "options" | "description";
 
@@ -84,7 +85,7 @@ export default function RegisterPage() {
     room_type: "오픈형원룸",
     floor: "",
     all_floors: "",
-    pyeong: "", // 평수 입력
+    pyeong: "",
     bathroom_count: "",
     room_direction: "",
     residence_type: "",
@@ -113,8 +114,17 @@ export default function RegisterPage() {
       new window.daum.Postcode({
         oncomplete: (data: any) => {
           const address = data.roadAddress || data.jibunAddress;
-          setForm((prev) => ({ ...prev, address, lat: data.y, lng: data.x }));
+          setForm((prev) => ({ ...prev, address }));
           setErrors((prev) => { const n = { ...prev }; delete n.address; return n; });
+          fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`, {
+            headers: { Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}` },
+          })
+            .then((r) => r.json())
+            .then((d) => {
+              const doc = d.documents?.[0];
+              if (doc) setForm((prev) => ({ ...prev, lat: doc.y, lng: doc.x }));
+            })
+            .catch(console.error);
         },
       }).open();
     };
@@ -167,10 +177,9 @@ export default function RegisterPage() {
       return;
     }
 
-    // 평수 → m² 변환
     const area_m2 = form.pyeong ? parseFloat(form.pyeong) * 3.3058 : null;
-
     const fullAddress = form.address_detail ? `${form.address} ${form.address_detail}` : form.address;
+
     setRegisterForm({
       user_id: user?.user_id,
       title: form.title,
@@ -243,10 +252,7 @@ export default function RegisterPage() {
                 className={`${inputNormal} mt-2`} placeholder="예) 101동 1234호 (상세주소)" />
             </div>
             <div className="flex justify-end pt-2">
-              <button onClick={() => handleSectionNext("basic")}
-                className="cursor-pointer rounded-full bg-stone-800 border border-stone-800 px-5 py-2 text-xs font-semibold text-white hover:opacity-90">
-                다음 →
-              </button>
+              <button onClick={() => handleSectionNext("basic")} className={nextBtn}>다음 →</button>
             </div>
           </div>
         );
@@ -288,10 +294,7 @@ export default function RegisterPage() {
                 className={inputNormal} placeholder="예) 5 (없으면 0)" type="number" />
             </div>
             <div className="flex justify-end pt-2">
-              <button onClick={() => handleSectionNext("transaction")}
-                className="cursor-pointer rounded-full bg-stone-800 border border-stone-800 px-5 py-2 text-xs font-semibold text-white hover:opacity-90">
-                다음 →
-              </button>
+              <button onClick={() => handleSectionNext("transaction")} className={nextBtn}>다음 →</button>
             </div>
           </div>
         );
@@ -354,10 +357,7 @@ export default function RegisterPage() {
               <input name="movein_date" value={form.movein_date} onChange={handleChange} className={`${inputNormal} cursor-pointer`} type="date" />
             </div>
             <div className="flex justify-end pt-2">
-              <button onClick={() => handleSectionNext("room")}
-                className="cursor-pointer rounded-full bg-stone-800 border border-stone-800 px-5 py-2 text-xs font-semibold text-white hover:opacity-90">
-                다음 →
-              </button>
+              <button onClick={() => handleSectionNext("room")} className={nextBtn}>다음 →</button>
             </div>
           </div>
         );
@@ -407,10 +407,7 @@ export default function RegisterPage() {
               </div>
             </div>
             <div className="flex justify-end pt-2">
-              <button onClick={() => handleSectionNext("options")}
-                className="cursor-pointer rounded-full bg-stone-800 border border-stone-800 px-5 py-2 text-xs font-semibold text-white hover:opacity-90">
-                다음 →
-              </button>
+              <button onClick={() => handleSectionNext("options")} className={nextBtn}>다음 →</button>
             </div>
           </div>
         );
@@ -424,8 +421,7 @@ export default function RegisterPage() {
                 placeholder="예) 채광이 좋고 교통이 편리한 원룸입니다. 풀옵션으로 입주 즉시 가능합니다." />
             </div>
             <div className="flex justify-end pt-2">
-              <button onClick={handleSubmit}
-                className="cursor-pointer rounded-full bg-[#A8896C] border border-[#A8896C] px-5 py-2 text-xs font-semibold text-white hover:opacity-90">
+              <button onClick={handleSubmit} className={nextBtn}>
                 사진 등록 →
               </button>
             </div>
@@ -457,12 +453,12 @@ export default function RegisterPage() {
                 isOpen ? "border-[#A8896C]/40" : "border-stone-200/80"
               }`}>
               <button
-                onClick={() => setOpenSection(isOpen ? section.id : section.id)}
+                onClick={() => setOpenSection(section.id)}
                 className="flex w-full items-center justify-between px-6 py-4 cursor-pointer"
               >
                 <div className="flex items-center gap-3">
                   {isCompleted && !isOpen ? (
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#A8896C]">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
                       <Check className="h-3.5 w-3.5 text-white" />
                     </div>
                   ) : (
@@ -472,11 +468,11 @@ export default function RegisterPage() {
                       {SECTIONS.findIndex((s) => s.id === section.id) + 1}
                     </div>
                   )}
-                  <span className={`text-sm font-semibold ${isOpen ? "text-stone-900" : isCompleted ? "text-[#A8896C]" : "text-stone-500"}`}>
+                  <span className={`text-sm font-semibold ${isOpen ? "text-stone-900" : isCompleted ? "text-green-500" : "text-stone-500"}`}>
                     {section.label}
                   </span>
                   {isCompleted && !isOpen && (
-                    <span className="text-xs text-[#A8896C]">완료</span>
+                    <span className="text-xs text-green-500">완료</span>
                   )}
                 </div>
                 {isOpen ? (
