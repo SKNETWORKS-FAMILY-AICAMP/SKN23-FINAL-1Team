@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X, CheckCircle } from "lucide-react";
 import { useRegisterStore } from "@/store/registerStore";
@@ -21,6 +21,12 @@ export default function RegisterPhotoPage() {
   const [registeredItemId, setRegisteredItemId] = useState<number | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+  useEffect(() => {
+    if (!form) {
+      router.push("/register");
+    }
+  }, [form, router]);
 
   const addPhotos = useCallback((files: FileList | null) => {
     if (!files) return;
@@ -50,7 +56,7 @@ export default function RegisterPhotoPage() {
 
   const handleSubmit = async () => {
     if (!form) {
-      setError("매물 정보가 없습니다. 다시 시도해주세요.");
+      router.push("/register");
       return;
     }
 
@@ -58,7 +64,6 @@ export default function RegisterPhotoPage() {
     setError(null);
 
     try {
-      // 1. 매물 먼저 등록 → item_id 받아오기
       const registerRes = await fetch(`${apiUrl}/api/rooms/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -73,7 +78,6 @@ export default function RegisterPhotoPage() {
 
       const { item_id } = await registerRes.json();
 
-      // 2. item_id로 사진 S3 업로드
       const uploadedUrls: string[] = [];
       for (let idx = 0; idx < photos.length; idx++) {
         const photo = photos[idx];
@@ -93,7 +97,6 @@ export default function RegisterPhotoPage() {
         }
       }
 
-      // 3. 업로드된 이미지 URL 매물에 업데이트
       if (uploadedUrls.length > 0) {
         await fetch(`${apiUrl}/api/rooms/update-images`, {
           method: "PATCH",
@@ -116,6 +119,8 @@ export default function RegisterPhotoPage() {
     }
   };
 
+  if (!form) return null;
+
   if (isDone) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)]">
@@ -130,13 +135,13 @@ export default function RegisterPhotoPage() {
           <div className="flex gap-3">
             <button
               onClick={() => router.push("/mypage")}
-              className="rounded-xl border border-stone-200 bg-white px-5 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50"
+              className="rounded-xl border border-stone-200 bg-white px-5 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 cursor-pointer"
             >
               매물 관리
             </button>
             <button
               onClick={() => router.push("/home")}
-              className="rounded-xl bg-stone-800 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+              className="rounded-xl bg-stone-800 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 cursor-pointer"
             >
               메인으로
             </button>
@@ -151,7 +156,7 @@ export default function RegisterPhotoPage() {
       <div className="mx-auto max-w-lg px-4 py-8">
         <button
           onClick={() => router.back()}
-          className="mb-6 flex items-center gap-2 text-sm font-semibold text-stone-500 hover:text-stone-800"
+          className="mb-6 flex items-center gap-2 text-sm font-semibold text-stone-500 hover:text-stone-800 cursor-pointer"
         >
           ← 이전
         </button>
@@ -197,7 +202,7 @@ export default function RegisterPhotoPage() {
                     <img src={photo.preview} alt="" className="h-full w-full object-cover" />
                     <button
                       onClick={(e) => { e.stopPropagation(); removePhoto(idx); }}
-                      className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+                      className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 cursor-pointer"
                     >
                       <X className="h-3 w-3" />
                     </button>
