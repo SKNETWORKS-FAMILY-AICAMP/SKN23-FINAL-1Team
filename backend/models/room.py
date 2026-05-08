@@ -24,7 +24,6 @@ class Room(Base):
     area_m2: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     lat: Mapped[float] = mapped_column(Numeric(10, 8), nullable=False)
     lng: Mapped[float] = mapped_column(Numeric(11, 8), nullable=False)
-    geom: Mapped[str | None] = mapped_column(Text, nullable=True)  # 추가
     geohash: Mapped[str | None] = mapped_column(String(20), nullable=True)
     image_thumbnail: Mapped[str | None] = mapped_column(Text, nullable=True)
     first_crawled_at: Mapped[str | None] = mapped_column(TIMESTAMP, nullable=True)
