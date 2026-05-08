@@ -10,7 +10,6 @@ export default function RegisterPhotoPage() {
   const router = useRouter();
   const form = useRegisterStore((state) => state.form);
   const clearForm = useRegisterStore((state) => state.clearForm);
-  const user = useAuthStore((state) => state.user);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [photos, setPhotos] = useState<{ file: File; preview: string }[]>([]);
@@ -24,21 +23,22 @@ export default function RegisterPhotoPage() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (!form) {
+      if (!form && !isDone) {
         router.push("/register");
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [form, router]);
+  }, [form, isDone, router]);
 
   useEffect(() => {
     if (isDone) {
       const timer = setTimeout(() => {
+        clearForm();
         router.push("/home");
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [isDone, router]);
+  }, [isDone, router, clearForm]);
 
   const addPhotos = useCallback((files: FileList | null) => {
     if (!files) return;
@@ -123,7 +123,6 @@ export default function RegisterPhotoPage() {
 
       setRegisteredItemId(item_id);
       setIsDone(true);
-      clearForm();
     } catch {
       setError("오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
@@ -131,7 +130,7 @@ export default function RegisterPhotoPage() {
     }
   };
 
-  if (!form) return (
+  if (!form && !isDone) return (
     <div className="flex min-h-screen items-center justify-center">
       <p className="text-sm text-stone-400">불러오는 중...</p>
     </div>

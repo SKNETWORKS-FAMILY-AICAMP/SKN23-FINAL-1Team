@@ -222,6 +222,8 @@ def get_my_rooms(user_id: int, db: Session = Depends(get_db)):
             "status": r.status,
             "image_thumbnail": r.image_thumbnail,
             "service_type": r.service_type,
+            "lat": float(r.lat) if r.lat else None,
+            "lng": float(r.lng) if r.lng else None,
         }
         for r in rooms
     ]
