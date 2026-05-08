@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   MapPin,
   Building2,
-  CreditCard,
   Ruler,
   X,
   Car,
@@ -252,14 +251,22 @@ export function ListingDetailPanel({
                 {currentItem?.address || listing.address || ""}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-8 w-8 cursor-pointer flex-shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white/90 text-stone-500 transition-all duration-200 hover:bg-stone-100 hover:text-stone-700"
-              aria-label="목록으로 돌아가기"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex flex-shrink-0 items-center gap-2">
+              <FavoriteButton
+                isFavorite={isFavorite}
+                disabled={isFavoriteLoading || !listingId}
+                onClick={() => onToggleFavorite(listingId)}
+                className="h-8 w-8 border-stone-200 bg-white/90 shadow-none hover:bg-stone-100"
+              />
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-stone-200 bg-white/90 text-stone-500 transition-all duration-200 hover:bg-stone-100 hover:text-stone-700"
+                aria-label="목록으로 돌아가기"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -300,7 +307,6 @@ export function ListingDetailPanel({
                         />
 
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
-
                       </div>
                     </CarouselItem>
                   ))}
@@ -494,14 +500,21 @@ export function ListingDetailPanel({
                       </span>
 
                       <div className="flex items-center gap-3">
-                        <div className="inline-flex overflow-hidden rounded-xl border border-stone-200 bg-stone-50 p-1 shadow-inner">
+                        <div className="relative inline-grid grid-cols-2 gap-4 rounded-xl border border-stone-200 bg-stone-50 p-1 shadow-inner">
+                          <span
+                            className={`absolute bottom-1 top-1 w-[calc(50%-0.625rem)] rounded-lg bg-stone-900 shadow-sm transition-transform duration-200 ease-out ${
+                              areaUnit === "pyeong"
+                                ? "translate-x-[calc(100%+1rem)]"
+                                : "translate-x-0"
+                            }`}
+                          />
                           <button
                             type="button"
                             onClick={() => setAreaUnit("m2")}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer scale-110 ${
+                            className={`relative z-10 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer scale-110 ${
                               areaUnit === "m2"
-                                ? "bg-stone-900 text-white shadow-sm"
-                                : "bg-transparent text-stone-600 hover:bg-white"
+                                ? "text-white"
+                                : "text-stone-600 hover:text-stone-900"
                             }`}
                           >
                             m²
@@ -509,10 +522,10 @@ export function ListingDetailPanel({
                           <button
                             type="button"
                             onClick={() => setAreaUnit("pyeong")}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer scale-110 ${
+                            className={`relative z-10 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer scale-110 ${
                               areaUnit === "pyeong"
-                                ? "bg-stone-900 text-white shadow-sm"
-                                : "bg-transparent text-stone-600 hover:bg-white"
+                                ? "text-white"
+                                : "text-stone-600 hover:text-stone-900"
                             }`}
                           >
                             평

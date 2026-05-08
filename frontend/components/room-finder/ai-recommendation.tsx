@@ -9,6 +9,7 @@ import type { Listing } from "./map-view";
 import { useAuthStore } from "@/store/authStore";
 import {
   composePromptHistory,
+  type AIImageGroup,
   type AIGeneratedImage,
   useAIImageSessionStore,
 } from "@/store/aiImageSessionStore";
@@ -20,7 +21,7 @@ interface AIRecommendationProps {
   allListings: Listing[];
   similarSearchParams?: RoomSearchParams;
   compact?: boolean;
-  onPhotoClick?: (url: string) => void;
+  onPhotoClick?: (images: string[], index: number) => void;
   canFindSimilarRooms?: boolean;
   onFindSimilarBlocked?: () => void;
 }
@@ -90,8 +91,10 @@ export function AIRecommendation({
   const hasHydrated = useAIImageSessionStore((state) => state.hasHydrated);
   const screen = useAIImageSessionStore((state) => state.screen);
   const generatedImages = useAIImageSessionStore((state) => state.generatedImages);
+  const imageGroups = useAIImageSessionStore((state) => state.imageGroups);
   const selectedImageId = useAIImageSessionStore((state) => state.selectedImageId);
   const replaceSession = useAIImageSessionStore((state) => state.replaceSession);
+  const appendSession = useAIImageSessionStore((state) => state.appendSession);
   const setSelectedImageId = useAIImageSessionStore(
     (state) => state.setSelectedImageId,
   );
@@ -286,6 +289,8 @@ export function AIRecommendation({
   };
 
   const handleSelectImage = (imageId: string) => {
+    if (!generatedImages.some((image) => image.id === imageId)) return;
+
     setSelectedImageId(selectedImageId === imageId ? null : imageId);
   };
 
@@ -327,7 +332,7 @@ export function AIRecommendation({
         nextEditCount,
       );
 
-      replaceSession(result.images);
+      appendSession(result.images, selectedImage.id);
       updateUser({
         remain: result.remain ?? user.remain,
         credit: result.credit ?? user.credit,
@@ -430,6 +435,99 @@ export function AIRecommendation({
     setPrompt("");
     setEditPrompt("");
     setMessage("");
+  };
+
+  const renderImageGroup = (group: AIImageGroup) => {
+    const activeGroupId = imageGroups[imageGroups.length - 1]?.id ?? group.id;
+    const isActiveGroup = group.id === activeGroupId;
+    const promptTime = formatPromptTime(group.timestamp);
+
+    return (
+      <div key={group.id} className="flex flex-col gap-2 pb-4">
+        <div className="flex justify-end">
+          <div className="max-w-[86%] rounded-2xl rounded-br-md bg-stone-700 px-3 py-2 text-white shadow-sm">
+            {promptTime && (
+              <p className="mb-1 text-[10px] font-semibold text-stone-200">
+                {promptTime}
+              </p>
+            )}
+            <p className="whitespace-pre-wrap break-words text-xs leading-relaxed">
+              {group.prompt}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex justify-start pl-1">
+          <div className="relative w-[92%] rounded-2xl rounded-bl-md border border-[#e8e0d5] bg-white p-2.5 shadow-sm before:absolute before:-left-1 before:top-4 before:h-3 before:w-3 before:rotate-45 before:border-b before:border-l before:border-[#e8e0d5] before:bg-white">
+            <div className="grid grid-cols-2 gap-2">
+              {group.images.map((image, index) => {
+                const isSelected = selectedImage?.id === image.id;
+                const isDimmed = selectedImage !== null && !isSelected;
+                const isFilteredHistoryImage =
+                  !isActiveGroup &&
+                  group.selectedImageId !== undefined &&
+                  group.selectedImageId !== image.id;
+
+                return (
+                  <div
+                    key={image.id}
+                    onClick={() => isActiveGroup && handleSelectImage(image.id)}
+                    className={cn(
+                      "group relative aspect-square overflow-hidden rounded-xl border-2 transition-all duration-150",
+                      isActiveGroup ? "cursor-pointer" : "cursor-default",
+                      isSelected ? "border-stone-600" : "border-transparent",
+                      isDimmed && isActiveGroup && "opacity-30",
+                    )}
+                  >
+                    <Image
+                      src={image.url}
+                      alt={image.prompt}
+                      fill
+                      unoptimized
+                      className={cn(
+                        "object-cover",
+                        isFilteredHistoryImage && "grayscale opacity-45",
+                      )}
+                    />
+
+                    {isSelected && isActiveGroup && (
+                      <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-stone-700">
+                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                          <polyline
+                            points="1.5,5 4,7.5 8.5,2.5"
+                            stroke="white"
+                            strokeWidth="2.5"
+                          />
+                        </svg>
+                      </div>
+                    )}
+
+                    {isActiveGroup && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPhotoClick?.(
+                            group.images.map((groupImage) => groupImage.url),
+                            index,
+                          );
+                        }}
+                        className="absolute left-2 top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-white/80 opacity-0 transition-opacity duration-150 hover:bg-white group-hover:opacity-100"
+                      >
+                        <Maximize2 className="h-3.5 w-3.5 text-stone-600" />
+                      </button>
+                    )}
+
+                    <div className="absolute bottom-2 right-2 rounded bg-black/45 px-1.5 py-0.5 text-[10px] text-white">
+                      {index + 1}/4
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (!hasHydrated) {
@@ -567,81 +665,19 @@ export function AIRecommendation({
       {screen === "generated" && (
         <>
           <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="grid grid-cols-2 gap-2">
-              {generatedImages.map((image, index) => {
-                const isSelected = selectedImage?.id === image.id;
-                const isDimmed = selectedImage !== null && !isSelected;
-
-                return (
-                  <div
-                    key={image.id}
-                    onClick={() => handleSelectImage(image.id)}
-                    className={cn(
-                      "group relative aspect-square cursor-pointer overflow-hidden rounded-xl border-2 transition-all duration-150",
-                      isSelected ? "border-stone-600" : "border-transparent",
-                      isDimmed && "opacity-30",
-                    )}
-                  >
-                    <Image
-                      src={image.url}
-                      alt={image.prompt}
-                      fill
-                      unoptimized
-                      className="object-cover"
-                    />
-
-                    {isSelected && (
-                      <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-stone-700">
-                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                          <polyline
-                            points="1.5,5 4,7.5 8.5,2.5"
-                            stroke="white"
-                            strokeWidth="2.5"
-                          />
-                        </svg>
-                      </div>
-                    )}
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onPhotoClick?.(image.url);
-                      }}
-                      className="absolute left-2 top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-white/80 opacity-0 transition-opacity duration-150 hover:bg-white group-hover:opacity-100"
-                    >
-                      <Maximize2 className="h-3.5 w-3.5 text-stone-600" />
-                    </button>
-
-                    <div className="absolute bottom-2 right-2 rounded bg-black/45 px-1.5 py-0.5 text-[10px] text-white">
-                      {index + 1}/4
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {!selectedImage && promptHistory.length > 0 && (
-              <div className="flex flex-col gap-2 py-4">
-                {promptHistory.map((historyPrompt, index) => {
-                  const promptTime = formatPromptTime(promptTimestamps[index]);
-
-                  return (
-                    <div key={`${historyPrompt}-${index}`} className="flex justify-end">
-                      <div className="max-w-[86%] rounded-2xl rounded-br-md bg-stone-700 px-3 py-2 text-white shadow-sm">
-                        {promptTime && (
-                          <p className="mb-1 text-[10px] font-semibold text-stone-200">
-                            {promptTime}
-                          </p>
-                        )}
-                        <p className="whitespace-pre-wrap break-words text-xs leading-relaxed">
-                          {historyPrompt}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {(imageGroups.length > 0
+              ? imageGroups
+              : generatedImages.length > 0
+                ? [
+                    {
+                      id: "legacy-generated-images",
+                      prompt: promptHistory[promptHistory.length - 1] ?? "",
+                      timestamp: promptTimestamps[promptTimestamps.length - 1],
+                      images: generatedImages,
+                    },
+                  ]
+                : []
+            ).map(renderImageGroup)}
           </div>
 
           {!selectedImage && (
