@@ -88,7 +88,7 @@ async def upload_room_image(
             Body=contents,
             ContentType=file.content_type,
         )
-        s3_uri = f"s3://{BUCKET_NAME}/{key}"
+        s3_uri = f"s3://{BUCKET_NAME}/{key}?w=1200"
         return {"url": s3_uri}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"업로드 실패: {str(e)}")
@@ -125,7 +125,6 @@ async def register_room(request: Request, payload: RoomRegisterRequest, db: Sess
         db.add(room)
         db.flush()
 
-        # geom 저장
         db.execute(
             text("UPDATE public.items SET geom = ST_SetSRID(ST_MakePoint(:lng, :lat), 4326) WHERE item_id = :item_id"),
             {"lng": payload.lng, "lat": payload.lat, "item_id": new_item_id}
@@ -208,8 +207,18 @@ def update_room_images(payload: UpdateImagesRequest, db: Session = Depends(get_d
 @router.get("/my-rooms")
 def get_my_rooms(user_id: int, db: Session = Depends(get_db)):
     rooms = db.query(Room).filter(Room.broker_id == user_id).all()
-    return [
-        {
+    result = []
+    for r in rooms:
+        main_image = db.query(ItemImage).filter(
+            ItemImage.item_id == r.item_id,
+            ItemImage.is_main == True
+        ).first()
+
+        thumbnail_url = None
+        if main_image:
+            thumbnail_url = f"/api/rooms/{r.item_id}/images/{main_image.id}"
+
+        result.append({
             "item_id": r.item_id,
             "title": r.title,
             "address": r.address,
@@ -220,13 +229,12 @@ def get_my_rooms(user_id: int, db: Session = Depends(get_db)):
             "area_m2": float(r.area_m2) if r.area_m2 else None,
             "floor": r.floor,
             "status": r.status,
-            "image_thumbnail": r.image_thumbnail,
+            "image_thumbnail": thumbnail_url,
             "service_type": r.service_type,
             "lat": float(r.lat) if r.lat else None,
             "lng": float(r.lng) if r.lng else None,
-        }
-        for r in rooms
-    ]
+        })
+    return result
 
 
 @router.delete("/my-rooms/{item_id}")
