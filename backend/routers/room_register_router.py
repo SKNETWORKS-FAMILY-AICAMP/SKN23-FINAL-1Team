@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 class RoomRegisterRequest(BaseModel):
     user_id: int
     title: str
+    url: str = ""
     address: str
     lat: float
     lng: float
@@ -107,7 +108,7 @@ async def register_room(request: Request, payload: RoomRegisterRequest, db: Sess
             broker_id=payload.user_id,
             status="ACTIVE",
             title=payload.title,
-            url="",
+            url=payload.url,
             address=payload.address,
             lat=payload.lat,
             lng=payload.lng,
