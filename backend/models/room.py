@@ -20,7 +20,7 @@ class Room(Base):
     item_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    url: Mapped[str] = mapped_column(Text, nullable=False)
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)
     address: Mapped[str] = mapped_column(String(255), nullable=False)
     deposit: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"))
     rent: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
@@ -38,8 +38,8 @@ class Room(Base):
     first_crawled_at: Mapped[str | None] = mapped_column(TIMESTAMP, nullable=True, server_default=text("now()"))
     updated_at: Mapped[str | None] = mapped_column(TIMESTAMP, nullable=True, server_default=text("now()"))
     broker_id: Mapped[int | None] = mapped_column(
-        Integer,
-        ForeignKey("public.brokers.broker_id", ondelete="SET NULL"),
+        BigInteger,
+        ForeignKey("public.user.user_id", ondelete="SET NULL"),
         nullable=True,
     )
     recommendation_score: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -55,10 +55,5 @@ class Room(Base):
         "ItemImage",
         back_populates="room",
         cascade="all, delete-orphan",
-    )
-    broker_id: Mapped[int | None] = mapped_column(
-        BigInteger,
-        ForeignKey("public.user.user_id", ondelete="SET NULL"),
-        nullable=True,
     )
     favorites = relationship("Favorite", back_populates="item", cascade="all, delete-orphan")
