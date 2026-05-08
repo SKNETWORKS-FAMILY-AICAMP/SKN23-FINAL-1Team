@@ -36,6 +36,10 @@ def _normalize(value: str) -> str:
     return re.sub(r"\s+", "", value.strip().lower())
 
 
+def _normalize_station_name(value: str) -> str:
+    return re.sub(r"(역)+$", "역", value) if value else value
+
+
 def _score_place(place: dict, query: str) -> int:
     normalized_query = _normalize(query)
     if not normalized_query:
@@ -65,11 +69,20 @@ def _score_place(place: dict, query: str) -> int:
 
 def _place_response(place: dict) -> dict:
     location = place.get("location") or {}
+    name = place["name"]
+    display_name = place["display_name"]
+
+    if place["type"] == "subway_station":
+        normalized_name = _normalize_station_name(name)
+        if normalized_name != name:
+            display_name = display_name.replace(name, normalized_name, 1)
+            name = normalized_name
+
     return {
         "id": place["id"],
         "type": place["type"],
-        "name": place["name"],
-        "display_name": place["display_name"],
+        "name": name,
+        "display_name": display_name,
         "sido": place.get("sido"),
         "sigungu": place.get("sigungu"),
         "dong": place.get("dong"),

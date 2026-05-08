@@ -78,6 +78,15 @@ interface MapViewProps {
   onBoundsChange?: (bounds: MapBounds) => void;
 }
 
+interface KakaoPlaceResult {
+  place_name?: string;
+  category_name?: string;
+  address_name?: string;
+  road_address_name?: string;
+  x: string | number;
+  y: string | number;
+}
+
 declare global {
   interface Window {
     kakao: any;
@@ -413,6 +422,38 @@ export function MapView({
 
     places.keywordSearch(keyword, (data: any, status: any) => {
       if (status !== kakao.maps.services.Status.OK || !data.length) return;
+
+      if (keyword.trim().endsWith("역")) {
+        const normalizedKeyword = keyword.trim().replace(/\s+/g, "");
+        const placeResults = data as KakaoPlaceResult[];
+        const isSeoulPlace = (place: KakaoPlaceResult) => {
+          const addressText = `${place.address_name ?? ""} ${place.road_address_name ?? ""}`;
+          return addressText.includes("서울");
+        };
+        const isMatchingStation = (place: KakaoPlaceResult) => {
+          const placeName = String(place.place_name ?? "").replace(/\s+/g, "");
+          const category = String(place.category_name ?? "");
+          return (
+            placeName === normalizedKeyword ||
+            (placeName.startsWith(normalizedKeyword) && category.includes("교통"))
+          );
+        };
+        const exactStation =
+          placeResults.find((place) => isMatchingStation(place) && isSeoulPlace(place)) ??
+          placeResults.find(isSeoulPlace) ??
+          placeResults.find(isMatchingStation) ??
+          placeResults[0];
+        const position = new kakao.maps.LatLng(
+          Number(exactStation.y),
+          Number(exactStation.x),
+        );
+
+        pendingSourceRef.current = "search";
+        map.setLevel(3, { anchor: position });
+        map.panTo(position);
+        window.setTimeout(() => emitBounds(map), 300);
+        return;
+      }
 
       const bounds = new kakao.maps.LatLngBounds();
 
