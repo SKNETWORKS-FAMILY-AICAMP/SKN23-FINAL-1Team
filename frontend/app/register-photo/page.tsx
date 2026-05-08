@@ -25,9 +25,13 @@ export default function RegisterPhotoPage() {
   const addPhotos = useCallback((files: FileList | null) => {
     if (!files) return;
     const newPhotos = Array.from(files)
-      .filter((f) => f.type.startsWith("image/"))
+      .filter((f) => f.type === "image/jpeg" || f.type === "image/png")
       .slice(0, 10 - photos.length)
       .map((file) => ({ file, preview: URL.createObjectURL(file) }));
+    if (newPhotos.length === 0) {
+      setError("JPG, PNG 파일만 업로드할 수 있어요.");
+      return;
+    }
     setPhotos((prev) => [...prev, ...newPhotos].slice(0, 10));
   }, [photos.length]);
 
@@ -62,8 +66,8 @@ export default function RegisterPhotoPage() {
       });
 
       if (!registerRes.ok) {
-        const err = await registerRes.json();
-        setError(err.detail ?? "등록에 실패했습니다.");
+        const err = await registerRes.json().catch(() => null);
+        setError(typeof err?.detail === "string" ? err.detail : "등록에 실패했습니다.");
         return;
       }
 
@@ -168,13 +172,13 @@ export default function RegisterPhotoPage() {
           >
             <Plus className="h-6 w-6 text-stone-400" />
             <p className="text-sm font-medium text-stone-600">클릭하거나 사진을 드래그하세요</p>
-            <p className="text-xs text-stone-400">최대 10장 · JPG, PNG, WEBP</p>
+            <p className="text-xs text-stone-400">최대 10장 · JPG, PNG</p>
           </div>
 
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png"
             multiple
             className="hidden"
             onChange={(e) => addPhotos(e.target.files)}
@@ -192,7 +196,7 @@ export default function RegisterPhotoPage() {
                     )}
                     <img src={photo.preview} alt="" className="h-full w-full object-cover" />
                     <button
-                      onClick={() => removePhoto(idx)}
+                      onClick={(e) => { e.stopPropagation(); removePhoto(idx); }}
                       className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
                     >
                       <X className="h-3 w-3" />
