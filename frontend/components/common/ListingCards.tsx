@@ -14,6 +14,8 @@ interface ListingCardProps {
   isFavorite?: boolean;
   isFavoriteLoading?: boolean;
   onToggleFavorite?: () => void;
+  requiresLogin?: boolean;
+  onLoginRequired?: () => void;
 }
 
 export function isValidImageSrc(value?: string | null) {
@@ -35,6 +37,8 @@ export function ListingCard({
   isFavorite = false,
   isFavoriteLoading = false,
   onToggleFavorite,
+  requiresLogin = false,
+  onLoginRequired,
 }: ListingCardProps) {
   const imageSrc = isValidImageSrc(listing.images?.[0])
     ? listing.images[0]
@@ -123,7 +127,14 @@ export function ListingCard({
           <FavoriteButton
             isFavorite={!!isFavorite}
             disabled={!!isFavoriteLoading}
-            onClick={() => onToggleFavorite?.()}
+            onClick={() => {
+              if (requiresLogin) {
+                onLoginRequired?.();
+                return;
+              }
+
+              onToggleFavorite?.();
+            }}
             className="h-8 w-8 border-stone-200 bg-stone-50 shadow-none hover:bg-stone-100"
           />
         </div>
