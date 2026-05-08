@@ -25,6 +25,7 @@ interface ListingPanelProps {
   favoriteListings?: Listing[];
   onWishTabOpen?: () => void;
   isLoggedIn?: boolean;
+  onLoginRequired?: () => void;
   onWishClick?: (listing: Listing) => void;
   sort?: "latest" | "price_asc" | "price_desc";
   onSortChange?: (sort: "latest" | "price_asc" | "price_desc") => void;
@@ -52,6 +53,7 @@ export function ListingPanel({
   favoriteListings = [],
   onWishTabOpen,
   isLoggedIn = false,
+  onLoginRequired,
   onWishClick,
   sort = "latest",
   onSortChange,
@@ -279,6 +281,8 @@ export function ListingPanel({
                         isFavorite={favoriteIds.includes(Number(listing.id))}
                         isFavoriteLoading={favoriteLoadingIds.includes(Number(listing.id))}
                         onToggleFavorite={() => onToggleFavorite(Number(listing.id))}
+                        requiresLogin={!isLoggedIn}
+                        onLoginRequired={onLoginRequired}
                       />
                     </div>
                   ))}
@@ -301,6 +305,8 @@ export function ListingPanel({
                     isFavorite={favoriteIds.includes(Number(listing.id))}
                     isFavoriteLoading={favoriteLoadingIds.includes(Number(listing.id))}
                     onToggleFavorite={() => onToggleFavorite(Number(listing.id))}
+                    requiresLogin={!isLoggedIn}
+                    onLoginRequired={onLoginRequired}
                   />
                 </div>
               ))}
@@ -359,6 +365,8 @@ export function ListingPanel({
                       isFavorite={true}
                       isFavoriteLoading={favoriteLoadingIds.includes(Number(listing.id))}
                       onToggleFavorite={() => onToggleFavorite(Number(listing.id))}
+                      requiresLogin={!isLoggedIn}
+                      onLoginRequired={onLoginRequired}
                     />
                   </div>
                 ))}
