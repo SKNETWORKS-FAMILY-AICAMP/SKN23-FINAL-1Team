@@ -2,15 +2,24 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { MapPin, Building2, CreditCard, Ruler, X, Car, Search } from "lucide-react";
+import {
+  MapPin,
+  Building2,
+  CreditCard,
+  Ruler,
+  X,
+  Car,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import type { Listing } from "@/components/room-finder/map-view";
 import { fetchRoomDetail, type ListingDetailResponse } from "@/lib/api/rooms";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
+  type CarouselApi,
 } from "@/components/ui/carousel";
 import { isValidImageSrc } from "../common/ListingCards";
 import { FavoriteButton } from "@/components/common/Button";
@@ -111,6 +120,7 @@ export function ListingDetailPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [areaUnit, setAreaUnit] = useState<"m2" | "pyeong">("m2");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
   const listingId = Number(listing?.id ?? 0);
   const isFavorite = favoriteIds.includes(listingId);
   const isFavoriteLoading = favoriteLoadingIds.includes(listingId);
@@ -153,12 +163,14 @@ export function ListingDetailPanel({
 
     return rawUrls
       .filter((url): url is string => isValidImageSrc(url))
-      .map((url) => url.startsWith("/api/images/") ? `/backend${url}` : url);
+      .map((url) => (url.startsWith("/api/images/") ? `/backend${url}` : url));
   }, [detail?.images, listing?.images]);
 
   const similarSearchImageUrls = useMemo(() => {
     if (detail?.images?.length) {
-      return detail.images.map((image) => `/api/rooms/${listingId}/images/${image.id}`);
+      return detail.images.map(
+        (image) => `/api/rooms/${listingId}/images/${image.id}`,
+      );
     }
 
     return imageUrls;
@@ -201,15 +213,12 @@ export function ListingDetailPanel({
         }
       }),
     );
-    console.log(
-      "[listing-detail-images]",
-      {
-        listingId: listing.id,
-        detailImageCount: detail?.images?.length ?? 0,
-        renderedImageCount: imageUrls.length,
-        firstUrl: imageUrls[0] ?? null,
-      },
-    );
+    console.log("[listing-detail-images]", {
+      listingId: listing.id,
+      detailImageCount: detail?.images?.length ?? 0,
+      renderedImageCount: imageUrls.length,
+      firstUrl: imageUrls[0] ?? null,
+    });
   }, [detail?.images?.length, imageUrls, isOpen, listing?.id]);
 
   const currentItem = detail?.item;
@@ -263,6 +272,7 @@ export function ListingDetailPanel({
                 setApi={(api) => {
                   if (!api) return;
 
+                  setCarouselApi(api);
                   setCurrentImageIndex(api.selectedScrollSnap());
 
                   api.on("select", () => {
@@ -291,69 +301,89 @@ export function ListingDetailPanel({
 
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
 
-                        {onFindSimilarFromPhoto && (
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onFindSimilarFromPhoto(
-                                similarSearchImageUrls[index] ?? url,
-                                listingId,
-                                similarSearchImageIds[index],
-                              );
-                            }}
-                            disabled={isFindingSimilarFromPhoto}
-                            className="absolute left-1/2 top-1/2 z-20 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm font-bold text-stone-900 opacity-0 shadow-lg backdrop-blur-sm transition-all duration-200 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70 group-hover:opacity-100"
-                            aria-label="이 사진으로 유사 매물 찾기"
-                          >
-                            <Search className="h-4 w-4" />
-                            {isFindingSimilarFromPhoto
-                              ? "검색 중"
-                              : "유사매물 찾기"}
-                          </button>
-                        )}
-
-                        {/* 확대 힌트 */}
-                        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs text-white backdrop-blur-sm opacity-0 hover:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                          <svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                          >
-                            <rect
-                              x="0.5"
-                              y="0.5"
-                              width="7"
-                              height="7"
-                              rx="1.5"
-                              stroke="white"
-                              strokeWidth="1"
-                            />
-                            <path
-                              d="M6 6L11 11"
-                              stroke="white"
-                              strokeWidth="1"
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                          크게 보기
-                        </div>
-
-                        {imageUrls.length > 1 && (
-                          <div className="absolute bottom-4 right-4 z-10 rounded-full bg-black/55 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-                            {currentImageIndex + 1} / {imageUrls.length}
-                          </div>
-                        )}
                       </div>
                     </CarouselItem>
                   ))}
                 </CarouselContent>
 
+                {onFindSimilarFromPhoto && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onFindSimilarFromPhoto(
+                        similarSearchImageUrls[currentImageIndex] ??
+                          imageUrls[currentImageIndex],
+                        listingId,
+                        similarSearchImageIds[currentImageIndex],
+                      );
+                    }}
+                    disabled={isFindingSimilarFromPhoto}
+                    className="absolute left-1/2 top-1/2 z-20 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm font-bold text-stone-900 opacity-0 shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-105 hover:bg-white disabled:cursor-not-allowed disabled:opacity-70 group-hover:opacity-100"
+                    aria-label="이 사진으로 유사 매물 찾기"
+                  >
+                    <Search className="h-4 w-4" />
+                    {isFindingSimilarFromPhoto ? "검색 중" : "유사매물 찾기"}
+                  </button>
+                )}
+
+                <div className="absolute bottom-12 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:scale-105 group-hover:opacity-100">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <rect
+                      x="0.5"
+                      y="0.5"
+                      width="7"
+                      height="7"
+                      rx="1.5"
+                      stroke="white"
+                      strokeWidth="1"
+                    />
+                    <path
+                      d="M6 6L11 11"
+                      stroke="white"
+                      strokeWidth="1"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  크게 보기
+                </div>
+
+                {imageUrls.length > 1 && (
+                  <div className="absolute bottom-4 right-4 z-20 rounded-full bg-black/55 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                    {currentImageIndex + 1} / {imageUrls.length}
+                  </div>
+                )}
+
                 {imageUrls.length > 1 && (
                   <>
-                    <CarouselPrevious className="left-8 top-1/2 z-10 -translate-y-1/2 cursor-pointer border-none bg-transparent text-white shadow-none hover:bg-transparent hover:text-white" />
-                    <CarouselNext className="right-4 top-1/2 z-10 -translate-y-1/2 cursor-pointer border-none bg-transparent text-white shadow-none hover:bg-transparent hover:text-white" />
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        carouselApi?.scrollPrev();
+                      }}
+                      className="group/nav absolute left-4 top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-white shadow-none"
+                      aria-label="이전 사진"
+                    >
+                      <ChevronLeft
+                        className="h-9 w-9 transition-transform duration-200 group-hover/nav:scale-150"
+                        strokeWidth={2.4}
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        carouselApi?.scrollNext();
+                      }}
+                      className="group/nav absolute right-4 top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-white shadow-none"
+                      aria-label="다음 사진"
+                    >
+                      <ChevronRight
+                        className="h-9 w-9 transition-transform duration-200 group-hover/nav:scale-150"
+                        strokeWidth={2.4}
+                      />
+                    </button>
                   </>
                 )}
               </Carousel>
