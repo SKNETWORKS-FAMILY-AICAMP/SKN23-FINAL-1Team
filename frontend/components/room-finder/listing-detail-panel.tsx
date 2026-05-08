@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   MapPin,
   Building2,
-  CreditCard,
   Ruler,
   X,
   Car,
@@ -252,14 +251,22 @@ export function ListingDetailPanel({
                 {currentItem?.address || listing.address || ""}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-8 w-8 cursor-pointer flex-shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white/90 text-stone-500 transition-all duration-200 hover:bg-stone-100 hover:text-stone-700"
-              aria-label="목록으로 돌아가기"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex flex-shrink-0 items-center gap-2">
+              <FavoriteButton
+                isFavorite={isFavorite}
+                disabled={isFavoriteLoading || !listingId}
+                onClick={() => onToggleFavorite(listingId)}
+                className="h-8 w-8 border-stone-200 bg-white/90 shadow-none hover:bg-stone-100"
+              />
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-stone-200 bg-white/90 text-stone-500 transition-all duration-200 hover:bg-stone-100 hover:text-stone-700"
+                aria-label="목록으로 돌아가기"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
 
