@@ -22,6 +22,23 @@ ITEM_IMAGE_EMBEDDINGS = table(
     schema="public",
 )
 
+ITEM_IMAGES = table(
+    "item_images",
+    column("id", Integer),
+    column("item_id", Integer),
+    schema="public",
+)
+
+
+def has_embedded_image_condition():
+    return (
+        select(1)
+        .select_from(ITEM_IMAGES)
+        .join(ITEM_IMAGE_EMBEDDINGS, ITEM_IMAGES.c.id == ITEM_IMAGE_EMBEDDINGS.c.image_id)
+        .where(ITEM_IMAGES.c.item_id == Room.item_id)
+        .exists()
+    )
+
 
 def is_valid_image_value(value) -> bool:
     if value is None:
@@ -113,6 +130,7 @@ def get_basement_condition():
 
 def apply_room_filters(stmt, req):
     stmt = stmt.where(Room.status == "ACTIVE")
+    stmt = stmt.where(has_embedded_image_condition())
 
     if req.search.strip():
         keyword = f"%{req.search.strip()}%"
