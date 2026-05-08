@@ -26,7 +26,7 @@ export function BrokerSection({ userId }: { userId: number }) {
   const fetchMyRooms = async () => {
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/rooms/my-rooms?user_id=${userId}`
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/rooms/my-rooms?user_id=${userId}`
       );
       if (!res.ok) return;
       const data = await res.json();
@@ -45,7 +45,7 @@ export function BrokerSection({ userId }: { userId: number }) {
   const handleDelete = async (itemId: number) => {
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/rooms/my-rooms/${itemId}?user_id=${userId}`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/rooms/my-rooms/${itemId}?user_id=${userId}`,
         { method: "DELETE" }
       );
       if (!res.ok) return;
