@@ -1,11 +1,10 @@
-import uuid
 import os
 import logging
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from db.session import get_db
 from models.room import Room
@@ -90,7 +89,7 @@ async def upload_room_image(
             Body=contents,
             ContentType=file.content_type,
         )
-        s3_uri = f"s3://{BUCKET_NAME}/{key}"
+        s3_uri = f"s3://{BUCKET_NAME}/{key}?w=1200"
         return {"url": s3_uri}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"업로드 실패: {str(e)}")
@@ -125,6 +124,12 @@ async def register_room(request: Request, payload: RoomRegisterRequest, db: Sess
         )
         db.add(room)
         db.flush()
+
+        # geom 저장
+        db.execute(
+            text("UPDATE public.items SET geom = ST_SetSRID(ST_MakePoint(:lng, :lat), 4326) WHERE item_id = :item_id"),
+            {"lng": payload.lng, "lat": payload.lat, "item_id": new_item_id}
+        )
 
         features = ItemFeatures(
             item_id=new_item_id,

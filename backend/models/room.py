@@ -51,7 +51,6 @@ class Room(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
-
     images: Mapped[list["ItemImage"]] = relationship(
         "ItemImage",
         back_populates="room",
