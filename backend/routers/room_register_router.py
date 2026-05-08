@@ -5,7 +5,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from db.session import get_db
 from models.room import Room
@@ -123,6 +123,12 @@ async def register_room(request: Request, payload: RoomRegisterRequest, db: Sess
         )
         db.add(room)
         db.flush()
+
+        # geom 저장
+        db.execute(
+            text("UPDATE public.items SET geom = ST_SetSRID(ST_MakePoint(:lng, :lat), 4326) WHERE item_id = :item_id"),
+            {"lng": payload.lng, "lat": payload.lat, "item_id": new_item_id}
+        )
 
         features = ItemFeatures(
             item_id=new_item_id,
