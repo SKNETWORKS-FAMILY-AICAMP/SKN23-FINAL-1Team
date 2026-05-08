@@ -88,7 +88,7 @@ async def upload_room_image(
             Body=contents,
             ContentType=file.content_type,
         )
-        s3_uri = f"s3://{BUCKET_NAME}/{key}?w=1200"
+        s3_uri = f"s3://{BUCKET_NAME}/{key}"
         return {"url": s3_uri}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"업로드 실패: {str(e)}")
