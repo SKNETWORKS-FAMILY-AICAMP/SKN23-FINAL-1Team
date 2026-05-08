@@ -5,7 +5,7 @@ from utils.s3 import get_s3_client
 
 router = APIRouter(prefix="/brokers", tags=["brokers"])
 
-BUCKET_NAME = os.getenv("S3_BUCKET", "")
+BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "")
 
 @router.post("/upload-photo")
 async def upload_broker_photo(file: UploadFile = File(...)):
