@@ -754,14 +754,31 @@ export function HomeContainer() {
     setOffset((prev) => prev + PAGE_SIZE);
   }, [hasMore, isLoading]);
 
+  const focusMapOnListing = useCallback((listing: Listing) => {
+    const lat = Number(listing.lat);
+    const lng = Number(listing.lng);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+    mapFocusRequestIdRef.current += 1;
+    setMapFocusRequest({
+      id: mapFocusRequestIdRef.current,
+      lat,
+      lng,
+      level: 2,
+      source: "selection",
+    });
+  }, []);
+
   // 매물목록 클릭 → 지도 이동 + 상세패널 오픈
   const handleListingClick = useCallback(
     (listing: Listing) => {
       recordRecentListing(listing);
       setSelectedListing(listing);
       setIsDetailOpen(true);
+      focusMapOnListing(listing);
     },
-    [recordRecentListing],
+    [focusMapOnListing, recordRecentListing],
   );
 
   // 찜목록 클릭 → 지도 이동 + 상세패널 오픈 (매물목록과 동일)
@@ -770,8 +787,9 @@ export function HomeContainer() {
       recordRecentListing(listing);
       setSelectedListing(listing);
       setIsDetailOpen(true);
+      focusMapOnListing(listing);
     },
-    [recordRecentListing],
+    [focusMapOnListing, recordRecentListing],
   );
 
   const handleSimilarOverlayListingClick = useCallback(
