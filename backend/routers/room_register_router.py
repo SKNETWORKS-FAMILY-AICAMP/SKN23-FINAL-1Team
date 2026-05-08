@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 class RoomRegisterRequest(BaseModel):
     user_id: int
     title: str
+    url: str = ""
     address: str
     lat: float
     lng: float
