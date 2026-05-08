@@ -1,4 +1,3 @@
-import uuid
 import os
 import logging
 from datetime import datetime
@@ -89,7 +88,7 @@ async def upload_room_image(
             Body=contents,
             ContentType=file.content_type,
         )
-        s3_uri = f"s3://{BUCKET_NAME}/{key}"
+        s3_uri = f"s3://{BUCKET_NAME}/{key}?w=1200"
         return {"url": s3_uri}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"업로드 실패: {str(e)}")
@@ -108,6 +107,7 @@ async def register_room(request: Request, payload: RoomRegisterRequest, db: Sess
             broker_id=payload.user_id,
             status="ACTIVE",
             title=payload.title,
+            url="",
             address=payload.address,
             lat=payload.lat,
             lng=payload.lng,
