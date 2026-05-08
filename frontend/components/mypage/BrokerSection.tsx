@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Building2, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { usePendingListingStore } from "@/store/pendingListingStore";
 
 interface Room {
   item_id: number;
@@ -16,9 +18,13 @@ interface Room {
   status: string;
   image_thumbnail: string | null;
   service_type: string | null;
+  lat: number | null;
+  lng: number | null;
 }
 
 export function BrokerSection({ userId }: { userId: number }) {
+  const router = useRouter();
+  const setPendingListing = usePendingListingStore((state) => state.setPendingListing);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
@@ -26,7 +32,7 @@ export function BrokerSection({ userId }: { userId: number }) {
   const fetchMyRooms = async () => {
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/rooms/my-rooms?user_id=${userId}`
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/rooms/my-rooms?user_id=${userId}`
       );
       if (!res.ok) return;
       const data = await res.json();
@@ -42,10 +48,11 @@ export function BrokerSection({ userId }: { userId: number }) {
     fetchMyRooms();
   }, [userId]);
 
-  const handleDelete = async (itemId: number) => {
+  const handleDelete = async (itemId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/rooms/my-rooms/${itemId}?user_id=${userId}`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/rooms/my-rooms/${itemId}?user_id=${userId}`,
         { method: "DELETE" }
       );
       if (!res.ok) return;
@@ -54,6 +61,29 @@ export function BrokerSection({ userId }: { userId: number }) {
     } catch {
       console.error("삭제 실패");
     }
+  };
+
+  const handleRoomClick = (room: Room) => {
+    const priceText = room.service_type === "월세"
+      ? `${room.deposit}/${room.rent}`
+      : `전세 ${room.deposit}`;
+
+    setPendingListing({
+      id: String(room.item_id),
+      title: room.title ?? "",
+      price: priceText,
+      deposit: String(room.deposit),
+      monthlyRent: String(room.rent),
+      address: room.address,
+      size: room.area_m2 ? `${room.area_m2}m²` : "",
+      floor: room.floor ? `${room.floor}층` : "",
+      images: room.image_thumbnail ? [room.image_thumbnail] : [],
+      lat: room.lat ?? 0,
+      lng: room.lng ?? 0,
+      structure: room.room_type ?? "",
+      options: [],
+    });
+    router.push("/home");
   };
 
   if (loading) {
@@ -81,10 +111,11 @@ export function BrokerSection({ userId }: { userId: number }) {
           {rooms.map((room) => (
             <div
               key={room.item_id}
-              className="flex items-center gap-4 rounded-[20px] border border-stone-200/80 bg-white/80 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]"
+              onClick={() => handleRoomClick(room)}
+              className="flex items-center gap-4 rounded-[20px] border border-stone-200/80 bg-white/80 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)] transition-all duration-200"
             >
               {/* 썸네일 */}
-              <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-stone-100">
+              <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-stone-100">
                 {room.image_thumbnail ? (
                   <img
                     src={room.image_thumbnail}
@@ -127,20 +158,20 @@ export function BrokerSection({ userId }: { userId: number }) {
               </div>
 
               {/* 삭제 */}
-              <div className="flex-shrink-0">
+              <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                 {deleteConfirm === room.item_id ? (
                   <div className="flex flex-col items-end gap-1">
                     <p className="text-xs text-stone-500">삭제할까요?</p>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleDelete(room.item_id)}
-                        className="text-xs font-semibold text-red-500 hover:text-red-600"
+                        onClick={(e) => handleDelete(room.item_id, e)}
+                        className="text-xs font-semibold text-red-500 hover:text-red-600 cursor-pointer"
                       >
                         확인
                       </button>
                       <button
-                        onClick={() => setDeleteConfirm(null)}
-                        className="text-xs font-semibold text-stone-400 hover:text-stone-600"
+                        onClick={(e) => { e.stopPropagation(); setDeleteConfirm(null); }}
+                        className="text-xs font-semibold text-stone-400 hover:text-stone-600 cursor-pointer"
                       >
                         취소
                       </button>
@@ -148,8 +179,8 @@ export function BrokerSection({ userId }: { userId: number }) {
                   </div>
                 ) : (
                   <button
-                    onClick={() => setDeleteConfirm(room.item_id)}
-                    className="rounded-xl border border-stone-200 p-2 text-stone-400 hover:border-red-200 hover:text-red-400"
+                    onClick={(e) => { e.stopPropagation(); setDeleteConfirm(room.item_id); }}
+                    className="rounded-xl border border-stone-200 p-2 text-stone-400 hover:border-red-200 hover:text-red-400 cursor-pointer"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

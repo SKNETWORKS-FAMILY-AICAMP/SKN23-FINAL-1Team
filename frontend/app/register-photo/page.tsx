@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X, CheckCircle } from "lucide-react";
 import { useRegisterStore } from "@/store/registerStore";
@@ -10,7 +10,6 @@ export default function RegisterPhotoPage() {
   const router = useRouter();
   const form = useRegisterStore((state) => state.form);
   const clearForm = useRegisterStore((state) => state.clearForm);
-  const user = useAuthStore((state) => state.user);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [photos, setPhotos] = useState<{ file: File; preview: string }[]>([]);
@@ -21,6 +20,34 @@ export default function RegisterPhotoPage() {
   const [registeredItemId, setRegisteredItemId] = useState<number | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!form && !isDone) {
+        router.push("/register");
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [form, isDone, router]);
+
+  useEffect(() => {
+    if (isDone) {
+      const timer = setTimeout(() => {
+        clearForm();
+        router.push("/home");
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isDone, router, clearForm]);
+
+  useEffect(() => {
+    if (isDone) {
+      const timer = setTimeout(() => {
+        router.push("/home");
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isDone, router]);
 
   const addPhotos = useCallback((files: FileList | null) => {
     if (!files) return;
@@ -50,7 +77,7 @@ export default function RegisterPhotoPage() {
 
   const handleSubmit = async () => {
     if (!form) {
-      setError("매물 정보가 없습니다. 다시 시도해주세요.");
+      router.push("/register");
       return;
     }
 
@@ -58,7 +85,6 @@ export default function RegisterPhotoPage() {
     setError(null);
 
     try {
-      // 1. 매물 먼저 등록 → item_id 받아오기
       const registerRes = await fetch(`${apiUrl}/api/rooms/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -73,7 +99,6 @@ export default function RegisterPhotoPage() {
 
       const { item_id } = await registerRes.json();
 
-      // 2. item_id로 사진 S3 업로드
       const uploadedUrls: string[] = [];
       for (let idx = 0; idx < photos.length; idx++) {
         const photo = photos[idx];
@@ -93,7 +118,6 @@ export default function RegisterPhotoPage() {
         }
       }
 
-      // 3. 업로드된 이미지 URL 매물에 업데이트
       if (uploadedUrls.length > 0) {
         await fetch(`${apiUrl}/api/rooms/update-images`, {
           method: "PATCH",
@@ -108,13 +132,18 @@ export default function RegisterPhotoPage() {
 
       setRegisteredItemId(item_id);
       setIsDone(true);
-      clearForm();
     } catch {
       setError("오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (!form && !isDone) return (
+    <div className="flex min-h-screen items-center justify-center">
+      <p className="text-sm text-stone-400">불러오는 중...</p>
+    </div>
+  );
 
   if (isDone) {
     return (
@@ -126,20 +155,7 @@ export default function RegisterPhotoPage() {
           <div className="text-center">
             <p className="text-lg font-bold text-stone-900">매물이 등록되었습니다!</p>
             <p className="mt-1 text-sm text-stone-400">매물번호 {registeredItemId}</p>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => router.push("/mypage")}
-              className="rounded-xl border border-stone-200 bg-white px-5 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50"
-            >
-              매물 관리
-            </button>
-            <button
-              onClick={() => router.push("/home")}
-              className="rounded-xl bg-stone-800 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-            >
-              메인으로
-            </button>
+            <p className="mt-2 text-xs text-stone-300">잠시 후 메인페이지로 이동합니다...</p>
           </div>
         </div>
       </div>
@@ -151,7 +167,7 @@ export default function RegisterPhotoPage() {
       <div className="mx-auto max-w-lg px-4 py-8">
         <button
           onClick={() => router.back()}
-          className="mb-6 flex items-center gap-2 text-sm font-semibold text-stone-500 hover:text-stone-800"
+          className="mb-6 flex items-center gap-2 text-sm font-semibold text-stone-500 hover:text-stone-800 cursor-pointer"
         >
           ← 이전
         </button>
@@ -197,7 +213,7 @@ export default function RegisterPhotoPage() {
                     <img src={photo.preview} alt="" className="h-full w-full object-cover" />
                     <button
                       onClick={(e) => { e.stopPropagation(); removePhoto(idx); }}
-                      className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+                      className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 cursor-pointer"
                     >
                       <X className="h-3 w-3" />
                     </button>

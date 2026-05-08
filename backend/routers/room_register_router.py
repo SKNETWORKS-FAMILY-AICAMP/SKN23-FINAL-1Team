@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 class RoomRegisterRequest(BaseModel):
     user_id: int
     title: str
-    url: str = ""
     address: str
     lat: float
     lng: float
@@ -121,11 +120,11 @@ async def register_room(request: Request, payload: RoomRegisterRequest, db: Sess
             all_floors=payload.all_floors,
             area_m2=payload.area_m2,
             image_thumbnail=payload.image_thumbnail,
+            recommendation_score=0.0,
         )
         db.add(room)
         db.flush()
 
-        # geom 저장
         db.execute(
             text("UPDATE public.items SET geom = ST_SetSRID(ST_MakePoint(:lng, :lat), 4326) WHERE item_id = :item_id"),
             {"lng": payload.lng, "lat": payload.lat, "item_id": new_item_id}
@@ -208,8 +207,18 @@ def update_room_images(payload: UpdateImagesRequest, db: Session = Depends(get_d
 @router.get("/my-rooms")
 def get_my_rooms(user_id: int, db: Session = Depends(get_db)):
     rooms = db.query(Room).filter(Room.broker_id == user_id).all()
-    return [
-        {
+    result = []
+    for r in rooms:
+        main_image = db.query(ItemImage).filter(
+            ItemImage.item_id == r.item_id,
+            ItemImage.is_main == True
+        ).first()
+
+        thumbnail_url = None
+        if main_image:
+            thumbnail_url = f"/api/rooms/{r.item_id}/images/{main_image.id}"
+
+        result.append({
             "item_id": r.item_id,
             "title": r.title,
             "address": r.address,
@@ -220,11 +229,12 @@ def get_my_rooms(user_id: int, db: Session = Depends(get_db)):
             "area_m2": float(r.area_m2) if r.area_m2 else None,
             "floor": r.floor,
             "status": r.status,
-            "image_thumbnail": r.image_thumbnail,
+            "image_thumbnail": thumbnail_url,
             "service_type": r.service_type,
-        }
-        for r in rooms
-    ]
+            "lat": float(r.lat) if r.lat else None,
+            "lng": float(r.lng) if r.lng else None,
+        })
+    return result
 
 
 @router.delete("/my-rooms/{item_id}")
