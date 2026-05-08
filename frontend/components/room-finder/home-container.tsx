@@ -35,6 +35,7 @@ import { OnboardingGuide } from "@/components/room-finder/OnboardingGuide";
 import { useFavoriteToast } from "@/hooks/useFavoriteToast";
 import { Toast } from "@/components/common/Toast";
 import { SimilarListingsOverlay } from "@/components/common/SimilarListingsOverlay";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
 const BOUNDS_PRECISION = 5;
@@ -157,7 +158,6 @@ export function HomeContainer() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenImages, setFullscreenImages] = useState<string[]>([]);
   const [fullscreenIndex, setFullscreenIndex] = useState(0);
-  const [aiFullscreenUrl, setAiFullscreenUrl] = useState<string | null>(null);
   const [isLoginGuideOpen, setIsLoginGuideOpen] = useState(false);
   const { toast, showToast, hideToast } = useFavoriteToast();
 
@@ -1028,36 +1028,6 @@ export function HomeContainer() {
         </div>
       )}
 
-      {/* AI 이미지 풀스크린 모달 */}
-      {aiFullscreenUrl && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85"
-          onClick={() => setAiFullscreenUrl(null)}
-        >
-          <div
-            className="relative w-[480px] max-w-[90vw] overflow-hidden rounded-2xl bg-black"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="relative aspect-square w-full">
-              <Image
-                src={aiFullscreenUrl}
-                alt="AI 생성 이미지"
-                fill
-                unoptimized
-                className="object-cover"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setAiFullscreenUrl(null)}
-              className="absolute right-3 top-3 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* 풀스크린 사진 모달 — 페이지 최상단 */}
       {isFullscreen && fullscreenImages.length > 0 && (
         <div className="fixed inset-0 z-[9999] flex flex-col bg-black">
@@ -1074,11 +1044,21 @@ export function HomeContainer() {
               <X className="h-5 w-5" />
             </button>
           </div>
-          <div className="relative flex flex-1 items-center justify-center">
+          <div
+            className={cn(
+              "relative flex flex-1 items-center justify-center",
+              fullscreenImages.length > 1 && "cursor-pointer",
+            )}
+            onClick={() => {
+              if (fullscreenImages.length <= 1) return;
+              setFullscreenIndex((prev) => (prev + 1) % fullscreenImages.length);
+            }}
+          >
             <Image
               src={fullscreenImages[fullscreenIndex]}
               alt={`사진 ${fullscreenIndex + 1}`}
               fill
+              unoptimized
               className="object-contain"
               sizes="100vw"
             />
@@ -1086,13 +1066,14 @@ export function HomeContainer() {
               <>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={(event) => {
+                    event.stopPropagation();
                     setFullscreenIndex(
                       (prev) =>
                         (prev - 1 + fullscreenImages.length) %
                         fullscreenImages.length,
-                    )
-                  }
+                    );
+                  }}
                   className="absolute left-3 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
                   aria-label="이전 사진"
                 >
@@ -1108,11 +1089,12 @@ export function HomeContainer() {
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={(event) => {
+                    event.stopPropagation();
                     setFullscreenIndex(
                       (prev) => (prev + 1) % fullscreenImages.length,
-                    )
-                  }
+                    );
+                  }}
                   className="absolute right-3 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
                   aria-label="다음 사진"
                 >
@@ -1273,7 +1255,11 @@ export function HomeContainer() {
               onWishClick={handleWishClick}
               sort={sort}
               onSortChange={setSort}
-              onAIPhotoClick={(url) => setAiFullscreenUrl(url)}
+              onAIPhotoClick={(images, index) => {
+                setFullscreenImages(images);
+                setFullscreenIndex(index);
+                setIsFullscreen(true);
+              }}
               similarSearchParams={similarSearchParams}
               canFindSimilarRooms={canFindSimilarRooms}
               onFindSimilarBlocked={handleFindSimilarBlocked}
@@ -1352,7 +1338,11 @@ export function HomeContainer() {
                 isLoggedIn={isLoggedIn}
                 onLoginRequired={openLoginGuide}
                 onWishClick={handleWishClick}
-                onAIPhotoClick={(url) => setAiFullscreenUrl(url)}
+                onAIPhotoClick={(images, index) => {
+                  setFullscreenImages(images);
+                  setFullscreenIndex(index);
+                  setIsFullscreen(true);
+                }}
                 similarSearchParams={similarSearchParams}
                 canFindSimilarRooms={canFindSimilarRooms}
                 onFindSimilarBlocked={handleFindSimilarBlocked}

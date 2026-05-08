@@ -29,7 +29,7 @@ interface ListingPanelProps {
   onWishClick?: (listing: Listing) => void;
   sort?: "latest" | "price_asc" | "price_desc";
   onSortChange?: (sort: "latest" | "price_asc" | "price_desc") => void;
-  onAIPhotoClick?: (url: string) => void;
+  onAIPhotoClick?: (images: string[], index: number) => void;
   similarSearchParams?: RoomSearchParams;
   canFindSimilarRooms?: boolean;
   onFindSimilarBlocked?: () => void;

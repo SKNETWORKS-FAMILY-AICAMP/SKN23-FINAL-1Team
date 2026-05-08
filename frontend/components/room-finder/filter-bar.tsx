@@ -368,14 +368,14 @@ export function FilterBar({
   const isFloorSelected = filters.floor !== "all";
   const isOptionsSelected = filters.options.length > 0;
 
-  const selectedStyle = "border-warm-brown bg-warm-brown !text-white hover:opacity-90 rounded-full";
-  const defaultStyle = "border-stone-200/80 bg-white/90 text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] hover:border-stone-300 hover:bg-white rounded-full";
+  const selectedStyle = "border-warm-brown bg-warm-brown !text-white hover:opacity-90 rounded-xl";
+  const defaultStyle = "border-stone-200/80 bg-white/90 text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] hover:border-stone-300 hover:bg-white rounded-xl";
 
   const selectTriggerClass = (isSelected: boolean) =>
-    `w-[160px] md:w-full py-5 rounded-full border text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
+    `w-[160px] md:w-full py-5 rounded-xl border text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
 
   const popoverTriggerClass = (isSelected: boolean) =>
-    `cursor-pointer w-[160px] md:w-full flex items-center justify-between rounded-full border px-4 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
+    `cursor-pointer w-[160px] md:w-full flex items-center justify-between rounded-xl border px-4 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
 
   const popoverContentClass =
     "border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,246,241,0.96)_100%)] p-5 shadow-[0_18px_40px_rgba(15,23,42,0.12)]";
@@ -400,6 +400,25 @@ export function FilterBar({
     onSearchSubmit(place.name);
   };
 
+  const handleSearchKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+
+    const firstSuggestion = placeSuggestions[0];
+    if (firstSuggestion) {
+      selectPlaceSuggestion(firstSuggestion);
+      return;
+    }
+
+    const query = searchQuery.trim();
+    if (query) {
+      onSearchSubmit(query);
+    }
+  };
+
   return (
     <div className="relative z-50 overflow-visible border-b border-stone-200/80 bg-white/70 px-4 py-4 backdrop-blur-md md:px-6">
       <div className="relative mb-3">
@@ -410,6 +429,7 @@ export function FilterBar({
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
           onFocus={() => setIsPlaceSuggestionsOpen(placeSuggestions.length > 0)}
           onBlur={() => window.setTimeout(() => setIsPlaceSuggestionsOpen(false), 120)}
           placeholder="찾고자 하는 지역을 검색해 주세요."
