@@ -1,7 +1,8 @@
 import uuid
 import os
+import logging
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -15,6 +16,7 @@ from utils.s3 import get_s3_client
 router = APIRouter(prefix="/rooms", tags=["rooms"])
 
 BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "")
+logger = logging.getLogger(__name__)
 
 
 class RoomRegisterRequest(BaseModel):
@@ -39,7 +41,6 @@ class RoomRegisterRequest(BaseModel):
     description: str | None = None
     image_thumbnail: str | None = None
     image_urls: list[str] = []
-    # 옵션
     has_air_con: bool = False
     has_fridge: bool = False
     has_washer: bool = False
@@ -54,7 +55,6 @@ class RoomRegisterRequest(BaseModel):
     has_sink: bool = False
     has_parking: bool = False
     has_elevator: bool = False
-    # 주변 환경
     is_subway_area: bool = False
     is_park_area: bool = False
     is_school_area: bool = False
@@ -96,81 +96,88 @@ async def upload_room_image(
 
 
 @router.post("/register")
-def register_room(payload: RoomRegisterRequest, db: Session = Depends(get_db)):
-    max_9digit = db.query(func.max(Room.item_id)).filter(Room.item_id >= 100000000).scalar()
-    new_item_id = (max_9digit + 1) if max_9digit else 100000000
+async def register_room(request: Request, payload: RoomRegisterRequest, db: Session = Depends(get_db)):
+    try:
+        max_9digit = db.query(func.max(Room.item_id)).filter(Room.item_id >= 100000000).scalar()
+        new_item_id = (max_9digit + 1) if max_9digit else 100000000
 
-    service_type = "월세" if payload.transaction_type == "monthly" else "전세"
+        service_type = "월세" if payload.transaction_type == "monthly" else "전세"
 
-    room = Room(
-        item_id=new_item_id,
-        broker_id=payload.user_id,
-        status="ACTIVE",
-        title=payload.title,
-        address=payload.address,
-        lat=payload.lat,
-        lng=payload.lng,
-        deposit=payload.deposit,
-        rent=payload.rent,
-        manage_cost=payload.manage_cost,
-        service_type=service_type,
-        room_type=payload.room_type,
-        floor=payload.floor,
-        all_floors=payload.all_floors,
-        area_m2=payload.area_m2,
-        image_thumbnail=payload.image_thumbnail,
-    )
-    db.add(room)
-    db.flush()
-
-    features = ItemFeatures(
-        item_id=new_item_id,
-        bathroom_count=payload.bathroom_count,
-        room_direction=payload.room_direction,
-        residence_type=payload.residence_type,
-        approve_date=payload.approve_date,
-        movein_date=payload.movein_date,
-        options_raw=payload.description,
-        has_air_con=payload.has_air_con,
-        has_fridge=payload.has_fridge,
-        has_washer=payload.has_washer,
-        has_gas_stove=payload.has_gas_stove,
-        has_induction=payload.has_induction,
-        has_microwave=payload.has_microwave,
-        has_desk=payload.has_desk,
-        has_bed=payload.has_bed,
-        has_closet=payload.has_closet,
-        has_shoe_rack=payload.has_shoe_rack,
-        has_bookcase=payload.has_bookcase,
-        has_sink=payload.has_sink,
-        has_parking=payload.has_parking,
-        has_elevator=payload.has_elevator,
-        is_subway_area=payload.is_subway_area,
-        is_park_area=payload.is_park_area,
-        is_school_area=payload.is_school_area,
-        is_convenient_area=payload.is_convenient_area,
-    )
-    db.add(features)
-
-    for idx, url in enumerate(payload.image_urls):
-        image = ItemImage(
+        room = Room(
             item_id=new_item_id,
-            s3_url=url,
-            is_main=(idx == 0),
+            broker_id=payload.user_id,
+            status="ACTIVE",
+            title=payload.title,
+            address=payload.address,
+            lat=payload.lat,
+            lng=payload.lng,
+            deposit=payload.deposit,
+            rent=payload.rent,
+            manage_cost=payload.manage_cost,
+            service_type=service_type,
+            room_type=payload.room_type,
+            floor=payload.floor,
+            all_floors=payload.all_floors,
+            area_m2=payload.area_m2,
+            image_thumbnail=payload.image_thumbnail,
         )
-        db.add(image)
+        db.add(room)
+        db.flush()
 
-    db.commit()
-    db.refresh(room)
+        features = ItemFeatures(
+            item_id=new_item_id,
+            bathroom_count=payload.bathroom_count,
+            room_direction=payload.room_direction,
+            residence_type=payload.residence_type,
+            approve_date=payload.approve_date,
+            movein_date=payload.movein_date,
+            options_raw=payload.description,
+            has_air_con=payload.has_air_con,
+            has_fridge=payload.has_fridge,
+            has_washer=payload.has_washer,
+            has_gas_stove=payload.has_gas_stove,
+            has_induction=payload.has_induction,
+            has_microwave=payload.has_microwave,
+            has_desk=payload.has_desk,
+            has_bed=payload.has_bed,
+            has_closet=payload.has_closet,
+            has_shoe_rack=payload.has_shoe_rack,
+            has_bookcase=payload.has_bookcase,
+            has_sink=payload.has_sink,
+            has_parking=payload.has_parking,
+            has_elevator=payload.has_elevator,
+            is_subway_area=payload.is_subway_area,
+            is_park_area=payload.is_park_area,
+            is_school_area=payload.is_school_area,
+            is_convenient_area=payload.is_convenient_area,
+        )
+        db.add(features)
 
-    return {
-        "item_id": room.item_id,
-        "title": room.title,
-        "address": room.address,
-        "status": room.status,
-    }
+        for idx, url in enumerate(payload.image_urls):
+            image = ItemImage(
+                item_id=new_item_id,
+                s3_url=url,
+                is_main=(idx == 0),
+            )
+            db.add(image)
 
-# 매물등록 이미지 s3업로드
+        db.commit()
+        db.refresh(room)
+
+        return {
+            "item_id": room.item_id,
+            "title": room.title,
+            "address": room.address,
+            "status": room.status,
+        }
+
+    except Exception as e:
+        logger.error(f"register_room error: {e}")
+        body = await request.body()
+        logger.error(f"request body: {body}")
+        raise
+
+
 @router.patch("/update-images")
 def update_room_images(payload: UpdateImagesRequest, db: Session = Depends(get_db)):
     room = db.query(Room).filter(Room.item_id == payload.item_id).first()
