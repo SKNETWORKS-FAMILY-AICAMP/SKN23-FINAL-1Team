@@ -56,4 +56,9 @@ class Room(Base):
         back_populates="room",
         cascade="all, delete-orphan",
     )
+    broker_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("public.user.user_id", ondelete="SET NULL"),
+        nullable=True,
+    )
     favorites = relationship("Favorite", back_populates="item", cascade="all, delete-orphan")

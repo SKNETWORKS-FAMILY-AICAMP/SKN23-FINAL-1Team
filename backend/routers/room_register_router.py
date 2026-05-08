@@ -108,7 +108,7 @@ async def register_room(request: Request, payload: RoomRegisterRequest, db: Sess
             broker_id=payload.user_id,
             status="ACTIVE",
             title=payload.title,
-            url=payload.url,
+            url="",
             address=payload.address,
             lat=payload.lat,
             lng=payload.lng,
