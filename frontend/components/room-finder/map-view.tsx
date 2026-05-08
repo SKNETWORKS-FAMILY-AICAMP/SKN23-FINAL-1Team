@@ -647,7 +647,7 @@ export function MapView({
     const position = new kakao.maps.LatLng(lat, lng);
 
     pendingSourceRef.current = focusRequest.source;
-    map.setLevel(focusRequest.level, { anchor: position });
+    map.setLevel(focusRequest.level);
     map.panTo(position);
     window.setTimeout(() => emitBounds(map), 300);
   }, [focusRequest, isMapReady]);

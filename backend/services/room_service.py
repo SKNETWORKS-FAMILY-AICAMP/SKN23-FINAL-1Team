@@ -112,7 +112,6 @@ def get_basement_condition():
 
 def apply_room_filters(stmt, req):
     stmt = stmt.where(Room.status == "ACTIVE")
-    stmt = stmt.where(Room.is_embedded.is_(True))
 
     if req.search.strip():
         keyword = f"%{req.search.strip()}%"

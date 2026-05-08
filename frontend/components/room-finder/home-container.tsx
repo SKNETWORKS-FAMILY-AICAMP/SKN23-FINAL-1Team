@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LogIn, X } from "lucide-react";
 import { Header } from "@/components/room-finder/header";
 import { FilterBar, type Filters } from "@/components/room-finder/filter-bar";
 import {
@@ -141,6 +142,7 @@ function logSimilarRoomScores(items: Listing[], context: string) {
 }
 
 export function HomeContainer() {
+  const router = useRouter();
   const [roomType, setRoomType] = useState<"oneroom" | "tworoom">("oneroom");
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [searchQuery, setSearchQuery] = useState("");
@@ -156,6 +158,7 @@ export function HomeContainer() {
   const [fullscreenImages, setFullscreenImages] = useState<string[]>([]);
   const [fullscreenIndex, setFullscreenIndex] = useState(0);
   const [aiFullscreenUrl, setAiFullscreenUrl] = useState<string | null>(null);
+  const [isLoginGuideOpen, setIsLoginGuideOpen] = useState(false);
   const { toast, showToast, hideToast } = useFavoriteToast();
 
   const [listings, setListings] = useState<Listing[]>([]);
@@ -751,14 +754,31 @@ export function HomeContainer() {
     setOffset((prev) => prev + PAGE_SIZE);
   }, [hasMore, isLoading]);
 
+  const focusMapOnListing = useCallback((listing: Listing) => {
+    const lat = Number(listing.lat);
+    const lng = Number(listing.lng);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+    mapFocusRequestIdRef.current += 1;
+    setMapFocusRequest({
+      id: mapFocusRequestIdRef.current,
+      lat,
+      lng,
+      level: 2,
+      source: "selection",
+    });
+  }, []);
+
   // 매물목록 클릭 → 지도 이동 + 상세패널 오픈
   const handleListingClick = useCallback(
     (listing: Listing) => {
       recordRecentListing(listing);
       setSelectedListing(listing);
       setIsDetailOpen(true);
+      focusMapOnListing(listing);
     },
-    [recordRecentListing],
+    [focusMapOnListing, recordRecentListing],
   );
 
   // 찜목록 클릭 → 지도 이동 + 상세패널 오픈 (매물목록과 동일)
@@ -767,8 +787,9 @@ export function HomeContainer() {
       recordRecentListing(listing);
       setSelectedListing(listing);
       setIsDetailOpen(true);
+      focusMapOnListing(listing);
     },
-    [recordRecentListing],
+    [focusMapOnListing, recordRecentListing],
   );
 
   const handleSimilarOverlayListingClick = useCallback(
@@ -860,7 +881,7 @@ export function HomeContainer() {
   const handleToggleFavorite = useCallback(
     async (listingId: number) => {
       if (!isLoggedIn || !user?.user_id) {
-        alert("로그인 후 이용할 수 있습니다.");
+        setIsLoginGuideOpen(true);
         return;
       }
 
@@ -902,6 +923,15 @@ export function HomeContainer() {
       showToast,
     ],
   );
+
+  const openLoginGuide = useCallback(() => {
+    setIsLoginGuideOpen(true);
+  }, []);
+
+  const handleLoginRedirect = useCallback(() => {
+    setIsLoginGuideOpen(false);
+    router.push("/login");
+  }, [router]);
 
   const handleRoomTypeChange = useCallback(
     (nextRoomType: "oneroom" | "tworoom") => {
@@ -947,6 +977,56 @@ export function HomeContainer() {
 
       {/* 찜 토스트 알림 */}
       <Toast toast={toast} onClose={hideToast} />
+
+      {isLoginGuideOpen && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="login-guide-title"
+          aria-describedby="login-guide-description"
+          onClick={() => setIsLoginGuideOpen(false)}
+        >
+          <div
+            className="w-full max-w-[380px] overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="px-6 pt-7 text-center">
+              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-500">
+                <LogIn className="h-5 w-5" />
+              </div>
+              <h2
+                id="login-guide-title"
+                className="text-xl font-bold tracking-normal text-stone-900"
+              >
+                로그인이 필요해요
+              </h2>
+              <p
+                id="login-guide-description"
+                className="mt-2 text-sm leading-6 text-stone-500"
+              >
+                마음에 드는 매물을 찜하려면 먼저 로그인해 주세요.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 px-6 pb-6 pt-5">
+              <button
+                type="button"
+                onClick={handleLoginRedirect}
+                className="inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-xl bg-stone-900 px-4 text-sm font-semibold text-white transition hover:bg-stone-800"
+              >
+                로그인하러 가기
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsLoginGuideOpen(false)}
+                className="inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-stone-600 transition hover:bg-stone-50"
+              >
+                계속 둘러보기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI 이미지 풀스크린 모달 */}
       {aiFullscreenUrl && (
@@ -1189,6 +1269,7 @@ export function HomeContainer() {
               favoriteListings={favoriteListings}
               onWishTabOpen={loadFavoriteListings}
               isLoggedIn={isLoggedIn}
+              onLoginRequired={openLoginGuide}
               onWishClick={handleWishClick}
               sort={sort}
               onSortChange={setSort}
@@ -1269,6 +1350,7 @@ export function HomeContainer() {
                 favoriteListings={favoriteListings}
                 onWishTabOpen={loadFavoriteListings}
                 isLoggedIn={isLoggedIn}
+                onLoginRequired={openLoginGuide}
                 onWishClick={handleWishClick}
                 onAIPhotoClick={(url) => setAiFullscreenUrl(url)}
                 similarSearchParams={similarSearchParams}
