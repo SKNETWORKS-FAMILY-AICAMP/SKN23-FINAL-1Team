@@ -18,6 +18,8 @@ interface Room {
   status: string;
   image_thumbnail: string | null;
   service_type: string | null;
+  lat: number | null;
+  lng: number | null;
 }
 
 export function BrokerSection({ userId }: { userId: number }) {
@@ -76,8 +78,8 @@ export function BrokerSection({ userId }: { userId: number }) {
       size: room.area_m2 ? `${room.area_m2}m²` : "",
       floor: room.floor ? `${room.floor}층` : "",
       images: room.image_thumbnail ? [room.image_thumbnail] : [],
-      lat: 0,
-      lng: 0,
+      lat: room.lat ?? 0,
+      lng: room.lng ?? 0,
       structure: room.room_type ?? "",
       options: [],
     });
