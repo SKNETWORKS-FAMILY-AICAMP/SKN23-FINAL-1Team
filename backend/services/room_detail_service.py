@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload, joinedload
 
 from models.room import Room
+from models.broker import Broker
 from schemas.room_detail_schema import (
     RoomDetailResponse,
     RoomDetailItemResponse,
@@ -13,16 +14,12 @@ from schemas.room_detail_schema import (
 def is_valid_image_value(value) -> bool:
     if value is None:
         return False
-
     if not isinstance(value, str):
         return False
-
     normalized = value.strip()
     lowered = normalized.lower()
-
     if lowered in {"", "nan", "none", "null"}:
         return False
-
     return (
         normalized.startswith("s3://")
         or normalized.startswith("http://")
@@ -122,8 +119,20 @@ def get_room_detail(db, item_id: int):
         for image in valid_images
     ]
 
+    # broker 정보
+    broker_info = None
+    if room.broker_id:
+        broker = db.query(Broker).filter(Broker.broker_id == room.broker_id).first()
+        if broker:
+            broker_info = {
+                "name": broker.name,
+                "office_name": broker.office_name,
+                "phone": broker.phone,
+            }
+
     return RoomDetailResponse(
         item=RoomDetailItemResponse.model_validate(room),
         features=feature_payload,
         images=image_payload,
+        broker=broker_info,
     )

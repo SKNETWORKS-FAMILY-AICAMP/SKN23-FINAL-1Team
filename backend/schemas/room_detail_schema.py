@@ -77,7 +77,14 @@ class RoomDetailItemResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class BrokerInfoResponse(BaseModel):
+    name: str | None = None
+    office_name: str | None = None
+    phone: str | None = None
+
+
 class RoomDetailResponse(BaseModel):
     item: RoomDetailItemResponse
     features: RoomFeatureResponse | None = None
     images: list[RoomImageResponse] = []
+    broker: BrokerInfoResponse | None = None
