@@ -380,7 +380,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                     room.status === "ACTIVE" ? "bg-green-100 text-green-600" : "bg-stone-100 text-stone-400"
                   }`}>
-                    {room.status === "ACTIVE" ? "활성" : "계약완료"}
+                    {room.status === "ACTIVE" ? "활성" : "거래완료"}
                   </span>
                   {room.room_type && <span className="text-[10px] text-stone-400">{room.room_type}</span>}
                 </div>
@@ -456,16 +456,28 @@ export function BrokerSection({ userId }: { userId: number }) {
             <div className="mb-5 flex items-center justify-between">
               <p className="text-sm font-semibold text-stone-900">매물 수정</p>
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setEditForm((p) => p ? ({ ...p, status: p.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }) : p)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold cursor-pointer transition-all ${
-                    editForm.status === "ACTIVE"
-                      ? "bg-green-100 text-green-600 hover:bg-green-200"
-                      : "bg-stone-100 text-stone-500 hover:bg-stone-200"
-                  }`}
-                >
-                  {editForm.status === "ACTIVE" ? "● 활성" : "● 계약완료"}
-                </button>
+                <div className="flex items-center bg-stone-100 rounded-full p-1">
+                  <button
+                    onClick={() => setEditForm((p) => p ? ({ ...p, status: "ACTIVE" }) : p)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold cursor-pointer transition-all ${
+                      editForm.status === "ACTIVE"
+                        ? "bg-green-100 text-green-600"
+                        : "text-stone-400"
+                    }`}
+                  >
+                    활성
+                  </button>
+                  <button
+                    onClick={() => setEditForm((p) => p ? ({ ...p, status: "INACTIVE" }) : p)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold cursor-pointer transition-all ${
+                      editForm.status === "INACTIVE"
+                        ? "bg-red-100 text-red-500"
+                        : "text-stone-400"
+                    }`}
+                  >
+                    거래완료
+                  </button>
+                </div>
                 <button onClick={() => { setEditingRoom(null); setEditForm(null); setNewPhotos([]); }} className="cursor-pointer rounded-full p-1 text-stone-400 hover:text-stone-600">
                   <X className="h-4 w-4" />
                 </button>
@@ -603,6 +615,24 @@ export function BrokerSection({ userId }: { userId: number }) {
               </div>
 
               {/* 상세 설명 */}
+              <div>
+                <p className="mb-2 text-xs font-semibold text-stone-500">주변 시설 거리</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {DISTANCES.map((dist) => (
+                    <div key={dist.key}>
+                      <p className="mb-1 text-xs text-stone-400">{dist.label}</p>
+                      <input
+                        type="number"
+                        value={editForm[dist.key as keyof EditForm] as string}
+                        onChange={(e) => setEditForm((p) => p ? ({ ...p, [dist.key]: e.target.value }) : p)}
+                        className={inputClass}
+                        placeholder="예) 300"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">상세 설명</p>
                 <textarea
