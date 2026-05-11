@@ -58,6 +58,11 @@ class RoomRegisterRequest(BaseModel):
     is_park_area: bool = False
     is_school_area: bool = False
     is_convenient_area: bool = False
+    dist_subway: int | None = None
+    dist_bus: int | None = None
+    dist_conv: int | None = None
+    dist_mart: int | None = None
+    dist_laundry: int | None = None
 
 
 class UpdateImagesRequest(BaseModel):
@@ -92,6 +97,11 @@ class RoomUpdateRequest(BaseModel):
     is_park_area: bool = False
     is_school_area: bool = False
     is_convenient_area: bool = False
+    dist_subway: int | None = None
+    dist_bus: int | None = None
+    dist_conv: int | None = None
+    dist_mart: int | None = None
+    dist_laundry: int | None = None
 
 
 @router.post("/upload-image")
@@ -184,6 +194,11 @@ async def register_room(request: Request, payload: RoomRegisterRequest, db: Sess
             is_park_area=payload.is_park_area,
             is_school_area=payload.is_school_area,
             is_convenient_area=payload.is_convenient_area,
+            dist_subway=payload.dist_subway,
+            dist_bus=payload.dist_bus,
+            dist_conv=payload.dist_conv,
+            dist_mart=payload.dist_mart,
+            dist_laundry=payload.dist_laundry,
         )
         db.add(features)
 
@@ -289,6 +304,11 @@ def get_my_rooms(user_id: int, db: Session = Depends(get_db)):
             "is_park_area": features.is_park_area if features else False,
             "is_school_area": features.is_school_area if features else False,
             "is_convenient_area": features.is_convenient_area if features else False,
+            "dist_subway": features.dist_subway if features else None,
+            "dist_bus": features.dist_bus if features else None,
+            "dist_conv": features.dist_conv if features else None,
+            "dist_mart": features.dist_mart if features else None,
+            "dist_laundry": features.dist_laundry if features else None,
         })
     return result
 
@@ -326,6 +346,11 @@ def update_my_room(item_id: int, payload: RoomUpdateRequest, db: Session = Depen
         features.is_park_area = payload.is_park_area
         features.is_school_area = payload.is_school_area
         features.is_convenient_area = payload.is_convenient_area
+        features.dist_subway = payload.dist_subway
+        features.dist_bus = payload.dist_bus
+        features.dist_conv = payload.dist_conv
+        features.dist_mart = payload.dist_mart
+        features.dist_laundry = payload.dist_laundry
 
     db.commit()
     return {"success": True}
