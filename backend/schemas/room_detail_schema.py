@@ -81,6 +81,7 @@ class BrokerInfoResponse(BaseModel):
     name: str | None = None
     office_name: str | None = None
     phone: str | None = None
+    photo_url: str | None = None
 
 
 class RoomDetailResponse(BaseModel):
