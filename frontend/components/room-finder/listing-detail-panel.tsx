@@ -391,9 +391,7 @@ export function ListingDetailPanel({
                   <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
                     <Building2 className="h-4 w-4" />
                   </div>
-                  <h3 className="text-base font-bold tracking-tight text-stone-900">
-                    기본 정보
-                  </h3>
+                  <h3 className="text-base font-bold tracking-tight text-stone-900">기본 정보</h3>
                 </div>
                 <div className="rounded-2xl border border-stone-100 bg-white px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                   <DetailRow label="방 유형" value={currentItem?.room_type} />
@@ -415,29 +413,19 @@ export function ListingDetailPanel({
                   <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
                     <Ruler className="h-4 w-4" />
                   </div>
-                  <h3 className="text-base font-bold tracking-tight text-stone-900">
-                    면적/위치
-                  </h3>
+                  <h3 className="text-base font-bold tracking-tight text-stone-900">면적/위치</h3>
                 </div>
                 <div className="rounded-2xl border border-stone-100 bg-white px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                   {areaText && (
                     <div className="flex items-center justify-between gap-4 border-b border-stone-200/80 py-4">
-                      <span className="shrink-0 text-[13px] font-medium tracking-tight text-stone-500">
-                        면적
-                      </span>
+                      <span className="shrink-0 text-[13px] font-medium tracking-tight text-stone-500">면적</span>
                       <div className="flex items-center gap-3">
                         <div className="relative inline-grid grid-cols-2 gap-4 rounded-xl border border-stone-200 bg-stone-50 p-1 shadow-inner">
                           <span className={`absolute bottom-1 top-1 w-[calc(50%-0.625rem)] rounded-lg bg-stone-900 shadow-sm transition-transform duration-200 ease-out ${areaUnit === "pyeong" ? "translate-x-[calc(100%+1rem)]" : "translate-x-0"}`} />
-                          <button type="button" onClick={() => setAreaUnit("m2")} className={`relative z-10 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer scale-110 ${areaUnit === "m2" ? "text-white" : "text-stone-600 hover:text-stone-900"}`}>
-                            m²
-                          </button>
-                          <button type="button" onClick={() => setAreaUnit("pyeong")} className={`relative z-10 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer scale-110 ${areaUnit === "pyeong" ? "text-white" : "text-stone-600 hover:text-stone-900"}`}>
-                            평
-                          </button>
+                          <button type="button" onClick={() => setAreaUnit("m2")} className={`relative z-10 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer scale-110 ${areaUnit === "m2" ? "text-white" : "text-stone-600 hover:text-stone-900"}`}>m²</button>
+                          <button type="button" onClick={() => setAreaUnit("pyeong")} className={`relative z-10 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer scale-110 ${areaUnit === "pyeong" ? "text-white" : "text-stone-600 hover:text-stone-900"}`}>평</button>
                         </div>
-                        <span className="break-words text-right text-sm font-bold text-stone-800">
-                          {areaText}
-                        </span>
+                        <span className="break-words text-right text-sm font-bold text-stone-800">{areaText}</span>
                       </div>
                     </div>
                   )}
@@ -493,34 +481,45 @@ export function ListingDetailPanel({
               </section>
 
               {/* 중개사 정보 */}
-                {detail?.broker && (
-                  <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
-                    <div className="mb-4 flex items-center gap-2">
+              {detail?.broker && (
+                <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                       <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
                         <Phone className="h-4 w-4" />
                       </div>
                       <h3 className="text-base font-bold tracking-tight text-stone-900">중개사 정보</h3>
                     </div>
-                    <div className="flex gap-4">
-                      {/* 프로필 사진 */}
-                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-full bg-stone-100 border border-stone-200">
+                    {detail.broker.phone && (
+                      <a
+                        href={`tel:${detail.broker.phone}`}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-green-500 px-3 py-1.5 text-[11px] font-semibold text-white"
+                      >
+                        <Phone className="h-3 w-3" />
+                        전화하기
+                      </a>
+                    )}
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="flex flex-[4] items-center justify-center">
+                      <div className="h-[90px] w-[90px] overflow-hidden rounded-full border border-stone-200 bg-stone-100">
                         {detail.broker.photo_url ? (
                           <img src={detail.broker.photo_url} alt="중개사 프로필" className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center">
-                            <Building2 className="h-6 w-6 text-stone-300" />
+                            <Building2 className="h-8 w-8 text-stone-300" />
                           </div>
                         )}
                       </div>
-                      {/* 정보 */}
-                      <div className="rounded-2xl border border-stone-100 bg-white px-4 flex-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-                        <DetailRow label="담당자" value={detail.broker.name} />
-                        <DetailRow label="중개사무소" value={detail.broker.office_name} />
-                        <DetailRow label="연락처" value={detail.broker.phone} />
-                      </div>
                     </div>
-                  </section>
-                )}
+                    <div className="flex-[6] rounded-2xl border border-stone-100 bg-white px-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                      <DetailRow label="담당자" value={detail.broker.name} />
+                      <DetailRow label="중개사무소" value={detail.broker.office_name} />
+                      <DetailRow label="연락처" value={detail.broker.phone} />
+                    </div>
+                  </div>
+                </section>
+              )}
             </div>
           )}
         </div>
