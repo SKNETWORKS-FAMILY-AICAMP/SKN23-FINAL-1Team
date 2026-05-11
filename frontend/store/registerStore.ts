@@ -38,6 +38,11 @@ type RegisterForm = {
   is_park_area: boolean;
   is_school_area: boolean;
   is_convenient_area: boolean;
+  dist_subway: number | null;
+  dist_bus: number | null;
+  dist_conv: number | null;
+  dist_mart: number | null;
+  dist_laundry: number | null;
 };
 
 type RegisterState = {

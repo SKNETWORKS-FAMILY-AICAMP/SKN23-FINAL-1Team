@@ -92,6 +92,11 @@ export default function RegisterPage() {
     approve_date: "",
     movein_date: "",
     description: "",
+    dist_subway: "",
+    dist_bus: "",
+    dist_conv: "",
+    dist_mart: "",
+    dist_laundry: "",
   });
 
   const [selectedOptions, setSelectedOptions] = useState<Record<string, boolean>>(
@@ -218,6 +223,11 @@ export default function RegisterPage() {
       is_park_area: selectedEnv.is_park_area,
       is_school_area: selectedEnv.is_school_area,
       is_convenient_area: selectedEnv.is_convenient_area,
+      dist_subway: form.dist_subway ? parseInt(form.dist_subway) : null,
+      dist_bus: form.dist_bus ? parseInt(form.dist_bus) : null,
+      dist_conv: form.dist_conv ? parseInt(form.dist_conv) : null,
+      dist_mart: form.dist_mart ? parseInt(form.dist_mart) : null,
+      dist_laundry: form.dist_laundry ? parseInt(form.dist_laundry) : null,
     });
     router.push("/register-photo");
   };
@@ -404,6 +414,31 @@ export default function RegisterPage() {
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-3 text-xs font-semibold text-stone-500">주변 시설 거리</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>지하철역 (m)</label>
+                  <input name="dist_subway" value={form.dist_subway} onChange={handleChange} className={inputNormal} placeholder="예) 300" type="number" />
+                </div>
+                <div>
+                  <label className={labelClass}>버스정류장 (m)</label>
+                  <input name="dist_bus" value={form.dist_bus} onChange={handleChange} className={inputNormal} placeholder="예) 100" type="number" />
+                </div>
+                <div>
+                  <label className={labelClass}>편의점 (m)</label>
+                  <input name="dist_conv" value={form.dist_conv} onChange={handleChange} className={inputNormal} placeholder="예) 50" type="number" />
+                </div>
+                <div>
+                  <label className={labelClass}>마트 (m)</label>
+                  <input name="dist_mart" value={form.dist_mart} onChange={handleChange} className={inputNormal} placeholder="예) 500" type="number" />
+                </div>
+                <div>
+                  <label className={labelClass}>세탁소 (m)</label>
+                  <input name="dist_laundry" value={form.dist_laundry} onChange={handleChange} className={inputNormal} placeholder="예) 200" type="number" />
+                </div>
               </div>
             </div>
             <div className="flex justify-end pt-2">

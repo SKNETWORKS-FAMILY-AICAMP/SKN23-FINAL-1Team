@@ -20,6 +20,9 @@ class BrokerRegisterRequest(BaseModel):
     phone: str
     photo_url: str | None = None
 
+class NicknameUpdateRequest(BaseModel):
+    user_id: int
+    nickname: str
 
 @router.post("/register-broker")
 def register_broker(payload: BrokerRegisterRequest, db: Session = Depends(get_db)):
@@ -74,3 +77,31 @@ def register_broker(payload: BrokerRegisterRequest, db: Session = Depends(get_db
             "photo_url": broker.photo_url,
         },
     }
+
+@router.patch("/nickname")
+def update_nickname(payload: NicknameUpdateRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.user_id == payload.user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+    
+    nickname = payload.nickname.strip()
+    if not nickname:
+        raise HTTPException(status_code=400, detail="닉네임을 입력해주세요.")
+    
+    user.nickname = nickname
+    db.commit()
+    db.refresh(user)
+    
+    return {"user_id": user.user_id, "nickname": user.nickname}
+
+
+@router.delete("/withdraw/{user_id}")
+def withdraw_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+    
+    db.delete(user)
+    db.commit()
+    
+    return {"success": True}
