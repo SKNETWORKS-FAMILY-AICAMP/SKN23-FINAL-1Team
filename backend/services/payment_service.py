@@ -35,7 +35,7 @@ def prepare_payment_order(db: Session, user_id: int, product_id: str):
     if product is None:
         raise HTTPException(status_code=400, detail="존재하지 않는 크레딧 상품입니다.")
 
-    payment_id = f"test-credit-{user_id}-{uuid.uuid4().hex}"
+    payment_id = f"tc-{uuid.uuid4().hex}"
     payment_order = PaymentOrder(
         payment_id=payment_id,
         user_id=user_id,
