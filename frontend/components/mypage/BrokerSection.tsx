@@ -29,6 +29,14 @@ const ENVIRONMENTS = [
   { key: "is_convenient_area", label: "슬세권" },
 ];
 
+const DISTANCES = [
+  { key: "dist_subway", label: "지하철역 (m)" },
+  { key: "dist_bus", label: "버스정류장 (m)" },
+  { key: "dist_conv", label: "편의점 (m)" },
+  { key: "dist_mart", label: "마트 (m)" },
+  { key: "dist_laundry", label: "세탁소 (m)" },
+];
+
 interface RoomImage {
   id: number;
   url: string;
@@ -70,6 +78,11 @@ interface Room {
   is_park_area: boolean;
   is_school_area: boolean;
   is_convenient_area: boolean;
+  dist_subway: number | null;
+  dist_bus: number | null;
+  dist_conv: number | null;
+  dist_mart: number | null;
+  dist_laundry: number | null;
 }
 
 interface EditForm {
@@ -97,6 +110,11 @@ interface EditForm {
   is_park_area: boolean;
   is_school_area: boolean;
   is_convenient_area: boolean;
+  dist_subway: string;
+  dist_bus: string;
+  dist_conv: string;
+  dist_mart: string;
+  dist_laundry: string;
 }
 
 const inputClass = "w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm focus:border-stone-400 focus:outline-none";
@@ -178,6 +196,11 @@ export function BrokerSection({ userId }: { userId: number }) {
       is_park_area: room.is_park_area,
       is_school_area: room.is_school_area,
       is_convenient_area: room.is_convenient_area,
+      dist_subway: String(room.dist_subway ?? ""),
+      dist_bus: String(room.dist_bus ?? ""),
+      dist_conv: String(room.dist_conv ?? ""),
+      dist_mart: String(room.dist_mart ?? ""),
+      dist_laundry: String(room.dist_laundry ?? ""),
     });
   };
 
@@ -265,6 +288,11 @@ export function BrokerSection({ userId }: { userId: number }) {
           is_park_area: editForm.is_park_area,
           is_school_area: editForm.is_school_area,
           is_convenient_area: editForm.is_convenient_area,
+          dist_subway: editForm.dist_subway ? parseInt(editForm.dist_subway) : null,
+          dist_bus: editForm.dist_bus ? parseInt(editForm.dist_bus) : null,
+          dist_conv: editForm.dist_conv ? parseInt(editForm.dist_conv) : null,
+          dist_mart: editForm.dist_mart ? parseInt(editForm.dist_mart) : null,
+          dist_laundry: editForm.dist_laundry ? parseInt(editForm.dist_laundry) : null,
         }),
       });
       if (!res.ok) return;
@@ -284,7 +312,6 @@ export function BrokerSection({ userId }: { userId: number }) {
       openEditModal(room);
       return;
     }
-
     const priceText = room.service_type === "월세"
       ? `${room.deposit}/${room.rent}`
       : `전세 ${room.deposit}`;
@@ -429,22 +456,16 @@ export function BrokerSection({ userId }: { userId: number }) {
             <div className="mb-5 flex items-center justify-between">
               <p className="text-sm font-semibold text-stone-900">매물 수정</p>
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-stone-500">
-                    {editForm.status === "ACTIVE" ? "활성" : "계약완료"}
-                  </span>
-                  <button
-                    onClick={() => setEditForm((p) => p ? ({ ...p, status: p.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }) : p)}
-                    className={`relative h-6 w-11 rounded-full transition-colors duration-200 cursor-pointer ${
-                      editForm.status === "ACTIVE" ? "bg-green-500" : "bg-stone-300"
-                    }`}
-                  >
-                    <span
-                      style={{ transform: editForm.status === "ACTIVE" ? "translateX(2px)" : "translateX(22px)" }}
-                      className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"
-                    />
-                  </button>
-                </div>
+                <button
+                  onClick={() => setEditForm((p) => p ? ({ ...p, status: p.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }) : p)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold cursor-pointer transition-all ${
+                    editForm.status === "ACTIVE"
+                      ? "bg-green-100 text-green-600 hover:bg-green-200"
+                      : "bg-stone-100 text-stone-500 hover:bg-stone-200"
+                  }`}
+                >
+                  {editForm.status === "ACTIVE" ? "● 활성" : "● 계약완료"}
+                </button>
                 <button onClick={() => { setEditingRoom(null); setEditForm(null); setNewPhotos([]); }} className="cursor-pointer rounded-full p-1 text-stone-400 hover:text-stone-600">
                   <X className="h-4 w-4" />
                 </button>
@@ -452,6 +473,7 @@ export function BrokerSection({ userId }: { userId: number }) {
             </div>
 
             <div className="space-y-5">
+              {/* 사진 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">사진</p>
                 <div className="flex flex-wrap gap-2">
@@ -499,6 +521,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                 />
               </div>
 
+              {/* 제목 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">제목</p>
                 <input
@@ -509,6 +532,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                 />
               </div>
 
+              {/* 가격 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">가격</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -527,6 +551,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                 </div>
               </div>
 
+              {/* 옵션 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">옵션</p>
                 <div className="flex flex-wrap gap-2">
@@ -542,6 +567,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                 </div>
               </div>
 
+              {/* 주변 환경 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">주변 환경</p>
                 <div className="flex flex-wrap gap-2">
@@ -557,6 +583,26 @@ export function BrokerSection({ userId }: { userId: number }) {
                 </div>
               </div>
 
+              {/* 주변 시설 거리 */}
+              <div>
+                <p className="mb-2 text-xs font-semibold text-stone-500">주변 시설 거리</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {DISTANCES.map((dist) => (
+                    <div key={dist.key}>
+                      <p className="mb-1 text-xs text-stone-400">{dist.label}</p>
+                      <input
+                        type="number"
+                        value={editForm[dist.key as keyof EditForm] as string}
+                        onChange={(e) => setEditForm((p) => p ? ({ ...p, [dist.key]: e.target.value }) : p)}
+                        className={inputClass}
+                        placeholder="예) 300"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 상세 설명 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">상세 설명</p>
                 <textarea
@@ -567,6 +613,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                 />
               </div>
 
+              {/* 버튼 */}
               <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
                 <button
                   onClick={() => { setEditingRoom(null); setEditForm(null); setNewPhotos([]); }}
