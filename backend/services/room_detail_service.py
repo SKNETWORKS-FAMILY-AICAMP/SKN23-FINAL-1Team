@@ -8,7 +8,7 @@ from schemas.room_detail_schema import (
     RoomDetailItemResponse,
     RoomFeatureResponse,
     RoomImageResponse,
-    BrokerInfoResponse,  
+    BrokerInfoResponse,
 )
 
 
@@ -33,6 +33,15 @@ def to_public_image_url(item_id: int, image_id: int, value: str) -> str:
     if value.startswith("s3://"):
         return f"/api/rooms/{item_id}/images/{image_id}"
     return value
+
+
+def to_broker_photo_url(photo_url: str | None) -> str | None:
+    if not photo_url:
+        return None
+    if "s3.ap-northeast-2.amazonaws.com" in photo_url:
+        key = photo_url.split(".amazonaws.com/")[-1]
+        return f"/backend/api/brokers/photo/{key}"
+    return photo_url
 
 
 def get_room_detail(db, item_id: int):
@@ -103,10 +112,7 @@ def get_room_detail(db, item_id: int):
         image
         for image in sorted(
             room.images,
-            key=lambda img: (
-                not bool(img.is_main),
-                img.id,
-            ),
+            key=lambda img: (not bool(img.is_main), img.id),
         )
         if is_valid_image_value(image.s3_url)
     ]
@@ -120,16 +126,15 @@ def get_room_detail(db, item_id: int):
         for image in valid_images
     ]
 
-    # broker 정보
     broker_info = None
     if room.broker_id:
         broker = db.query(Broker).filter(Broker.broker_id == room.broker_id).first()
         if broker:
             broker_info = BrokerInfoResponse(
-                name = broker.name,
-                office_name = broker.office_name,
-                phone = broker.phone,
-                photo_url = broker.photo_url,
+                name=broker.name,
+                office_name=broker.office_name,
+                phone=broker.phone,
+                photo_url=to_broker_photo_url(broker.photo_url),
             )
 
     return RoomDetailResponse(

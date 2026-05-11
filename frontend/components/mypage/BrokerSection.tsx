@@ -439,9 +439,10 @@ export function BrokerSection({ userId }: { userId: number }) {
                       editForm.status === "ACTIVE" ? "bg-green-500" : "bg-stone-300"
                     }`}
                   >
-                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
-                      editForm.status === "ACTIVE" ? "translate-x-0.5" : "translate-x-5"
-                    }`} />
+                    <span
+                      style={{ transform: editForm.status === "ACTIVE" ? "translateX(2px)" : "translateX(22px)" }}
+                      className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"
+                    />
                   </button>
                 </div>
                 <button onClick={() => { setEditingRoom(null); setEditForm(null); setNewPhotos([]); }} className="cursor-pointer rounded-full p-1 text-stone-400 hover:text-stone-600">
