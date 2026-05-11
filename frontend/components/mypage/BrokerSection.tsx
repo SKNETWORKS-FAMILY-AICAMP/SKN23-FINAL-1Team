@@ -485,6 +485,7 @@ export function BrokerSection({ userId }: { userId: number }) {
             </div>
 
             <div className="space-y-5">
+              {/* 사진 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">사진</p>
                 <div className="flex flex-wrap gap-2">
@@ -532,6 +533,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                 />
               </div>
 
+              {/* 제목 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">제목</p>
                 <input
@@ -542,6 +544,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                 />
               </div>
 
+              {/* 가격 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">가격</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -560,6 +563,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                 </div>
               </div>
 
+              {/* 옵션 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">옵션</p>
                 <div className="flex flex-wrap gap-2">
@@ -575,6 +579,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                 </div>
               </div>
 
+              {/* 주변 환경 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">주변 환경</p>
                 <div className="flex flex-wrap gap-2">
@@ -590,6 +595,26 @@ export function BrokerSection({ userId }: { userId: number }) {
                 </div>
               </div>
 
+              {/* 주변 시설 거리 */}
+              <div>
+                <p className="mb-2 text-xs font-semibold text-stone-500">주변 시설 거리</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {DISTANCES.map((dist) => (
+                    <div key={dist.key}>
+                      <p className="mb-1 text-xs text-stone-400">{dist.label}</p>
+                      <input
+                        type="number"
+                        value={editForm[dist.key as keyof EditForm] as string}
+                        onChange={(e) => setEditForm((p) => p ? ({ ...p, [dist.key]: e.target.value }) : p)}
+                        className={inputClass}
+                        placeholder="예) 300"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 상세 설명 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">주변 시설 거리</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -618,6 +643,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                 />
               </div>
 
+              {/* 버튼 */}
               <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
                 <button
                   onClick={() => { setEditingRoom(null); setEditForm(null); setNewPhotos([]); }}
