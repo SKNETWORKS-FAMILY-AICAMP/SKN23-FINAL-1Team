@@ -2,8 +2,13 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from db.session import get_db
-from schemas.payment_schema import PaymentPrepareRequest, PaymentPrepareResponse
-from services.payment_service import prepare_payment_order
+from schemas.payment_schema import (
+    PaymentCompleteRequest,
+    PaymentCompleteResponse,
+    PaymentPrepareRequest,
+    PaymentPrepareResponse,
+)
+from services.payment_service import complete_payment_order, prepare_payment_order
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -24,3 +29,13 @@ def prepare_payment(payload: PaymentPrepareRequest, db: Session = Depends(get_db
         "credit_amount": payment_order.credit_amount,
         "status": payment_order.status,
     }
+
+
+@router.post("/complete", response_model=PaymentCompleteResponse)
+def complete_payment(payload: PaymentCompleteRequest, db: Session = Depends(get_db)):
+    return complete_payment_order(
+        db=db,
+        user_id=payload.user_id,
+        payment_id=payload.payment_id,
+        provider_transaction_id=payload.provider_transaction_id,
+    )
