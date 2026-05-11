@@ -1,9 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Trash2 } from "lucide-react";
+import { Building2, Trash2, Pencil, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { usePendingListingStore } from "@/store/pendingListingStore";
+
+const OPTIONS = [
+  { key: "has_air_con", label: "에어컨" },
+  { key: "has_fridge", label: "냉장고" },
+  { key: "has_washer", label: "세탁기" },
+  { key: "has_gas_stove", label: "가스레인지" },
+  { key: "has_induction", label: "인덕션" },
+  { key: "has_microwave", label: "전자레인지" },
+  { key: "has_desk", label: "책상" },
+  { key: "has_bed", label: "침대" },
+  { key: "has_closet", label: "옷장" },
+  { key: "has_shoe_rack", label: "신발장" },
+  { key: "has_bookcase", label: "책장" },
+  { key: "has_sink", label: "싱크대" },
+  { key: "has_parking", label: "주차" },
+  { key: "has_elevator", label: "엘리베이터" },
+];
+
+const ENVIRONMENTS = [
+  { key: "is_subway_area", label: "역세권" },
+  { key: "is_park_area", label: "공세권" },
+  { key: "is_school_area", label: "학세권" },
+  { key: "is_convenient_area", label: "슬세권" },
+];
 
 interface Room {
   item_id: number;
@@ -20,7 +44,57 @@ interface Room {
   service_type: string | null;
   lat: number | null;
   lng: number | null;
+  description: string | null;
+  has_air_con: boolean;
+  has_fridge: boolean;
+  has_washer: boolean;
+  has_gas_stove: boolean;
+  has_induction: boolean;
+  has_microwave: boolean;
+  has_desk: boolean;
+  has_bed: boolean;
+  has_closet: boolean;
+  has_shoe_rack: boolean;
+  has_bookcase: boolean;
+  has_sink: boolean;
+  has_parking: boolean;
+  has_elevator: boolean;
+  is_subway_area: boolean;
+  is_park_area: boolean;
+  is_school_area: boolean;
+  is_convenient_area: boolean;
 }
+
+interface EditForm {
+  deposit: string;
+  rent: string;
+  manage_cost: string;
+  description: string;
+  status: string;
+  has_air_con: boolean;
+  has_fridge: boolean;
+  has_washer: boolean;
+  has_gas_stove: boolean;
+  has_induction: boolean;
+  has_microwave: boolean;
+  has_desk: boolean;
+  has_bed: boolean;
+  has_closet: boolean;
+  has_shoe_rack: boolean;
+  has_bookcase: boolean;
+  has_sink: boolean;
+  has_parking: boolean;
+  has_elevator: boolean;
+  is_subway_area: boolean;
+  is_park_area: boolean;
+  is_school_area: boolean;
+  is_convenient_area: boolean;
+}
+
+const inputClass = "w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm focus:border-stone-400 focus:outline-none";
+const tagBase = "rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer";
+const tagActive = "border-[#A8896C] bg-[#A8896C] text-white";
+const tagInactive = "border-stone-200 bg-white text-stone-500 hover:border-stone-400";
 
 export function BrokerSection({ userId }: { userId: number }) {
   const router = useRouter();
@@ -28,12 +102,15 @@ export function BrokerSection({ userId }: { userId: number }) {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
   const fetchMyRooms = async () => {
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/rooms/my-rooms?user_id=${userId}`
-      );
+      const res = await fetch(`${apiUrl}/api/rooms/my-rooms?user_id=${userId}`);
       if (!res.ok) return;
       const data = await res.json();
       setRooms(data);
@@ -51,10 +128,7 @@ export function BrokerSection({ userId }: { userId: number }) {
   const handleDelete = async (itemId: number, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/rooms/my-rooms/${itemId}?user_id=${userId}`,
-        { method: "DELETE" }
-      );
+      const res = await fetch(`${apiUrl}/api/rooms/my-rooms/${itemId}?user_id=${userId}`, { method: "DELETE" });
       if (!res.ok) return;
       setRooms((prev) => prev.filter((r) => r.item_id !== itemId));
       setDeleteConfirm(null);
@@ -63,11 +137,85 @@ export function BrokerSection({ userId }: { userId: number }) {
     }
   };
 
+  const handleEditOpen = (room: Room, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingRoom(room);
+    setEditForm({
+      deposit: String(room.deposit),
+      rent: String(room.rent),
+      manage_cost: String(room.manage_cost ?? ""),
+      description: room.description ?? "",
+      status: room.status,
+      has_air_con: room.has_air_con,
+      has_fridge: room.has_fridge,
+      has_washer: room.has_washer,
+      has_gas_stove: room.has_gas_stove,
+      has_induction: room.has_induction,
+      has_microwave: room.has_microwave,
+      has_desk: room.has_desk,
+      has_bed: room.has_bed,
+      has_closet: room.has_closet,
+      has_shoe_rack: room.has_shoe_rack,
+      has_bookcase: room.has_bookcase,
+      has_sink: room.has_sink,
+      has_parking: room.has_parking,
+      has_elevator: room.has_elevator,
+      is_subway_area: room.is_subway_area,
+      is_park_area: room.is_park_area,
+      is_school_area: room.is_school_area,
+      is_convenient_area: room.is_convenient_area,
+    });
+  };
+
+  const handleSave = async () => {
+    if (!editingRoom || !editForm) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/rooms/my-rooms/${editingRoom.item_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          deposit: parseInt(editForm.deposit) || 0,
+          rent: parseInt(editForm.rent) || 0,
+          manage_cost: editForm.manage_cost ? parseInt(editForm.manage_cost) : null,
+          description: editForm.description || null,
+          status: editForm.status,
+          has_air_con: editForm.has_air_con,
+          has_fridge: editForm.has_fridge,
+          has_washer: editForm.has_washer,
+          has_gas_stove: editForm.has_gas_stove,
+          has_induction: editForm.has_induction,
+          has_microwave: editForm.has_microwave,
+          has_desk: editForm.has_desk,
+          has_bed: editForm.has_bed,
+          has_closet: editForm.has_closet,
+          has_shoe_rack: editForm.has_shoe_rack,
+          has_bookcase: editForm.has_bookcase,
+          has_sink: editForm.has_sink,
+          has_parking: editForm.has_parking,
+          has_elevator: editForm.has_elevator,
+          is_subway_area: editForm.is_subway_area,
+          is_park_area: editForm.is_park_area,
+          is_school_area: editForm.is_school_area,
+          is_convenient_area: editForm.is_convenient_area,
+        }),
+      });
+      if (!res.ok) return;
+      await fetchMyRooms();
+      setEditingRoom(null);
+      setEditForm(null);
+    } catch {
+      console.error("수정 실패");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleRoomClick = (room: Room) => {
     const priceText = room.service_type === "월세"
       ? `${room.deposit}/${room.rent}`
       : `전세 ${room.deposit}`;
-
     setPendingListing({
       id: String(room.item_id),
       title: room.title ?? "",
@@ -114,14 +262,9 @@ export function BrokerSection({ userId }: { userId: number }) {
               onClick={() => handleRoomClick(room)}
               className="flex items-center gap-4 rounded-[20px] border border-stone-200/80 bg-white/80 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)] transition-all duration-200"
             >
-              {/* 썸네일 */}
               <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-stone-100">
                 {room.image_thumbnail ? (
-                  <img
-                    src={room.image_thumbnail}
-                    alt={room.title ?? ""}
-                    className="h-full w-full object-cover"
-                  />
+                  <img src={room.image_thumbnail} alt={room.title ?? ""} className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
                     <Building2 className="h-6 w-6 text-stone-300" />
@@ -129,25 +272,16 @@ export function BrokerSection({ userId }: { userId: number }) {
                 )}
               </div>
 
-              {/* 정보 */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                      room.status === "ACTIVE"
-                        ? "bg-green-100 text-green-600"
-                        : "bg-stone-100 text-stone-400"
-                    }`}
-                  >
-                    {room.status === "ACTIVE" ? "활성" : "비활성"}
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    room.status === "ACTIVE" ? "bg-green-100 text-green-600" : "bg-stone-100 text-stone-400"
+                  }`}>
+                    {room.status === "ACTIVE" ? "활성" : "계약완료"}
                   </span>
-                  {room.room_type && (
-                    <span className="text-[10px] text-stone-400">{room.room_type}</span>
-                  )}
+                  {room.room_type && <span className="text-[10px] text-stone-400">{room.room_type}</span>}
                 </div>
-                <p className="mt-1 truncate text-sm font-semibold text-stone-800">
-                  {room.title ?? "제목 없음"}
-                </p>
+                <p className="mt-1 truncate text-sm font-semibold text-stone-800">{room.title ?? "제목 없음"}</p>
                 <p className="truncate text-xs text-stone-400">{room.address}</p>
                 <p className="mt-1 text-xs font-medium text-stone-600">
                   {room.service_type === "월세"
@@ -157,24 +291,19 @@ export function BrokerSection({ userId }: { userId: number }) {
                 </p>
               </div>
 
-              {/* 삭제 */}
-              <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+              <div className="flex flex-shrink-0 items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={(e) => handleEditOpen(room, e)}
+                  className="rounded-xl border border-stone-200 p-2 text-stone-400 hover:border-stone-400 hover:text-stone-600 cursor-pointer"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
                 {deleteConfirm === room.item_id ? (
                   <div className="flex flex-col items-end gap-1">
                     <p className="text-xs text-stone-500">삭제할까요?</p>
                     <div className="flex gap-2">
-                      <button
-                        onClick={(e) => handleDelete(room.item_id, e)}
-                        className="text-xs font-semibold text-red-500 hover:text-red-600 cursor-pointer"
-                      >
-                        확인
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setDeleteConfirm(null); }}
-                        className="text-xs font-semibold text-stone-400 hover:text-stone-600 cursor-pointer"
-                      >
-                        취소
-                      </button>
+                      <button onClick={(e) => handleDelete(room.item_id, e)} className="text-xs font-semibold text-red-500 hover:text-red-600 cursor-pointer">확인</button>
+                      <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm(null); }} className="text-xs font-semibold text-stone-400 hover:text-stone-600 cursor-pointer">취소</button>
                     </div>
                   </div>
                 ) : (
@@ -188,6 +317,116 @@ export function BrokerSection({ userId }: { userId: number }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 수정 모달 */}
+      {editingRoom && editForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setEditingRoom(null); setEditForm(null); }}>
+          <div
+            className="w-full max-w-md rounded-[20px] border border-stone-200/80 bg-white p-6 shadow-xl mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-5 flex items-center justify-between">
+              <p className="text-sm font-semibold text-stone-900">매물 수정</p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setEditForm((p) => p ? ({ ...p, status: p.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }) : p)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold cursor-pointer transition-all ${
+                    editForm.status === "ACTIVE"
+                      ? "bg-green-100 text-green-600 hover:bg-green-200"
+                      : "bg-stone-100 text-stone-500 hover:bg-stone-200"
+                  }`}
+                >
+                  {editForm.status === "ACTIVE" ? "● 활성" : "● 계약완료"}
+                </button>
+                <button onClick={() => { setEditingRoom(null); setEditForm(null); }} className="cursor-pointer rounded-full p-1 text-stone-400 hover:text-stone-600">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* 가격 */}
+              <div>
+                <p className="mb-2 text-xs font-semibold text-stone-500">가격</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="mb-1 text-xs text-stone-400">보증금 (만원)</p>
+                    <input type="number" value={editForm.deposit} onChange={(e) => setEditForm((p) => p ? ({ ...p, deposit: e.target.value }) : p)} className={inputClass} />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs text-stone-400">월세 (만원)</p>
+                    <input type="number" value={editForm.rent} onChange={(e) => setEditForm((p) => p ? ({ ...p, rent: e.target.value }) : p)} className={inputClass} />
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <p className="mb-1 text-xs text-stone-400">관리비 (만원)</p>
+                  <input type="number" value={editForm.manage_cost} onChange={(e) => setEditForm((p) => p ? ({ ...p, manage_cost: e.target.value }) : p)} className={inputClass} />
+                </div>
+              </div>
+
+              {/* 옵션 */}
+              <div>
+                <p className="mb-2 text-xs font-semibold text-stone-500">옵션</p>
+                <div className="flex flex-wrap gap-2">
+                  {OPTIONS.map((opt) => (
+                    <button
+                      key={opt.key}
+                      onClick={() => setEditForm((p) => p ? ({ ...p, [opt.key]: !p[opt.key as keyof EditForm] }) : p)}
+                      className={`${tagBase} ${editForm[opt.key as keyof EditForm] ? tagActive : tagInactive}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 주변 환경 */}
+              <div>
+                <p className="mb-2 text-xs font-semibold text-stone-500">주변 환경</p>
+                <div className="flex flex-wrap gap-2">
+                  {ENVIRONMENTS.map((env) => (
+                    <button
+                      key={env.key}
+                      onClick={() => setEditForm((p) => p ? ({ ...p, [env.key]: !p[env.key as keyof EditForm] }) : p)}
+                      className={`${tagBase} ${editForm[env.key as keyof EditForm] ? tagActive : tagInactive}`}
+                    >
+                      {env.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 상세 설명 */}
+              <div>
+                <p className="mb-2 text-xs font-semibold text-stone-500">상세 설명</p>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm((p) => p ? ({ ...p, description: e.target.value }) : p)}
+                  className={`${inputClass} h-24 resize-none`}
+                  placeholder="상세 설명을 입력해주세요."
+                />
+              </div>
+
+              {/* 버튼 */}
+              <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
+                <button
+                  onClick={() => { setEditingRoom(null); setEditForm(null); }}
+                  className="rounded-full border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-500 hover:border-stone-400 cursor-pointer"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="rounded-full bg-stone-800 border border-stone-800 px-4 py-2 text-xs font-semibold text-white hover:opacity-90 cursor-pointer disabled:opacity-50"
+                >
+                  {saving ? "저장 중..." : "수정 완료"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
