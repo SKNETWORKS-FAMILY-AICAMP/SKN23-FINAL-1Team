@@ -52,14 +52,11 @@ pipeline {
         sh '''
           set -eu
           cd "$DEPLOY_DIR"
-          docker compose -f "$COMPOSE_FILE" down --remove-orphans || true
+          docker compose --env-file frontend/.env.production -f "$COMPOSE_FILE" down --remove-orphans || true
           for name in skn-backend-develop skn-frontend-develop; do
             docker ps -aq --filter "name=$name" | xargs -r docker rm -f
           done
-          set -a
-          . frontend/.env.production
-          set +a
-          docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
+          docker compose --env-file frontend/.env.production -f "$COMPOSE_FILE" up -d --build --remove-orphans
         '''
       }
     }
@@ -69,7 +66,7 @@ pipeline {
         sh '''
           set -eu
           cd "$DEPLOY_DIR"
-          docker compose -f "$COMPOSE_FILE" ps
+          docker compose --env-file frontend/.env.production -f "$COMPOSE_FILE" ps
 
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:3000 >/dev/null; then
@@ -101,8 +98,8 @@ pipeline {
     failure {
       sh '''
         cd "$DEPLOY_DIR" || exit 0
-        docker compose -f "$COMPOSE_FILE" logs --tail=100 frontend || true
-        docker compose -f "$COMPOSE_FILE" logs --tail=100 backend || true
+        docker compose --env-file frontend/.env.production -f "$COMPOSE_FILE" logs --tail=100 frontend || true
+        docker compose --env-file frontend/.env.production -f "$COMPOSE_FILE" logs --tail=100 backend || true
       '''
     }
   }
