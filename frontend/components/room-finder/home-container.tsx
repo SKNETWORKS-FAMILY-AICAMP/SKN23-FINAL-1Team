@@ -47,6 +47,16 @@ const ONE_ROOM_MAX_SIZE_M2 = 66;
 const TWO_ROOM_MAX_SIZE_M2 = 99;
 const ONE_ROOM_MAX_SIZE_PYEONG = 20;
 const TWO_ROOM_MAX_SIZE_PYEONG = 30;
+const DEFAULT_MAP_BOUNDS: MapBounds = {
+  swLat: 37.4388,
+  swLng: 126.7647,
+  neLat: 37.7019,
+  neLng: 127.1833,
+  centerLat: 37.5665,
+  centerLng: 126.978,
+  level: 4,
+  source: "initial",
+};
 
 function getMaxDepositByRoomType(roomType: "oneroom" | "tworoom") {
   return roomType === "tworoom" ? TWO_ROOM_MAX_DEPOSIT : ONE_ROOM_MAX_DEPOSIT;
@@ -114,7 +124,8 @@ function shouldReloadByBounds(source?: MapBounds["source"]) {
     source === "initial" ||
     source === "user" ||
     source === "cluster" ||
-    source === "search"
+    source === "search" ||
+    source === "selection"
   );
 }
 
@@ -178,8 +189,8 @@ export function HomeContainer() {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasRequestFailed, setHasRequestFailed] = useState(false);
-  const [isLocationReady, setIsLocationReady] = useState(false);
-  const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const [isLocationReady, setIsLocationReady] = useState(true);
+  const [mapBounds, setMapBounds] = useState<MapBounds | null>(DEFAULT_MAP_BOUNDS);
   const [mapFocusRequest, setMapFocusRequest] =
     useState<MapFocusRequest | null>(null);
   const [listScrollResetKey, setListScrollResetKey] = useState(0);
@@ -450,10 +461,11 @@ export function HomeContainer() {
       setSelectedListing(null);
       setIsDetailOpen(false);
     }
+    activeListRequestKeyRef.current = "";
     setOffset(0);
     setHasMore(true);
     setHasRequestFailed(false);
-    setIsInitialLoading(false);
+    setIsInitialLoading(true);
   }, [requestKey, similarImageUrl]);
 
   useEffect(() => {
@@ -576,6 +588,7 @@ export function HomeContainer() {
   useEffect(() => {
     if (!selectedListing) return;
     if (isPendingOpenRef.current) return; // pending으로 열린 매물은 스킵
+    if (isDetailOpen) return;
     const stillExistsInPanel =
       panelListings.some((listing) => listing.id === selectedListing.id) ||
       (recommendedListings ?? []).some(
@@ -594,6 +607,7 @@ export function HomeContainer() {
     recommendedListings,
     photoSimilarListings,
     favoriteListings,
+    isDetailOpen,
     selectedListing,
   ]);
 
@@ -614,7 +628,7 @@ export function HomeContainer() {
       setIsLoading(true);
 
       try {
-        const data = await fetchItems({
+        const searchParams: RoomSearchParams = {
           offset,
           limit: PAGE_SIZE,
           search: "",
@@ -635,7 +649,21 @@ export function HomeContainer() {
           neLat: mapBounds.neLat,
           neLng: mapBounds.neLng,
           signal: controller.signal,
-        });
+        };
+
+        let data = await fetchItems(searchParams);
+
+        if (offset === 0 && data.items.length === 0) {
+          data = await fetchItems({
+            ...searchParams,
+            lat: undefined,
+            lng: undefined,
+            swLat: undefined,
+            swLng: undefined,
+            neLat: undefined,
+            neLng: undefined,
+          });
+        }
 
         const mapped = data.items.map(mapItemToListing);
         setListings((prev) => (offset === 0 ? mapped : [...prev, ...mapped]));
@@ -683,7 +711,8 @@ export function HomeContainer() {
 
     const loadMapItems = async () => {
       if (!isLocationReady || !mapBounds) return;
-      if (!shouldReloadByBounds(mapBounds.source)) return;
+      const isFilterReload = activeListRequestKeyRef.current !== requestKey;
+      if (!shouldReloadByBounds(mapBounds.source) && !isFilterReload) return;
 
       try {
         const data = await fetchMapItems({
@@ -801,9 +830,6 @@ export function HomeContainer() {
       setSelectedListing(listing);
       setIsPanelOpen(true);
       setIsDetailOpen(true);
-      setListings([]);
-      setMapItems([]);
-      setVisibleListings([]);
       setOffset(0);
       setHasMore(true);
       setHasRequestFailed(false);
@@ -1351,8 +1377,7 @@ export function HomeContainer() {
           )}
         </main>
 
-        {(!isLocationReady ||
-          (isInitialLoading && listings.length === 0 && !selectedListing)) &&
+        {(isInitialLoading && isLoading && listings.length === 0 && !selectedListing) &&
           !isPendingOpenRef.current && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/10">
               <div className="rounded-lg bg-white px-4 py-3 shadow-md">
