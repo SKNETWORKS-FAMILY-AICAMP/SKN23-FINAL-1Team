@@ -493,23 +493,34 @@ export function ListingDetailPanel({
               </section>
 
               {/* 중개사 정보 */}
-              {detail?.broker && (
-                <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
-                  <div className="mb-4 flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
-                      <Phone className="h-4 w-4" />
+                {detail?.broker && (
+                  <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+                    <div className="mb-4 flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
+                        <Phone className="h-4 w-4" />
+                      </div>
+                      <h3 className="text-base font-bold tracking-tight text-stone-900">중개사 정보</h3>
                     </div>
-                    <h3 className="text-base font-bold tracking-tight text-stone-900">
-                      중개사 정보
-                    </h3>
-                  </div>
-                  <div className="rounded-2xl border border-stone-100 bg-white px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-                    <DetailRow label="담당자" value={detail.broker.name} />
-                    <DetailRow label="중개사무소" value={detail.broker.office_name} />
-                    <DetailRow label="연락처" value={detail.broker.phone} />
-                  </div>
-                </section>
-              )}
+                    <div className="flex gap-4">
+                      {/* 프로필 사진 */}
+                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-full bg-stone-100 border border-stone-200">
+                        {detail.broker.photo_url ? (
+                          <img src={detail.broker.photo_url} alt="중개사 프로필" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Building2 className="h-6 w-6 text-stone-300" />
+                          </div>
+                        )}
+                      </div>
+                      {/* 정보 */}
+                      <div className="rounded-2xl border border-stone-100 bg-white px-4 flex-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                        <DetailRow label="담당자" value={detail.broker.name} />
+                        <DetailRow label="중개사무소" value={detail.broker.office_name} />
+                        <DetailRow label="연락처" value={detail.broker.phone} />
+                      </div>
+                    </div>
+                  </section>
+                )}
             </div>
           )}
         </div>

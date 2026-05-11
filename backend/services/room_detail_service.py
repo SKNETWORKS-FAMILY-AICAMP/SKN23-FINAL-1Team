@@ -8,6 +8,7 @@ from schemas.room_detail_schema import (
     RoomDetailItemResponse,
     RoomFeatureResponse,
     RoomImageResponse,
+    BrokerInfoResponse,  
 )
 
 
@@ -124,11 +125,12 @@ def get_room_detail(db, item_id: int):
     if room.broker_id:
         broker = db.query(Broker).filter(Broker.broker_id == room.broker_id).first()
         if broker:
-            broker_info = {
-                "name": broker.name,
-                "office_name": broker.office_name,
-                "phone": broker.phone,
-            }
+            broker_info = BrokerInfoResponse(
+                name = broker.name,
+                office_name = broker.office_name,
+                phone = broker.phone,
+                photo_url = broker.photo_url,
+            )
 
     return RoomDetailResponse(
         item=RoomDetailItemResponse.model_validate(room),

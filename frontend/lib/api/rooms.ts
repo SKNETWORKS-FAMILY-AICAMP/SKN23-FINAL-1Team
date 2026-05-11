@@ -127,6 +127,7 @@ export interface ListingDetailResponse {
     name: string | null;
     office_name: string | null;
     phone: string | null;
+    photo_url: string | null;
   } | null;
 }
 
