@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -50,3 +51,52 @@ def prepare_payment_order(db: Session, user_id: int, product_id: str):
     db.refresh(payment_order)
 
     return payment_order
+
+
+def complete_payment_order(
+    db: Session,
+    user_id: int,
+    payment_id: str,
+    provider_transaction_id: str | None = None,
+):
+    payment_order = (
+        db.query(PaymentOrder)
+        .filter(PaymentOrder.payment_id == payment_id)
+        .first()
+    )
+    if payment_order is None or payment_order.user_id != user_id:
+        raise HTTPException(status_code=404, detail="寃곗젣 二쇰Ц???李얠쓣 ???놁뒿?덈떎.")
+
+    user = get_user_by_id(db, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="?ъ슜?먮? 李얠쓣 ???놁뒿?덈떎.")
+
+    if payment_order.status == "PAID":
+        return {
+            "payment_id": payment_order.payment_id,
+            "user_id": user.user_id,
+            "credit": user.credit,
+            "remain": user.remain,
+            "charged_credit": 0,
+            "status": payment_order.status,
+        }
+
+    if payment_order.status != "READY":
+        raise HTTPException(status_code=400, detail="泥섎━???????녿뒗 寃곗젣 二쇰Ц?낅땲??")
+
+    user.credit += payment_order.credit_amount
+    payment_order.status = "PAID"
+    payment_order.paid_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(user)
+    db.refresh(payment_order)
+
+    return {
+        "payment_id": payment_order.payment_id,
+        "user_id": user.user_id,
+        "credit": user.credit,
+        "remain": user.remain,
+        "charged_credit": payment_order.credit_amount,
+        "status": payment_order.status,
+    }
