@@ -123,6 +123,11 @@ export interface ListingDetailResponse {
     url: string;
     is_main?: boolean | null;
   }[];
+  broker: {
+    name: string | null;
+    office_name: string | null;
+    phone: string | null;
+  } | null;
 }
 
 export function buildSearchBody(params: RoomSearchParams) {
@@ -212,7 +217,7 @@ export async function fetchRoomDetail(
   itemId: number,
   signal?: AbortSignal,
 ): Promise<ListingDetailResponse> {
-  return requestJson<ListingDetailResponse>(`/api/rooms?item_id=${itemId}`, {
+  return requestJson<ListingDetailResponse>(`/backend/api/rooms/${itemId}`, {
     method: "GET",
     signal,
   });

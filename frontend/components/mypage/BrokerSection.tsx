@@ -149,8 +149,7 @@ export function BrokerSection({ userId }: { userId: number }) {
     }
   };
 
-  const handleEditOpen = (room: Room, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const openEditModal = (room: Room) => {
     setEditingRoom(room);
     setEditImages([...room.images]);
     setNewPhotos([]);
@@ -180,6 +179,11 @@ export function BrokerSection({ userId }: { userId: number }) {
       is_school_area: room.is_school_area,
       is_convenient_area: room.is_convenient_area,
     });
+  };
+
+  const handleEditOpen = (room: Room, e: React.MouseEvent) => {
+    e.stopPropagation();
+    openEditModal(room);
   };
 
   const handleDeleteImage = async (imageId: number) => {
@@ -276,6 +280,11 @@ export function BrokerSection({ userId }: { userId: number }) {
   };
 
   const handleRoomClick = (room: Room) => {
+    if (room.status === "INACTIVE") {
+      openEditModal(room);
+      return;
+    }
+
     const priceText = room.service_type === "월세"
       ? `${room.deposit}/${room.rent}`
       : `전세 ${room.deposit}`;
@@ -323,7 +332,11 @@ export function BrokerSection({ userId }: { userId: number }) {
             <div
               key={room.item_id}
               onClick={() => handleRoomClick(room)}
-              className="flex items-center gap-4 rounded-[20px] border border-stone-200/80 bg-white/80 p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)] transition-all duration-200"
+              className={`flex items-center gap-4 rounded-[20px] border border-stone-200/80 bg-white/80 p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer transition-all duration-200 ${
+                room.status === "INACTIVE"
+                  ? "opacity-60 hover:opacity-80"
+                  : "hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)]"
+              }`}
             >
               <div className="h-28 w-28 flex-shrink-0 overflow-hidden rounded-xl bg-stone-100">
                 {room.image_thumbnail ? (
@@ -416,7 +429,6 @@ export function BrokerSection({ userId }: { userId: number }) {
             <div className="mb-5 flex items-center justify-between">
               <p className="text-sm font-semibold text-stone-900">매물 수정</p>
               <div className="flex items-center gap-3">
-                {/* ON/OFF 토글 */}
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-stone-500">
                     {editForm.status === "ACTIVE" ? "활성" : "계약완료"}
@@ -428,7 +440,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                     }`}
                   >
                     <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
-                      editForm.status === "ACTIVE" ? "translate-x-5" : "translate-x-0.5"
+                      editForm.status === "ACTIVE" ? "translate-x-0.5" : "translate-x-5"
                     }`} />
                   </button>
                 </div>
@@ -439,7 +451,6 @@ export function BrokerSection({ userId }: { userId: number }) {
             </div>
 
             <div className="space-y-5">
-              {/* 사진 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">사진</p>
                 <div className="flex flex-wrap gap-2">
@@ -487,7 +498,6 @@ export function BrokerSection({ userId }: { userId: number }) {
                 />
               </div>
 
-              {/* 제목 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">제목</p>
                 <input
@@ -498,7 +508,6 @@ export function BrokerSection({ userId }: { userId: number }) {
                 />
               </div>
 
-              {/* 가격 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">가격</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -517,7 +526,6 @@ export function BrokerSection({ userId }: { userId: number }) {
                 </div>
               </div>
 
-              {/* 옵션 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">옵션</p>
                 <div className="flex flex-wrap gap-2">
@@ -533,7 +541,6 @@ export function BrokerSection({ userId }: { userId: number }) {
                 </div>
               </div>
 
-              {/* 주변 환경 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">주변 환경</p>
                 <div className="flex flex-wrap gap-2">
@@ -549,7 +556,6 @@ export function BrokerSection({ userId }: { userId: number }) {
                 </div>
               </div>
 
-              {/* 상세 설명 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">상세 설명</p>
                 <textarea
@@ -560,7 +566,6 @@ export function BrokerSection({ userId }: { userId: number }) {
                 />
               </div>
 
-              {/* 버튼 */}
               <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
                 <button
                   onClick={() => { setEditingRoom(null); setEditForm(null); setNewPhotos([]); }}
