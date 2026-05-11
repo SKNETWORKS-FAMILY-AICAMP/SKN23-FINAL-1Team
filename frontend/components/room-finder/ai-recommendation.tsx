@@ -338,6 +338,7 @@ export function AIRecommendation({
         credit: result.credit ?? user.credit,
       });
       setEditPrompt("");
+      setMessage("");
     } catch (error) {
       console.error("Error editing images:", error);
       setMessage(
