@@ -68,6 +68,7 @@ class UpdateImagesRequest(BaseModel):
 
 class RoomUpdateRequest(BaseModel):
     user_id: int
+    title: str | None = None
     deposit: int | None = None
     rent: int | None = None
     manage_cost: int | None = None
@@ -243,13 +244,13 @@ def get_my_rooms(user_id: int, db: Session = Depends(get_db)):
 
         thumbnail_url = None
         if main_image:
-            thumbnail_url = f"/api/rooms/{r.item_id}/images/{main_image.id}"
+            thumbnail_url = f"/backend/api/rooms/{r.item_id}/images/{main_image.id}"
 
         features = db.query(ItemFeatures).filter(ItemFeatures.item_id == r.item_id).first()
 
         images = db.query(ItemImage).filter(ItemImage.item_id == r.item_id).all()
         image_list = [
-            {"id": img.id, "url": f"/api/rooms/{r.item_id}/images/{img.id}", "is_main": img.is_main}
+            {"id": img.id, "url": f"/backend/api/rooms/{r.item_id}/images/{img.id}", "is_main": img.is_main}
             for img in images
         ]
 
@@ -298,6 +299,7 @@ def update_my_room(item_id: int, payload: RoomUpdateRequest, db: Session = Depen
     if not room:
         raise HTTPException(status_code=404, detail="매물을 찾을 수 없습니다.")
 
+    if payload.title is not None: room.title = payload.title
     if payload.deposit is not None: room.deposit = payload.deposit
     if payload.rent is not None: room.rent = payload.rent
     if payload.manage_cost is not None: room.manage_cost = payload.manage_cost
@@ -347,7 +349,7 @@ def delete_room_image(item_id: int, image_id: int, user_id: int, db: Session = D
         next_image = db.query(ItemImage).filter(ItemImage.item_id == item_id).first()
         if next_image:
             next_image.is_main = True
-            room.image_thumbnail = f"/api/rooms/{item_id}/images/{next_image.id}"
+            room.image_thumbnail = f"s3://{BUCKET_NAME}/{next_image.s3_url}"
         else:
             room.image_thumbnail = None
 

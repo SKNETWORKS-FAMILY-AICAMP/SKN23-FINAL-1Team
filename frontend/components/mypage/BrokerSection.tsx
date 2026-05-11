@@ -73,6 +73,7 @@ interface Room {
 }
 
 interface EditForm {
+  title: string;
   deposit: string;
   rent: string;
   manage_cost: string;
@@ -154,6 +155,7 @@ export function BrokerSection({ userId }: { userId: number }) {
     setEditImages([...room.images]);
     setNewPhotos([]);
     setEditForm({
+      title: room.title ?? "",
       deposit: String(room.deposit),
       rent: String(room.rent),
       manage_cost: String(room.manage_cost ?? ""),
@@ -206,7 +208,6 @@ export function BrokerSection({ userId }: { userId: number }) {
     if (!editingRoom || !editForm) return;
     setSaving(true);
     try {
-      // 1. 새 사진 업로드
       for (let idx = 0; idx < newPhotos.length; idx++) {
         const photo = newPhotos[idx];
         const formData = new FormData();
@@ -219,7 +220,6 @@ export function BrokerSection({ userId }: { userId: number }) {
         });
         if (uploadRes.ok) {
           const uploadData = await uploadRes.json();
-          // update-images로 저장
           await fetch(`${apiUrl}/api/rooms/update-images`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -232,12 +232,12 @@ export function BrokerSection({ userId }: { userId: number }) {
         }
       }
 
-      // 2. 매물 정보 수정
       const res = await fetch(`${apiUrl}/api/rooms/my-rooms/${editingRoom.item_id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: userId,
+          title: editForm.title || null,
           deposit: parseInt(editForm.deposit) || 0,
           rent: parseInt(editForm.rent) || 0,
           manage_cost: editForm.manage_cost ? parseInt(editForm.manage_cost) : null,
@@ -325,7 +325,6 @@ export function BrokerSection({ userId }: { userId: number }) {
               onClick={() => handleRoomClick(room)}
               className="flex items-center gap-4 rounded-[20px] border border-stone-200/80 bg-white/80 p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)] transition-all duration-200"
             >
-              {/* 썸네일 */}
               <div className="h-28 w-28 flex-shrink-0 overflow-hidden rounded-xl bg-stone-100">
                 {room.image_thumbnail ? (
                   <img src={room.image_thumbnail} alt={room.title ?? ""} className="h-full w-full object-cover" />
@@ -336,7 +335,6 @@ export function BrokerSection({ userId }: { userId: number }) {
                 )}
               </div>
 
-              {/* 정보 */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
@@ -356,7 +354,6 @@ export function BrokerSection({ userId }: { userId: number }) {
                 </p>
               </div>
 
-              {/* 버튼 */}
               <div className="flex flex-shrink-0 items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 <div className="relative">
                   <button
@@ -418,17 +415,23 @@ export function BrokerSection({ userId }: { userId: number }) {
           >
             <div className="mb-5 flex items-center justify-between">
               <p className="text-sm font-semibold text-stone-900">매물 수정</p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setEditForm((p) => p ? ({ ...p, status: p.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }) : p)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold cursor-pointer transition-all ${
-                    editForm.status === "ACTIVE"
-                      ? "bg-green-100 text-green-600 hover:bg-green-200"
-                      : "bg-stone-100 text-stone-500 hover:bg-stone-200"
-                  }`}
-                >
-                  {editForm.status === "ACTIVE" ? "● 활성" : "● 계약완료"}
-                </button>
+              <div className="flex items-center gap-3">
+                {/* ON/OFF 토글 */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-stone-500">
+                    {editForm.status === "ACTIVE" ? "활성" : "계약완료"}
+                  </span>
+                  <button
+                    onClick={() => setEditForm((p) => p ? ({ ...p, status: p.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }) : p)}
+                    className={`relative h-6 w-11 rounded-full transition-colors duration-200 cursor-pointer ${
+                      editForm.status === "ACTIVE" ? "bg-green-500" : "bg-stone-300"
+                    }`}
+                  >
+                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+                      editForm.status === "ACTIVE" ? "translate-x-5" : "translate-x-0.5"
+                    }`} />
+                  </button>
+                </div>
                 <button onClick={() => { setEditingRoom(null); setEditForm(null); setNewPhotos([]); }} className="cursor-pointer rounded-full p-1 text-stone-400 hover:text-stone-600">
                   <X className="h-4 w-4" />
                 </button>
@@ -481,6 +484,17 @@ export function BrokerSection({ userId }: { userId: number }) {
                   multiple
                   className="hidden"
                   onChange={(e) => addNewPhotos(e.target.files)}
+                />
+              </div>
+
+              {/* 제목 */}
+              <div>
+                <p className="mb-2 text-xs font-semibold text-stone-500">제목</p>
+                <input
+                  value={editForm.title}
+                  onChange={(e) => setEditForm((p) => p ? ({ ...p, title: e.target.value }) : p)}
+                  className={inputClass}
+                  placeholder="매물 제목을 입력해주세요."
                 />
               </div>
 
