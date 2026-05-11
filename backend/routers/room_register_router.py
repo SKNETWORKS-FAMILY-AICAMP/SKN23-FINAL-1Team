@@ -66,6 +66,33 @@ class UpdateImagesRequest(BaseModel):
     image_urls: list[str] = []
 
 
+class RoomUpdateRequest(BaseModel):
+    user_id: int
+    deposit: int | None = None
+    rent: int | None = None
+    manage_cost: int | None = None
+    description: str | None = None
+    status: str | None = None
+    has_air_con: bool = False
+    has_fridge: bool = False
+    has_washer: bool = False
+    has_gas_stove: bool = False
+    has_induction: bool = False
+    has_microwave: bool = False
+    has_desk: bool = False
+    has_bed: bool = False
+    has_closet: bool = False
+    has_shoe_rack: bool = False
+    has_bookcase: bool = False
+    has_sink: bool = False
+    has_parking: bool = False
+    has_elevator: bool = False
+    is_subway_area: bool = False
+    is_park_area: bool = False
+    is_school_area: bool = False
+    is_convenient_area: bool = False
+
+
 @router.post("/upload-image")
 async def upload_room_image(
     file: UploadFile = File(...),
@@ -218,6 +245,8 @@ def get_my_rooms(user_id: int, db: Session = Depends(get_db)):
         if main_image:
             thumbnail_url = f"/api/rooms/{r.item_id}/images/{main_image.id}"
 
+        features = db.query(ItemFeatures).filter(ItemFeatures.item_id == r.item_id).first()
+
         result.append({
             "item_id": r.item_id,
             "title": r.title,
@@ -233,8 +262,64 @@ def get_my_rooms(user_id: int, db: Session = Depends(get_db)):
             "service_type": r.service_type,
             "lat": float(r.lat) if r.lat else None,
             "lng": float(r.lng) if r.lng else None,
+            "description": features.options_raw if features else None,
+            "has_air_con": features.has_air_con if features else False,
+            "has_fridge": features.has_fridge if features else False,
+            "has_washer": features.has_washer if features else False,
+            "has_gas_stove": features.has_gas_stove if features else False,
+            "has_induction": features.has_induction if features else False,
+            "has_microwave": features.has_microwave if features else False,
+            "has_desk": features.has_desk if features else False,
+            "has_bed": features.has_bed if features else False,
+            "has_closet": features.has_closet if features else False,
+            "has_shoe_rack": features.has_shoe_rack if features else False,
+            "has_bookcase": features.has_bookcase if features else False,
+            "has_sink": features.has_sink if features else False,
+            "has_parking": features.has_parking if features else False,
+            "has_elevator": features.has_elevator if features else False,
+            "is_subway_area": features.is_subway_area if features else False,
+            "is_park_area": features.is_park_area if features else False,
+            "is_school_area": features.is_school_area if features else False,
+            "is_convenient_area": features.is_convenient_area if features else False,
         })
     return result
+
+
+@router.patch("/my-rooms/{item_id}")
+def update_my_room(item_id: int, payload: RoomUpdateRequest, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.item_id == item_id, Room.broker_id == payload.user_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="매물을 찾을 수 없습니다.")
+
+    if payload.deposit is not None: room.deposit = payload.deposit
+    if payload.rent is not None: room.rent = payload.rent
+    if payload.manage_cost is not None: room.manage_cost = payload.manage_cost
+    if payload.status is not None: room.status = payload.status
+
+    features = db.query(ItemFeatures).filter(ItemFeatures.item_id == item_id).first()
+    if features:
+        features.options_raw = payload.description
+        features.has_air_con = payload.has_air_con
+        features.has_fridge = payload.has_fridge
+        features.has_washer = payload.has_washer
+        features.has_gas_stove = payload.has_gas_stove
+        features.has_induction = payload.has_induction
+        features.has_microwave = payload.has_microwave
+        features.has_desk = payload.has_desk
+        features.has_bed = payload.has_bed
+        features.has_closet = payload.has_closet
+        features.has_shoe_rack = payload.has_shoe_rack
+        features.has_bookcase = payload.has_bookcase
+        features.has_sink = payload.has_sink
+        features.has_parking = payload.has_parking
+        features.has_elevator = payload.has_elevator
+        features.is_subway_area = payload.is_subway_area
+        features.is_park_area = payload.is_park_area
+        features.is_school_area = payload.is_school_area
+        features.is_convenient_area = payload.is_convenient_area
+
+    db.commit()
+    return {"success": True}
 
 
 @router.delete("/my-rooms/{item_id}")
