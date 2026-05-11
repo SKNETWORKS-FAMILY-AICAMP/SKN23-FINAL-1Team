@@ -56,6 +56,9 @@ pipeline {
           for name in skn-backend-develop skn-frontend-develop; do
             docker ps -aq --filter "name=$name" | xargs -r docker rm -f
           done
+          set -a
+          . frontend/.env.production
+          set +a
           docker compose -f "$COMPOSE_FILE" up -d --build --remove-orphans
         '''
       }

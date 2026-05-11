@@ -22,10 +22,11 @@ type PortOnePaymentRequest = {
   orderName: string;
   totalAmount: number;
   currency: "CURRENCY_KRW";
-  payMethod: "CARD";
+  payMethod: "CARD" | "EASY_PAY";
   customer?: {
     customerId?: string;
     fullName?: string;
+    phoneNumber?: string;
     email?: string | null;
   };
 };
@@ -36,12 +37,39 @@ type PortOnePaymentResponse = {
   paymentId?: string;
 };
 
+type IamportPaymentRequest = {
+  pg?: string;
+  channelKey: string;
+  pay_method: "card" | "phone";
+  merchant_uid: string;
+  name: string;
+  amount: number;
+  buyer_email: string;
+  buyer_name?: string;
+  buyer_tel: string;
+  company?: string;
+};
+
+type IamportPaymentResponse = {
+  success: boolean;
+  imp_uid?: string;
+  merchant_uid?: string;
+  error_msg?: string;
+} | null;
+
 declare global {
   interface Window {
     PortOne?: {
       requestPayment: (
         request: PortOnePaymentRequest,
       ) => Promise<PortOnePaymentResponse | undefined>;
+    };
+    IMP?: {
+      init: (merchantCode: string) => void;
+      request_pay: (
+        request: IamportPaymentRequest,
+        callback: (response: IamportPaymentResponse) => void,
+      ) => void;
     };
   }
 }
@@ -55,30 +83,127 @@ const creditProducts = [
   { productId: "credit_5", label: "\ud06c\ub808\ub527 5\uac1c", price: "1,000\uc6d0" },
   { productId: "credit_10", label: "\ud06c\ub808\ub527 10\uac1c", price: "1,500\uc6d0" },
 ];
+const paymentChannels = [
+  {
+    id: "kakaopay",
+    label: "\uce74\uce74\uc624\ud398\uc774",
+    sdk: "v2",
+    channelKey:
+      process.env.NEXT_PUBLIC_PORTONE_KAKAOPAY_CHANNEL_KEY ??
+      process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY,
+    payMethod: "EASY_PAY",
+  },
+  {
+    id: "tosspay",
+    label: "\ud1a0\uc2a4\ud398\uc774",
+    sdk: "v1",
+    channelKey: process.env.NEXT_PUBLIC_PORTONE_TOSSPAY_CHANNEL_KEY,
+    payMethod: "card",
+  },
+  {
+    id: "inicis",
+    label: "KG\uc774\ub2c8\uc2dc\uc2a4",
+    sdk: "v2",
+    channelKey: process.env.NEXT_PUBLIC_PORTONE_INICIS_CHANNEL_KEY,
+    payMethod: "CARD",
+  },
+  {
+    id: "danal",
+    label: "\ub2e4\ub0a0",
+    sdk: "v1",
+    channelKey: process.env.NEXT_PUBLIC_PORTONE_DANAL_CHANNEL_KEY,
+    payMethod: "card",
+  },
+] as const;
 
 export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const updateUser = useAuthStore((state) => state.updateUser);
   const openGuide = useOnboardingStore((state) => state.openGuide);
   const [isChargingCredit, setIsChargingCredit] = useState(false);
   const [isCreditMenuOpen, setIsCreditMenuOpen] = useState(false);
   const [creditMessage, setCreditMessage] = useState<string | null>(null);
   const [isPortOneReady, setIsPortOneReady] = useState(false);
+  const [isIamportReady, setIsIamportReady] = useState(false);
+  const [selectedPaymentChannelId, setSelectedPaymentChannelId] =
+    useState<(typeof paymentChannels)[number]["id"]>("kakaopay");
+
+  const completePreparedPayment = async (
+    paymentId: string,
+    providerTransactionId?: string,
+  ) => {
+    if (!user?.user_id) {
+      throw new Error("User is not logged in.");
+    }
+
+    const response = await fetch("/api/payments/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: user.user_id,
+        payment_id: paymentId,
+        provider_transaction_id: providerTransactionId,
+      }),
+    });
+    const data = (await response.json().catch(() => null)) as
+      | {
+          credit?: number;
+          remain?: number;
+          charged_credit?: number;
+          status?: string;
+          error?: string;
+        }
+      | null;
+
+    if (!response.ok) {
+      throw new Error(data?.error ?? "Failed to complete payment.");
+    }
+
+    updateUser({
+      credit: data?.credit ?? user.credit,
+      remain: data?.remain ?? user.remain,
+    });
+
+    return data;
+  };
 
   const handlePreparePayment = async (productId: string) => {
     if (!user?.user_id || isChargingCredit) return;
 
     const storeId = process.env.NEXT_PUBLIC_PORTONE_STORE_ID;
-    const channelKey = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY;
+    const iamportMerchantCode =
+      process.env.NEXT_PUBLIC_IAMPORT_MERCHANT_CODE ?? storeId;
+    const selectedPaymentChannel =
+      paymentChannels.find((channel) => channel.id === selectedPaymentChannelId) ??
+      paymentChannels[0];
 
-    if (!storeId || !channelKey) {
+    if ("disabled" in selectedPaymentChannel && selectedPaymentChannel.disabled) {
+      setCreditMessage("Danal payment is disabled for safety.");
+      return;
+    }
+
+    const selectedChannelKey = selectedPaymentChannel.channelKey;
+
+    if (!storeId || !selectedChannelKey) {
       setCreditMessage("PortOne test config is missing.");
       return;
     }
 
-    if (!window.PortOne || !isPortOneReady) {
-      setCreditMessage("PortOne SDK is loading.");
+    if (
+      selectedPaymentChannel.sdk === "v2" &&
+      (!window.PortOne || !isPortOneReady)
+    ) {
+      setCreditMessage("PortOne V2 SDK is loading.");
+      return;
+    }
+
+    if (
+      selectedPaymentChannel.sdk === "v1" &&
+      (!window.IMP || !isIamportReady)
+    ) {
+      setCreditMessage("PortOne V1 SDK is loading.");
       return;
     }
 
@@ -114,18 +239,73 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
         throw new Error("Invalid payment prepare response.");
       }
 
-      const payment = await window.PortOne.requestPayment({
+      const paymentId = data.payment_id;
+      const itemName = data.item_name;
+      const amount = data.amount;
+
+      if (selectedPaymentChannel.sdk === "v1") {
+        if (!iamportMerchantCode || !iamportMerchantCode.startsWith("imp")) {
+          throw new Error("PortOne V1 merchant code must start with imp.");
+        }
+
+        window.IMP?.init(iamportMerchantCode);
+
+        const payment = await new Promise<IamportPaymentResponse>((resolve) => {
+          window.IMP?.request_pay(
+            {
+              pg: selectedPaymentChannel.id === "danal" ? "danal" : undefined,
+              channelKey: selectedChannelKey,
+              pay_method: selectedPaymentChannel.payMethod,
+              merchant_uid: paymentId,
+              name: itemName,
+              amount,
+              buyer_email: user.email ?? `test-user-${user.user_id}@example.com`,
+              buyer_name: user.nickname,
+              buyer_tel: "010-1234-5678",
+              company: "Geumbang",
+            },
+            resolve,
+          );
+        });
+
+        if (!payment) {
+          throw new Error("Payment window returned no response.");
+        }
+
+        if (payment.error_msg || payment.success === false) {
+          throw new Error(payment.error_msg ?? "Payment was canceled or failed.");
+        }
+
+        const completedPayment = await completePreparedPayment(
+          paymentId,
+          payment.imp_uid,
+        );
+
+        setCreditMessage(
+          `PAID: ${completedPayment?.charged_credit ?? 0} credits`,
+        );
+        setIsCreditMenuOpen(false);
+        console.log("[payment completed]", {
+          order: data,
+          payment,
+          completedPayment,
+        });
+        return;
+      }
+
+      const payment = await window.PortOne?.requestPayment({
         storeId,
-        channelKey,
-        paymentId: data.payment_id,
-        orderName: data.item_name,
-        totalAmount: data.amount,
+        channelKey: selectedChannelKey,
+        paymentId,
+        orderName: itemName,
+        totalAmount: amount,
         currency: "CURRENCY_KRW",
-        payMethod: "CARD",
+        payMethod: selectedPaymentChannel.payMethod,
         customer: {
           customerId: String(user.user_id),
           fullName: user.nickname,
-          email: user.email,
+          phoneNumber: "010-1234-5678",
+          email: user.email ?? `test-user-${user.user_id}@example.com`,
         },
       });
 
@@ -133,9 +313,18 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
         throw new Error(payment.message ?? "Payment was canceled or failed.");
       }
 
-      setCreditMessage(`PAYMENT_RETURNED: ${data.payment_id}`);
+      const completedPayment = await completePreparedPayment(
+        paymentId,
+        payment?.paymentId,
+      );
+
+      setCreditMessage(`PAID: ${completedPayment?.charged_credit ?? 0} credits`);
       setIsCreditMenuOpen(false);
-      console.log("[payment returned]", { order: data, payment });
+      console.log("[payment completed]", {
+        order: data,
+        payment,
+        completedPayment,
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to request payment.";
@@ -152,6 +341,11 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
         src="https://cdn.portone.io/v2/browser-sdk.js"
         strategy="afterInteractive"
         onLoad={() => setIsPortOneReady(true)}
+      />
+      <Script
+        src="https://cdn.iamport.kr/v1/iamport.js"
+        strategy="afterInteractive"
+        onLoad={() => setIsIamportReady(true)}
       />
       <header className="relative z-[1000] border-b border-stone-200/80 bg-white/70 backdrop-blur-xl">
         <div className="flex h-12 items-center">
@@ -226,7 +420,32 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
                 credit+
               </button>
               {isCreditMenuOpen && (
-                <div className="absolute right-0 top-8 z-[1001] w-44 rounded-md border border-stone-200 bg-white p-2 shadow-lg">
+                <div className="absolute right-0 top-8 z-[1001] w-56 rounded-md border border-stone-200 bg-white p-2 shadow-lg">
+                  <div className="mb-2 grid grid-cols-2 gap-1">
+                    {paymentChannels.map((channel) => (
+                      <button
+                        key={channel.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPaymentChannelId(channel.id);
+                          setCreditMessage(null);
+                        }}
+                        disabled={
+                          !channel.channelKey ||
+                          isChargingCredit ||
+                          ("disabled" in channel && channel.disabled === true)
+                        }
+                        className={cn(
+                          "rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                          selectedPaymentChannelId === channel.id
+                            ? "border-stone-900 bg-stone-900 text-white"
+                            : "border-stone-200 text-stone-600 hover:border-stone-400",
+                        )}
+                      >
+                        {channel.label}
+                      </button>
+                    ))}
+                  </div>
                   {creditProducts.map((product) => (
                     <button
                       key={product.productId}
