@@ -247,6 +247,12 @@ def get_my_rooms(user_id: int, db: Session = Depends(get_db)):
 
         features = db.query(ItemFeatures).filter(ItemFeatures.item_id == r.item_id).first()
 
+        images = db.query(ItemImage).filter(ItemImage.item_id == r.item_id).all()
+        image_list = [
+            {"id": img.id, "url": f"/api/rooms/{r.item_id}/images/{img.id}", "is_main": img.is_main}
+            for img in images
+        ]
+
         result.append({
             "item_id": r.item_id,
             "title": r.title,
@@ -262,6 +268,7 @@ def get_my_rooms(user_id: int, db: Session = Depends(get_db)):
             "service_type": r.service_type,
             "lat": float(r.lat) if r.lat else None,
             "lng": float(r.lng) if r.lng else None,
+            "images": image_list,
             "description": features.options_raw if features else None,
             "has_air_con": features.has_air_con if features else False,
             "has_fridge": features.has_fridge if features else False,
@@ -322,14 +329,38 @@ def update_my_room(item_id: int, payload: RoomUpdateRequest, db: Session = Depen
     return {"success": True}
 
 
+@router.delete("/my-rooms/{item_id}/images/{image_id}")
+def delete_room_image(item_id: int, image_id: int, user_id: int, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.item_id == item_id, Room.broker_id == user_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="매물을 찾을 수 없습니다.")
+
+    image = db.query(ItemImage).filter(ItemImage.id == image_id, ItemImage.item_id == item_id).first()
+    if not image:
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.")
+
+    was_main = image.is_main
+    db.delete(image)
+    db.flush()
+
+    if was_main:
+        next_image = db.query(ItemImage).filter(ItemImage.item_id == item_id).first()
+        if next_image:
+            next_image.is_main = True
+            room.image_thumbnail = f"/api/rooms/{item_id}/images/{next_image.id}"
+        else:
+            room.image_thumbnail = None
+
+    db.commit()
+    return {"success": True}
+
+
 @router.delete("/my-rooms/{item_id}")
 def delete_my_room(item_id: int, user_id: int, db: Session = Depends(get_db)):
     room = db.query(Room).filter(Room.item_id == item_id, Room.broker_id == user_id).first()
-
     if not room:
         raise HTTPException(status_code=404, detail="매물을 찾을 수 없습니다.")
 
     db.delete(room)
     db.commit()
-
     return {"success": True, "item_id": item_id}

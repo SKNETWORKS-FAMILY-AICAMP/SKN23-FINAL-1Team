@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Building2, Trash2, Pencil, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Building2, Trash2, Pencil, X, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { usePendingListingStore } from "@/store/pendingListingStore";
 
@@ -29,6 +29,12 @@ const ENVIRONMENTS = [
   { key: "is_convenient_area", label: "슬세권" },
 ];
 
+interface RoomImage {
+  id: number;
+  url: string;
+  is_main: boolean;
+}
+
 interface Room {
   item_id: number;
   title: string;
@@ -44,6 +50,7 @@ interface Room {
   service_type: string | null;
   lat: number | null;
   lng: number | null;
+  images: RoomImage[];
   description: string | null;
   has_air_con: boolean;
   has_fridge: boolean;
@@ -104,7 +111,11 @@ export function BrokerSection({ userId }: { userId: number }) {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [editImages, setEditImages] = useState<RoomImage[]>([]);
+  const [newPhotos, setNewPhotos] = useState<{ file: File; preview: string }[]>([]);
   const [saving, setSaving] = useState(false);
+  const [tooltip, setTooltip] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -140,6 +151,8 @@ export function BrokerSection({ userId }: { userId: number }) {
   const handleEditOpen = (room: Room, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingRoom(room);
+    setEditImages([...room.images]);
+    setNewPhotos([]);
     setEditForm({
       deposit: String(room.deposit),
       rent: String(room.rent),
@@ -167,10 +180,59 @@ export function BrokerSection({ userId }: { userId: number }) {
     });
   };
 
+  const handleDeleteImage = async (imageId: number) => {
+    if (!editingRoom) return;
+    try {
+      const res = await fetch(
+        `${apiUrl}/api/rooms/my-rooms/${editingRoom.item_id}/images/${imageId}?user_id=${userId}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) return;
+      setEditImages((prev) => prev.filter((img) => img.id !== imageId));
+    } catch {
+      console.error("이미지 삭제 실패");
+    }
+  };
+
+  const addNewPhotos = useCallback((files: FileList | null) => {
+    if (!files) return;
+    const photos = Array.from(files)
+      .filter((f) => f.type === "image/jpeg" || f.type === "image/png")
+      .map((file) => ({ file, preview: URL.createObjectURL(file) }));
+    setNewPhotos((prev) => [...prev, ...photos].slice(0, 10));
+  }, []);
+
   const handleSave = async () => {
     if (!editingRoom || !editForm) return;
     setSaving(true);
     try {
+      // 1. 새 사진 업로드
+      for (let idx = 0; idx < newPhotos.length; idx++) {
+        const photo = newPhotos[idx];
+        const formData = new FormData();
+        formData.append("file", photo.file);
+        formData.append("item_id", String(editingRoom.item_id));
+        formData.append("index", String(editImages.length + idx));
+        const uploadRes = await fetch(`${apiUrl}/api/rooms/upload-image`, {
+          method: "POST",
+          body: formData,
+        });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          // update-images로 저장
+          await fetch(`${apiUrl}/api/rooms/update-images`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              item_id: editingRoom.item_id,
+              image_thumbnail: editImages.length === 0 && idx === 0 ? uploadData.url : undefined,
+              image_urls: [uploadData.url],
+            }),
+          });
+        }
+      }
+
+      // 2. 매물 정보 수정
       const res = await fetch(`${apiUrl}/api/rooms/my-rooms/${editingRoom.item_id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -205,6 +267,7 @@ export function BrokerSection({ userId }: { userId: number }) {
       await fetchMyRooms();
       setEditingRoom(null);
       setEditForm(null);
+      setNewPhotos([]);
     } catch {
       console.error("수정 실패");
     } finally {
@@ -260,18 +323,20 @@ export function BrokerSection({ userId }: { userId: number }) {
             <div
               key={room.item_id}
               onClick={() => handleRoomClick(room)}
-              className="flex items-center gap-4 rounded-[20px] border border-stone-200/80 bg-white/80 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)] transition-all duration-200"
+              className="flex items-center gap-4 rounded-[20px] border border-stone-200/80 bg-white/80 p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)] transition-all duration-200"
             >
-              <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-stone-100">
+              {/* 썸네일 */}
+              <div className="h-28 w-28 flex-shrink-0 overflow-hidden rounded-xl bg-stone-100">
                 {room.image_thumbnail ? (
                   <img src={room.image_thumbnail} alt={room.title ?? ""} className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
-                    <Building2 className="h-6 w-6 text-stone-300" />
+                    <Building2 className="h-8 w-8 text-stone-300" />
                   </div>
                 )}
               </div>
 
+              {/* 정보 */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
@@ -281,9 +346,9 @@ export function BrokerSection({ userId }: { userId: number }) {
                   </span>
                   {room.room_type && <span className="text-[10px] text-stone-400">{room.room_type}</span>}
                 </div>
-                <p className="mt-1 truncate text-sm font-semibold text-stone-800">{room.title ?? "제목 없음"}</p>
-                <p className="truncate text-xs text-stone-400">{room.address}</p>
-                <p className="mt-1 text-xs font-medium text-stone-600">
+                <p className="mt-1.5 truncate text-base font-semibold text-stone-800">{room.title ?? "제목 없음"}</p>
+                <p className="truncate text-sm text-stone-400">{room.address}</p>
+                <p className="mt-1 text-sm font-medium text-stone-600">
                   {room.service_type === "월세"
                     ? `보증금 ${room.deposit.toLocaleString()}만 / 월세 ${room.rent.toLocaleString()}만`
                     : `전세 ${room.deposit.toLocaleString()}만`}
@@ -291,29 +356,53 @@ export function BrokerSection({ userId }: { userId: number }) {
                 </p>
               </div>
 
+              {/* 버튼 */}
               <div className="flex flex-shrink-0 items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                <button
-                  onClick={(e) => handleEditOpen(room, e)}
-                  className="rounded-xl border border-stone-200 p-2 text-stone-400 hover:border-stone-400 hover:text-stone-600 cursor-pointer"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                {deleteConfirm === room.item_id ? (
-                  <div className="flex flex-col items-end gap-1">
-                    <p className="text-xs text-stone-500">삭제할까요?</p>
-                    <div className="flex gap-2">
-                      <button onClick={(e) => handleDelete(room.item_id, e)} className="text-xs font-semibold text-red-500 hover:text-red-600 cursor-pointer">확인</button>
-                      <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm(null); }} className="text-xs font-semibold text-stone-400 hover:text-stone-600 cursor-pointer">취소</button>
-                    </div>
-                  </div>
-                ) : (
+                <div className="relative">
                   <button
-                    onClick={(e) => { e.stopPropagation(); setDeleteConfirm(room.item_id); }}
-                    className="rounded-xl border border-stone-200 p-2 text-stone-400 hover:border-red-200 hover:text-red-400 cursor-pointer"
+                    onMouseEnter={() => setTooltip(`edit-${room.item_id}`)}
+                    onMouseLeave={() => setTooltip(null)}
+                    onClick={(e) => handleEditOpen(room, e)}
+                    className="rounded-xl border border-stone-200 p-2 text-stone-400 hover:border-stone-400 hover:text-stone-600 cursor-pointer"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Pencil className="h-4 w-4" />
                   </button>
-                )}
+                  {tooltip === `edit-${room.item_id}` && (
+                    <div className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-stone-800 px-3 py-1.5 text-[11px] text-white shadow-lg z-10">
+                      매물 수정
+                      <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-stone-800" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative">
+                  {deleteConfirm === room.item_id ? (
+                    <div className="flex flex-col items-end gap-1">
+                      <p className="text-xs text-stone-500">삭제할까요?</p>
+                      <div className="flex gap-2">
+                        <button onClick={(e) => handleDelete(room.item_id, e)} className="text-xs font-semibold text-red-500 hover:text-red-600 cursor-pointer">확인</button>
+                        <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm(null); }} className="text-xs font-semibold text-stone-400 hover:text-stone-600 cursor-pointer">취소</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onMouseEnter={() => setTooltip(`delete-${room.item_id}`)}
+                        onMouseLeave={() => setTooltip(null)}
+                        onClick={(e) => { e.stopPropagation(); setDeleteConfirm(room.item_id); }}
+                        className="rounded-xl border border-stone-200 p-2 text-stone-400 hover:border-red-200 hover:text-red-400 cursor-pointer"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                      {tooltip === `delete-${room.item_id}` && (
+                        <div className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-stone-800 px-3 py-1.5 text-[11px] text-white shadow-lg z-10">
+                          매물 삭제
+                          <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-stone-800" />
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -322,7 +411,7 @@ export function BrokerSection({ userId }: { userId: number }) {
 
       {/* 수정 모달 */}
       {editingRoom && editForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setEditingRoom(null); setEditForm(null); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setEditingRoom(null); setEditForm(null); setNewPhotos([]); }}>
           <div
             className="w-full max-w-md rounded-[20px] border border-stone-200/80 bg-white p-6 shadow-xl mx-4 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
@@ -340,13 +429,61 @@ export function BrokerSection({ userId }: { userId: number }) {
                 >
                   {editForm.status === "ACTIVE" ? "● 활성" : "● 계약완료"}
                 </button>
-                <button onClick={() => { setEditingRoom(null); setEditForm(null); }} className="cursor-pointer rounded-full p-1 text-stone-400 hover:text-stone-600">
+                <button onClick={() => { setEditingRoom(null); setEditForm(null); setNewPhotos([]); }} className="cursor-pointer rounded-full p-1 text-stone-400 hover:text-stone-600">
                   <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-5">
+              {/* 사진 */}
+              <div>
+                <p className="mb-2 text-xs font-semibold text-stone-500">사진</p>
+                <div className="flex flex-wrap gap-2">
+                  {editImages.map((img) => (
+                    <div key={img.id} className="relative h-20 w-20 overflow-hidden rounded-xl border border-stone-200">
+                      {img.is_main && (
+                        <span className="absolute left-1 top-1 rounded bg-stone-800/70 px-1 py-0.5 text-[9px] font-bold text-white z-10">대표</span>
+                      )}
+                      <img src={img.url} alt="" className="h-full w-full object-cover" />
+                      <button
+                        onClick={() => handleDeleteImage(img.id)}
+                        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 cursor-pointer z-10"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {newPhotos.map((photo, idx) => (
+                    <div key={`new-${idx}`} className="relative h-20 w-20 overflow-hidden rounded-xl border border-[#A8896C]/40">
+                      <span className="absolute left-1 top-1 rounded bg-[#A8896C]/70 px-1 py-0.5 text-[9px] font-bold text-white z-10">새 사진</span>
+                      <img src={photo.preview} alt="" className="h-full w-full object-cover" />
+                      <button
+                        onClick={() => setNewPhotos((p) => p.filter((_, i) => i !== idx))}
+                        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 cursor-pointer z-10"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex h-20 w-20 flex-shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-stone-200 hover:border-stone-300"
+                  >
+                    <Plus className="h-5 w-5 text-stone-400" />
+                    <span className="text-[11px] text-stone-400">추가</span>
+                  </button>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => addNewPhotos(e.target.files)}
+                />
+              </div>
+
               {/* 가격 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">가격</p>
@@ -412,7 +549,7 @@ export function BrokerSection({ userId }: { userId: number }) {
               {/* 버튼 */}
               <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
                 <button
-                  onClick={() => { setEditingRoom(null); setEditForm(null); }}
+                  onClick={() => { setEditingRoom(null); setEditForm(null); setNewPhotos([]); }}
                   className="rounded-full border border-stone-200 px-4 py-2 text-xs font-semibold text-stone-500 hover:border-stone-400 cursor-pointer"
                 >
                   취소
