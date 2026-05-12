@@ -577,11 +577,6 @@ export function ListingDetailPanel({
                 </div>
               </section>
 
-              <MarketPriceSection
-                data={marketPrice}
-                isLoading={isMarketPriceLoading}
-              />
-
               <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
                 <div className="mb-4 flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
@@ -675,6 +670,11 @@ export function ListingDetailPanel({
                   {features?.is_yogiyo && <AmenityBadge>요기요 가능</AmenityBadge>}
                 </div>
               </section>
+
+              <MarketPriceSection
+                data={marketPrice}
+                isLoading={isMarketPriceLoading}
+              />
 
               {/* 중개사 정보 */}
               {detail?.broker && (
