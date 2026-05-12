@@ -15,6 +15,7 @@ from routers.user_role_router import router as user_role_router
 from routers.room_register_router import router as room_register_router
 from routers.broker_image_router import router as broker_image_router
 from routers.payment import router as payment_router
+from routers.market_price import router as market_price_router
 
 app = FastAPI()
 
@@ -53,3 +54,4 @@ app.include_router(user_role_router, prefix="/api")
 app.include_router(room_register_router, prefix="/api")
 app.include_router(broker_image_router, prefix="/api")
 app.include_router(payment_router, prefix="/api")
+app.include_router(market_price_router, prefix="/api")

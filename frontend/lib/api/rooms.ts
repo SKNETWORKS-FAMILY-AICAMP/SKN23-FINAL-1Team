@@ -131,6 +131,34 @@ export interface ListingDetailResponse {
   } | null;
 }
 
+export interface MarketPriceResponse {
+  umdNm: string;
+  guNm: string | null;
+  market_type: string | null;
+  grade: string | null;
+  analysis_scope: string | null;
+  current_rent_per_m2_won: number | null;
+  five_year_change_rate: number | null;
+  predicted_rent_per_m2_won: number | null;
+  change_rate: number | null;
+  status_label: string | null;
+  timeseries: {
+    dealDate: string;
+    rent_per_m2_won: number | null;
+  }[];
+  recent_prices: {
+    price_id: number;
+    deal_year: number;
+    deal_month: number;
+    build_year: number;
+    deposit: number;
+    monthly_rent: number;
+    area_m2: number;
+    floor: number;
+    room_class: string;
+  }[];
+}
+
 export function buildSearchBody(params: RoomSearchParams) {
   return {
     offset: params.offset ?? 0,
@@ -222,4 +250,25 @@ export async function fetchRoomDetail(
     method: "GET",
     signal,
   });
+}
+
+export async function fetchMarketPrice(
+  itemId: number,
+  signal?: AbortSignal,
+): Promise<MarketPriceResponse | null> {
+  try {
+    return await requestJson<MarketPriceResponse>(
+      `/backend/api/market-price?item_id=${itemId}`,
+      {
+        method: "GET",
+        signal,
+      },
+    );
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    console.warn("[market-price] unavailable", error);
+    return null;
+  }
 }
