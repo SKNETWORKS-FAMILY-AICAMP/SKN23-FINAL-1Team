@@ -21,6 +21,7 @@ class RecentPriceResponse(BaseModel):
 class MarketPriceResponse(BaseModel):
     umdNm: str
     guNm: str | None = None
+    market_type: str | None = None
     grade: str | None = None
     analysis_scope: str | None = None
     current_rent_per_m2_won: int | None = None
