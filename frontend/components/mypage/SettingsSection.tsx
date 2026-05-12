@@ -78,13 +78,24 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
       content: (
         <div className="pb-4">
           <div className="flex gap-2">
-            <input
-              type="text"
-              value={nickname}
-              onChange={(e) => { setNickname(e.target.value); setNicknameMsg(null); }}
-              placeholder="새 닉네임 입력"
-              className="flex-1 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm focus:border-stone-400 focus:outline-none"
-            />
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={nickname}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val.length <= 12) {
+                    setNickname(val);
+                    setNicknameMsg(null);
+                  }
+                }}
+                placeholder="새 닉네임 입력"
+                className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 pr-12 text-sm focus:border-stone-400 focus:outline-none"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400">
+                {nickname.length}/12
+              </span>
+            </div>
             <button
               onClick={handleNicknameUpdate}
               disabled={nicknameLoading}
@@ -93,8 +104,9 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
               {nicknameLoading ? "저장 중..." : "저장"}
             </button>
           </div>
+          <p className="mt-1 text-[11px] text-stone-400">영문, 한글, 숫자만 사용 가능 · 최대 12자</p>
           {nicknameMsg && (
-            <p className={`mt-2 text-xs ${nicknameMsg.includes("변경") ? "text-green-500" : "text-red-500"}`}>
+            <p className={`mt-1 text-xs ${nicknameMsg.includes("변경") ? "text-green-500" : "text-red-500"}`}>
               {nicknameMsg}
             </p>
           )}

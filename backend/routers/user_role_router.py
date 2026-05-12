@@ -11,6 +11,7 @@ from models.user import User
 router = APIRouter(prefix="/user-role", tags=["user-role"])
 
 PHONE_PATTERN = re.compile(r"^(010-\d{4}-\d{4}|0\d{1,2}-\d{3,4}-\d{4})$")
+NICKNAME_PATTERN = re.compile(r"^[a-zA-Z0-9가-힣]{1,12}$")
 
 
 class BrokerRegisterRequest(BaseModel):
@@ -20,9 +21,11 @@ class BrokerRegisterRequest(BaseModel):
     phone: str
     photo_url: str | None = None
 
+
 class NicknameUpdateRequest(BaseModel):
     user_id: int
     nickname: str
+
 
 @router.post("/register-broker")
 def register_broker(payload: BrokerRegisterRequest, db: Session = Depends(get_db)):
@@ -78,20 +81,29 @@ def register_broker(payload: BrokerRegisterRequest, db: Session = Depends(get_db
         },
     }
 
+
 @router.patch("/nickname")
 def update_nickname(payload: NicknameUpdateRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.user_id == payload.user_id).first()
     if user is None:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
-    
+
     nickname = payload.nickname.strip()
+
     if not nickname:
         raise HTTPException(status_code=400, detail="닉네임을 입력해주세요.")
-    
+
+    if not NICKNAME_PATTERN.fullmatch(nickname):
+        raise HTTPException(status_code=400, detail="닉네임은 12자 이내, 띄어쓰기·특수문자 없이 입력해주세요.")
+
+    existing = db.query(User).filter(User.nickname == nickname, User.user_id != payload.user_id).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="이미 사용 중인 닉네임입니다.")
+
     user.nickname = nickname
     db.commit()
     db.refresh(user)
-    
+
     return {"user_id": user.user_id, "nickname": user.nickname}
 
 
@@ -100,8 +112,8 @@ def withdraw_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.user_id == user_id).first()
     if user is None:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
-    
+
     db.delete(user)
     db.commit()
-    
+
     return {"success": True}

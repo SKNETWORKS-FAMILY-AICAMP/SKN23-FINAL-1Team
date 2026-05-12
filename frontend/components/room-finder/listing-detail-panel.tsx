@@ -310,7 +310,10 @@ export function ListingDetailPanel({
                   </button>
                 )}
 
-                <div className="absolute bottom-12 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:scale-105 group-hover:opacity-100 cursor-pointer">
+                <div
+                  className="absolute bottom-12 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:scale-105 group-hover:opacity-100 cursor-pointer"
+                  onClick={() => onPhotoClick?.(imageUrls, currentImageIndex)}
+                >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                     <rect x="0.5" y="0.5" width="7" height="7" rx="1.5" stroke="white" strokeWidth="1" />
                     <path d="M6 6L11 11" stroke="white" strokeWidth="1" strokeLinecap="round" />
