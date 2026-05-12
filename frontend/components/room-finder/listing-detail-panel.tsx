@@ -14,7 +14,21 @@ import {
   Phone,
 } from "lucide-react";
 import type { Listing } from "@/components/room-finder/map-view";
-import { fetchRoomDetail, type ListingDetailResponse } from "@/lib/api/rooms";
+import {
+  fetchMarketPrice,
+  fetchRoomDetail,
+  type ListingDetailResponse,
+  type MarketPriceResponse,
+} from "@/lib/api/rooms";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   Carousel,
   CarouselContent,
@@ -59,6 +73,16 @@ const formatPrice = (deposit?: number | null, rent?: number | null) => {
   return `${formatKoreanMoney(safeDeposit)} / ${safeRent}만`;
 };
 
+const formatWon = (value?: number | null) => {
+  if (value === undefined || value === null) return "-";
+  return `${value.toLocaleString("ko-KR")}원`;
+};
+
+const formatPercent = (value?: number | null) => {
+  if (value === undefined || value === null) return "-";
+  return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
+};
+
 const formatAreaValue = (
   areaM2?: number | null,
   unit: "m2" | "pyeong" = "m2",
@@ -98,6 +122,146 @@ const AmenityBadge = ({ children }: { children: React.ReactNode }) => (
   </div>
 );
 
+const MarketPriceSection = ({
+  data,
+  isLoading,
+}: {
+  data: MarketPriceResponse | null;
+  isLoading: boolean;
+}) => {
+  if (isLoading) {
+    return (
+      <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+        <h3 className="text-base font-bold tracking-tight text-stone-900">시세 분석</h3>
+        <p className="mt-3 text-sm font-medium text-stone-500">시세 데이터를 불러오는 중...</p>
+      </section>
+    );
+  }
+
+  if (!data) return null;
+
+  const chartData = [
+    ...data.timeseries.map((point) => ({
+      dealDate: point.dealDate,
+      actual: point.rent_per_m2_won,
+      predicted: null as number | null,
+    })),
+    {
+      dealDate: "예측",
+      actual: null as number | null,
+      predicted: data.predicted_rent_per_m2_won,
+    },
+  ];
+
+  return (
+    <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[12px] font-semibold text-stone-500">
+            {data.guNm ? `${data.guNm} ${data.umdNm}` : data.umdNm}
+          </p>
+          <h3 className="mt-1 text-base font-bold tracking-tight text-stone-900">
+            시세 분석
+          </h3>
+        </div>
+        {data.status_label && (
+          <span className="rounded-full bg-stone-900 px-3 py-1 text-[11px] font-bold text-white">
+            {data.status_label}
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-2xl border border-stone-100 bg-stone-50 p-3">
+          <p className="text-[11px] font-semibold text-stone-500">현재</p>
+          <p className="mt-1 text-sm font-extrabold text-stone-900">
+            {formatWon(data.current_rent_per_m2_won)}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3">
+          <p className="text-[11px] font-semibold text-amber-700">예측</p>
+          <p className="mt-1 text-sm font-extrabold text-stone-900">
+            {formatWon(data.predicted_rent_per_m2_won)}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-stone-100 bg-stone-50 p-3">
+          <p className="text-[11px] font-semibold text-stone-500">변화율</p>
+          <p className="mt-1 text-sm font-extrabold text-stone-900">
+            {formatPercent(data.change_rate)}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5 h-52">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ left: -10, right: 8, top: 8, bottom: 0 }}>
+            <CartesianGrid stroke="#e7e5e4" strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="dealDate"
+              tick={{ fontSize: 10, fill: "#78716c" }}
+              interval="preserveStartEnd"
+              minTickGap={24}
+            />
+            <YAxis
+              tick={{ fontSize: 10, fill: "#78716c" }}
+              tickFormatter={(value) => `${Math.round(Number(value) / 1000)}천`}
+              width={38}
+            />
+            <Tooltip
+              formatter={(value) => formatWon(Number(value))}
+              labelFormatter={(label) => `${label}`}
+            />
+            <Line
+              type="monotone"
+              dataKey="actual"
+              name="실거래 기반"
+              stroke="#292524"
+              strokeWidth={2}
+              dot={false}
+              connectNulls={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="predicted"
+              name="예측"
+              stroke="#f59e0b"
+              strokeWidth={0}
+              dot={{ r: 5, fill: "#f59e0b", strokeWidth: 0 }}
+              activeDot={{ r: 6 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {data.recent_prices.length > 0 && (
+        <div className="mt-5">
+          <h4 className="text-[13px] font-bold text-stone-900">최근 거래내역</h4>
+          <div className="mt-2 space-y-2">
+            {data.recent_prices.map((price) => (
+              <div
+                key={price.price_id}
+                className="flex items-center justify-between rounded-2xl border border-stone-100 bg-white px-3 py-2 text-[12px]"
+              >
+                <div>
+                  <p className="font-bold text-stone-900">
+                    {price.room_class} {price.deal_year}.{String(price.deal_month).padStart(2, "0")}
+                  </p>
+                  <p className="mt-0.5 text-[11px] font-medium text-stone-500">
+                    {price.area_m2}m² · {price.floor}층 · {price.build_year}년식
+                  </p>
+                </div>
+                <p className="font-extrabold text-stone-900">
+                  {formatPrice(price.deposit, price.monthly_rent)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+};
+
 export function ListingDetailPanel({
   listing,
   isOpen,
@@ -110,7 +274,9 @@ export function ListingDetailPanel({
   isFindingSimilarFromPhoto = false,
 }: ListingDetailPanelProps) {
   const [detail, setDetail] = useState<ListingDetailResponse | null>(null);
+  const [marketPrice, setMarketPrice] = useState<MarketPriceResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMarketPriceLoading, setIsMarketPriceLoading] = useState(false);
   const [areaUnit, setAreaUnit] = useState<"m2" | "pyeong">("m2");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
@@ -124,6 +290,7 @@ export function ListingDetailPanel({
     const run = async () => {
       try {
         setIsLoading(true);
+        setMarketPrice(null);
         const data = await fetchRoomDetail(Number(listing.id), controller.signal);
         setDetail(data);
       } catch (error) {
@@ -133,6 +300,30 @@ export function ListingDetailPanel({
       } finally {
         if (!controller.signal.aborted) {
           setIsLoading(false);
+        }
+      }
+    };
+    run();
+    return () => controller.abort();
+  }, [listing?.id, isOpen]);
+
+  useEffect(() => {
+    if (!listing?.id || !isOpen) return;
+    const controller = new AbortController();
+    const run = async () => {
+      try {
+        setIsMarketPriceLoading(true);
+        const data = await fetchMarketPrice(Number(listing.id), controller.signal);
+        if (!controller.signal.aborted) {
+          setMarketPrice(data);
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error(error);
+        setMarketPrice(null);
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsMarketPriceLoading(false);
         }
       }
     };
@@ -385,6 +576,11 @@ export function ListingDetailPanel({
                   )}
                 </div>
               </section>
+
+              <MarketPriceSection
+                data={marketPrice}
+                isLoading={isMarketPriceLoading}
+              />
 
               <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
                 <div className="mb-4 flex items-center gap-2">
