@@ -218,16 +218,22 @@ export function ListingPanel({
               등록순
             </button>
             <button
-              onClick={() => onSortChange(
-                sort === "latest" ? "price_desc" :
-                sort === "price_desc" ? "price_asc" : "latest"
-              )}
+              onClick={() => onSortChange("price_asc")}
               className={cn(
                 "cursor-pointer text-xs tracking-tight transition-colors duration-200",
-                sort !== "latest" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
+                sort === "price_asc" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
               )}
             >
-              {sort === "price_desc" ? "높은 가격순" : sort === "price_asc" ? "낮은 가격순" : "가격순"}
+              낮은 가격순
+            </button>
+            <button
+              onClick={() => onSortChange("price_desc")}
+              className={cn(
+                "cursor-pointer text-xs tracking-tight transition-colors duration-200",
+                sort === "price_desc" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
+              )}
+            >
+              높은 가격순
             </button>
             <div className="relative group">
               <span className="text-[10px] text-stone-400 border border-stone-300 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center cursor-default">i</span>
@@ -252,7 +258,7 @@ export function ListingPanel({
               </div>
             </div>
           </div>
-        )}
+        )}  
       </div>
 
       <div className="min-h-0 flex-1 flex flex-col overflow-hidden">

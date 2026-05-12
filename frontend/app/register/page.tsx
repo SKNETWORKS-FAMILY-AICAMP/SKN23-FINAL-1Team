@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { useRegisterStore } from "@/store/registerStore";
 import { ChevronDown, ChevronUp, Check } from "lucide-react";
+import { useState, useEffect } from "react";
 
 declare global {
   interface Window { daum: any; }
@@ -71,6 +71,15 @@ export default function RegisterPage() {
   const [completedSections, setCompletedSections] = useState<SectionId[]>([]);
   const [tooltip, setTooltip] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const navEntry = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming;
+      if (navEntry?.type === "reload") {
+        router.push("/home");
+      }
+    }
+  }, []);
 
   const [form, setForm] = useState({
     title: "",
