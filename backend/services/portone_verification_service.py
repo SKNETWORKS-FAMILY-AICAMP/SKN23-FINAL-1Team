@@ -144,7 +144,7 @@ def verify_v1_payment(
 ):
     access_token = _get_v1_access_token()
 
-    if not imp_uid:
+    try:
         data = _request_json(
             "GET",
             f"{PORTONE_V1_API_BASE_URL}/payments/find/{merchant_uid}/paid",
@@ -153,7 +153,10 @@ def verify_v1_payment(
                 "Accept": "application/json",
             },
         )
-    else:
+    except HTTPException:
+        if not imp_uid:
+            raise
+
         data = _request_json(
             "GET",
             f"{PORTONE_V1_API_BASE_URL}/payments/{imp_uid}",
