@@ -166,9 +166,11 @@ const MarketPriceSection = ({
           <p className="text-[12px] font-semibold text-stone-500">
             {data.guNm ? `${data.guNm} ${data.umdNm}` : data.umdNm}
           </p>
-          <h3 className="mt-1 text-base font-bold tracking-tight text-stone-900">
-            시세 분석
-          </h3>
+          {shouldShowRentForecast && (
+            <h3 className="mt-1 text-base font-bold tracking-tight text-stone-900">
+              시세 분석
+            </h3>
+          )}
         </div>
         {shouldShowRentForecast && data.status_label && (
           <span className="rounded-full bg-stone-900 px-3 py-1 text-[11px] font-bold text-white">
@@ -179,74 +181,76 @@ const MarketPriceSection = ({
 
       {shouldShowRentForecast && (
         <>
-      <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-2xl border border-stone-100 bg-stone-50 p-3">
-          <p className="text-[11px] font-semibold text-stone-500">현재</p>
-          <p className="mt-1 text-sm font-extrabold text-stone-900">
-            {formatWon(data.current_rent_per_m2_won)}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3">
-          <p className="text-[11px] font-semibold text-amber-700">예측</p>
-          <p className="mt-1 text-sm font-extrabold text-stone-900">
-            {formatWon(data.predicted_rent_per_m2_won)}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-stone-100 bg-stone-50 p-3">
-          <p className="text-[11px] font-semibold text-stone-500">변화율</p>
-          <p className="mt-1 text-sm font-extrabold text-stone-900">
-            {formatPercent(data.change_rate)}
-          </p>
-        </div>
-      </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-2xl border border-stone-100 bg-stone-50 p-3">
+              <p className="text-[11px] font-semibold text-stone-500">현재</p>
+              <p className="mt-1 text-sm font-extrabold text-stone-900">
+                {formatWon(data.current_rent_per_m2_won)}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3">
+              <p className="text-[11px] font-semibold text-amber-700">예측</p>
+              <p className="mt-1 text-sm font-extrabold text-stone-900">
+                {formatWon(data.predicted_rent_per_m2_won)}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-stone-100 bg-stone-50 p-3">
+              <p className="text-[11px] font-semibold text-stone-500">변화율</p>
+              <p className="mt-1 text-sm font-extrabold text-stone-900">
+                {formatPercent(data.change_rate)}
+              </p>
+            </div>
+          </div>
 
-      <div className="mt-5 h-52">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart
-            data={chartData}
-            margin={{ left: -10, right: 8, top: 8, bottom: 0 }}
-          >
-            <CartesianGrid
-              stroke="#e7e5e4"
-              strokeDasharray="3 3"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="dealDate"
-              tick={{ fontSize: 10, fill: "#78716c" }}
-              interval="preserveStartEnd"
-              minTickGap={24}
-            />
-            <YAxis
-              tick={{ fontSize: 10, fill: "#78716c" }}
-              tickFormatter={(value) => `${Math.round(Number(value) / 1000)}천`}
-              width={38}
-            />
-            <Tooltip
-              formatter={(value) => formatWon(Number(value))}
-              labelFormatter={(label) => `${label}`}
-            />
-            <Line
-              type="monotone"
-              dataKey="actual"
-              name="실거래 기반"
-              stroke="#292524"
-              strokeWidth={2}
-              dot={false}
-              connectNulls={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="predicted"
-              name="예측"
-              stroke="#f59e0b"
-              strokeWidth={0}
-              dot={{ r: 5, fill: "#f59e0b", strokeWidth: 0 }}
-              activeDot={{ r: 6 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+          <div className="mt-5 h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={chartData}
+                margin={{ left: -10, right: 8, top: 8, bottom: 0 }}
+              >
+                <CartesianGrid
+                  stroke="#e7e5e4"
+                  strokeDasharray="3 3"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="dealDate"
+                  tick={{ fontSize: 10, fill: "#78716c" }}
+                  interval="preserveStartEnd"
+                  minTickGap={24}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "#78716c" }}
+                  tickFormatter={(value) =>
+                    `${Math.round(Number(value) / 1000)}천`
+                  }
+                  width={38}
+                />
+                <Tooltip
+                  formatter={(value) => formatWon(Number(value))}
+                  labelFormatter={(label) => `${label}`}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="actual"
+                  name="실거래 기반"
+                  stroke="#292524"
+                  strokeWidth={2}
+                  dot={false}
+                  connectNulls={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="predicted"
+                  name="예측"
+                  stroke="#f59e0b"
+                  strokeWidth={0}
+                  dot={{ r: 5, fill: "#f59e0b", strokeWidth: 0 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </>
       )}
 
