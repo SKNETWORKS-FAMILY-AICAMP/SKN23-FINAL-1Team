@@ -14,6 +14,7 @@ interface SettingsSectionProps {
 export function SettingsSection({ onLogout }: SettingsSectionProps) {
   const user = useAuthStore((state) => state.user);
   const clearUser = useAuthStore((state) => state.clearUser);
+  const updateUser = useAuthStore((state) => state.updateUser);
   const router = useRouter();
   const [openItem, setOpenItem] = useState<string | null>(null);
   const [nickname, setNickname] = useState(user?.nickname ?? "");
@@ -44,6 +45,7 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
         setNicknameMsg(err?.detail ?? "닉네임 변경에 실패했습니다.");
         return;
       }
+      updateUser({ nickname: nickname.trim() });
       setNicknameMsg("닉네임이 변경되었습니다!");
     } catch {
       setNicknameMsg("오류가 발생했습니다.");
