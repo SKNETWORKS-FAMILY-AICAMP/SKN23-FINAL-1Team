@@ -1,10 +1,12 @@
 import os
+import logging
 from typing import Any
 
 import requests
 from fastapi import HTTPException
 
 
+logger = logging.getLogger(__name__)
 PORTONE_V2_API_BASE_URL = os.getenv("PORTONE_V2_API_BASE_URL", "https://api.portone.io")
 PORTONE_V1_API_BASE_URL = os.getenv("PORTONE_V1_API_BASE_URL", "https://api.iamport.kr")
 
@@ -13,9 +15,17 @@ def _request_json(method: str, url: str, **kwargs):
     try:
         response = requests.request(method, url, timeout=10, **kwargs)
     except requests.RequestException as error:
+        logger.exception("PortOne API request failed. method=%s url=%s", method, url)
         raise HTTPException(status_code=502, detail="PortOne API request failed.") from error
 
     if response.status_code >= 400:
+        logger.error(
+            "PortOne API returned an error. method=%s url=%s status=%s body=%s",
+            method,
+            url,
+            response.status_code,
+            response.text[:500],
+        )
         raise HTTPException(
             status_code=502,
             detail=f"PortOne API returned an error. status={response.status_code}",
@@ -24,6 +34,12 @@ def _request_json(method: str, url: str, **kwargs):
     try:
         return response.json()
     except ValueError as error:
+        logger.error(
+            "PortOne API response is invalid JSON. method=%s url=%s body=%s",
+            method,
+            url,
+            response.text[:500],
+        )
         raise HTTPException(status_code=502, detail="PortOne API response is invalid.") from error
 
 
