@@ -8,11 +8,21 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as {
       user_id?: number;
       product_id?: string;
+      payment_sdk?: string;
+      payment_channel?: string;
     };
 
-    if (!body.user_id || !body.product_id) {
+    if (
+      !body.user_id ||
+      !body.product_id ||
+      !body.payment_sdk ||
+      !body.payment_channel
+    ) {
       return NextResponse.json(
-        { error: "user_id and product_id are required." },
+        {
+          error:
+            "user_id, product_id, payment_sdk and payment_channel are required.",
+        },
         { status: 400 },
       );
     }
@@ -25,6 +35,8 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           user_id: body.user_id,
           product_id: body.product_id,
+          payment_sdk: body.payment_sdk,
+          payment_channel: body.payment_channel,
         }),
       },
     );

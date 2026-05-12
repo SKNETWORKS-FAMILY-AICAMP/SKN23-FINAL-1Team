@@ -217,6 +217,8 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
         body: JSON.stringify({
           user_id: user.user_id,
           product_id: productId,
+          payment_sdk: selectedPaymentChannel.sdk.toUpperCase(),
+          payment_channel: selectedPaymentChannel.id,
         }),
       });
 
@@ -226,6 +228,8 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
             item_name?: string;
             amount?: number;
             credit_amount?: number;
+            payment_sdk?: string | null;
+            payment_channel?: string | null;
             status?: string;
             error?: string;
           }
