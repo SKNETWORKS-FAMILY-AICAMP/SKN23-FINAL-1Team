@@ -125,7 +125,7 @@ def _get_room_market_type(room: Room) -> str | None:
     if int(room.rent or 0) <= 0:
         return "전세"
 
-    return None
+    return "월세"
 
 
 def _get_recent_price_types(market_type: str | None) -> list[str]:
