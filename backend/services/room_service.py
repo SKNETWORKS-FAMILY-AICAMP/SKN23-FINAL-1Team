@@ -219,13 +219,23 @@ def get_rooms(db, req):
     if sort == "price_asc":
         if transaction_type == "monthly":
             order_expr = Room.rent.asc()
+        elif transaction_type == "jeonse":
+            order_expr = Room.deposit.asc()
         else:
-            order_expr = (Room.deposit + Room.rent * 100).asc()
+            order_expr = func.case(
+                (Room.rent > 0, Room.rent),
+                else_=Room.deposit
+            ).asc()
     elif sort == "price_desc":
         if transaction_type == "monthly":
             order_expr = Room.rent.desc()
+        elif transaction_type == "jeonse":
+            order_expr = Room.deposit.desc()
         else:
-            order_expr = (Room.deposit + Room.rent * 100).desc()
+            order_expr = func.case(
+                (Room.rent > 0, Room.rent),
+                else_=Room.deposit
+            ).desc()
     else:
         order_expr = None
 
