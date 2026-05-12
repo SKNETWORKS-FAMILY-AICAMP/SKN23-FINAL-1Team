@@ -4,6 +4,7 @@ import LogoutButton from "@/components/common/LogoutButton";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import Image from "next/image";
+import { CheckCircle2, CreditCard, Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
 import { useState } from "react";
@@ -79,9 +80,26 @@ const navButtonBase =
 const navButtonActive = "text-base font-bold text-stone-900 md:text-[17px]";
 const navButtonInactive = "text-stone-500";
 const creditProducts = [
-  { productId: "credit_2", label: "\ud06c\ub808\ub527 2\uac1c", price: "500\uc6d0" },
-  { productId: "credit_5", label: "\ud06c\ub808\ub527 5\uac1c", price: "1,000\uc6d0" },
-  { productId: "credit_10", label: "\ud06c\ub808\ub527 10\uac1c", price: "1,500\uc6d0" },
+  {
+    productId: "credit_2",
+    label: "\ud06c\ub808\ub527 2\uac1c",
+    price: "500\uc6d0",
+    unitPrice: "1\uac1c\ub2f9 250\uc6d0",
+  },
+  {
+    productId: "credit_5",
+    label: "\ud06c\ub808\ub527 5\uac1c",
+    price: "1,000\uc6d0",
+    unitPrice: "1\uac1c\ub2f9 200\uc6d0",
+    recommended: true,
+  },
+  {
+    productId: "credit_10",
+    label: "\ud06c\ub808\ub527 10\uac1c",
+    price: "1,500\uc6d0",
+    unitPrice: "1\uac1c\ub2f9 150\uc6d0",
+    bestValue: true,
+  },
 ];
 const paymentChannels = [
   {
@@ -129,6 +147,9 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
   const [isIamportReady, setIsIamportReady] = useState(false);
   const [selectedPaymentChannelId, setSelectedPaymentChannelId] =
     useState<(typeof paymentChannels)[number]["id"]>("kakaopay");
+  const selectedPaymentChannelForMenu =
+    paymentChannels.find((channel) => channel.id === selectedPaymentChannelId) ??
+    paymentChannels[0];
 
   const completePreparedPayment = async (
     paymentId: string,
@@ -419,13 +440,23 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
               <button
                 onClick={() => setIsCreditMenuOpen((isOpen) => !isOpen)}
                 disabled={isChargingCredit}
-                className="rounded-md border border-stone-300 px-2 py-1 text-[11px] font-semibold tracking-tight text-stone-700 transition-colors hover:border-stone-500 hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-full border border-stone-900 bg-stone-950 px-3 py-1.5 text-[11px] font-bold tracking-tight text-white shadow-sm transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="크레딧 충전"
               >
-                credit+
+                <span>크레딧 충전</span>
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white text-stone-950">
+                  <Plus className="h-3 w-3" />
+                </span>
               </button>
               {isCreditMenuOpen && (
-                <div className="absolute right-0 top-8 z-[1001] w-56 rounded-md border border-stone-200 bg-white p-2 shadow-lg">
-                  <div className="mb-2 grid grid-cols-2 gap-1">
+                <div className="absolute right-0 top-9 z-[1001] w-[320px] overflow-hidden rounded-lg border border-stone-200 bg-white shadow-2xl shadow-stone-900/15">
+                  <div className="space-y-3 p-4">
+                    <section>
+                      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold text-stone-700">
+                        <CreditCard className="h-3.5 w-3.5" />
+                        결제수단
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
                     {paymentChannels.map((channel) => (
                       <button
                         key={channel.id}
@@ -440,44 +471,114 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
                           ("disabled" in channel && channel.disabled === true)
                         }
                         className={cn(
-                          "rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                          "flex h-9 items-center justify-center rounded-md border px-2 text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
                           selectedPaymentChannelId === channel.id
-                            ? "border-stone-900 bg-stone-900 text-white"
-                            : "border-stone-200 text-stone-600 hover:border-stone-400",
+                            ? "border-stone-950 bg-stone-950 text-white"
+                            : "border-stone-200 bg-white text-stone-600 hover:border-stone-400 hover:bg-stone-50",
                         )}
                       >
                         {channel.label}
                       </button>
                     ))}
+                      </div>
+                    </section>
+
+                    <section>
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-[11px] font-bold text-stone-700">
+                          충전 상품
+                        </p>
+                        <p className="text-[10px] font-semibold text-stone-500">
+                          {selectedPaymentChannelForMenu.label}
+                        </p>
+                      </div>
+                      <div className="space-y-1.5">
+                        {creditProducts.map((product) => (
+                          <button
+                            key={product.productId}
+                            type="button"
+                            onClick={() => handlePreparePayment(product.productId)}
+                            disabled={isChargingCredit}
+                            className="group flex w-full items-center justify-between rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-stone-900 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full">
+                                <Image
+                                  src="/coin.png"
+                                  alt="크레딧"
+                                  width={32}
+                                  height={32}
+                                  className="h-full w-full object-cover"
+                                />
+                              </span>
+                              <span className="min-w-0">
+                                <span className="flex items-center gap-1.5 text-[13px] font-bold text-stone-900">
+                                  {product.label}
+                                  {product.recommended && (
+                                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">
+                                      추천
+                                    </span>
+                                  )}
+                                  {product.bestValue && (
+                                    <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">
+                                      혜택
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="mt-0.5 block text-[10px] font-semibold text-stone-500">
+                                  {product.unitPrice}
+                                </span>
+                              </span>
+                            </span>
+                            <span className="text-right">
+                              <span className="block text-[13px] font-black text-stone-950">
+                                {product.price}
+                              </span>
+                              <span className="text-[10px] font-semibold text-stone-500">
+                                결제하기
+                              </span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+
+                    <div className="rounded-md bg-stone-50 px-3 py-2 text-[10px] font-medium leading-4 text-stone-500">
+                      테스트 결제용 충전입니다. 결제 완료 후 서버 검증을 거쳐 크레딧이 반영됩니다.
+                    </div>
+
+                    {isChargingCredit && (
+                      <div className="flex items-center gap-2 rounded-md bg-stone-950 px-3 py-2 text-[11px] font-bold text-white">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        결제창을 준비하고 있습니다
+                      </div>
+                    )}
+
+                    {creditMessage && !isChargingCredit && (
+                      <div className="flex items-start gap-2 rounded-md border border-stone-200 bg-white px-3 py-2 text-[10px] font-semibold leading-4 text-stone-600">
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                        <span className="break-all">{creditMessage}</span>
+                      </div>
+                    )}
                   </div>
-                  {creditProducts.map((product) => (
-                    <button
-                      key={product.productId}
-                      type="button"
-                      onClick={() => handlePreparePayment(product.productId)}
-                      disabled={isChargingCredit}
-                      className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-[12px] font-semibold text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <span>{product.label}</span>
-                      <span>{product.price}</span>
-                    </button>
-                  ))}
-                  {creditMessage && (
-                    <p className="mt-1 break-all px-2 text-[10px] leading-4 text-stone-500">
-                      {creditMessage}
-                    </p>
-                  )}
                 </div>
               )}
             </div>
-            <div className="rounded-md bg-stone-100 px-2 py-1 text-[11px] font-semibold tracking-tight text-stone-700">
-              {user.credit ?? 0}
+            <div className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-bold tracking-tight text-amber-800 shadow-sm">
+              <Image
+                src="/coin.png"
+                alt="크레딧"
+                width={16}
+                height={16}
+                className="h-4 w-4 object-cover"
+              />
+              {user.credit ?? 0}개
             </div>
             <div className="flex items-center gap-1.5">
               {user.role === "BROKER" && (
                 <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
                   <circle cx="9" cy="9" r="9" fill="#2563EB"/>
-                  <path d="M5 9l2.5 2.5L13 6" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M5 9l2.5 2.5L13 6" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               )}
               <span className="text-[12px] font-semibold tracking-tight text-stone-800 sm:text-sm">
