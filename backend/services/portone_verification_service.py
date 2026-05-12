@@ -91,6 +91,7 @@ def verify_v2_payment(payment_id: str, expected_amount: int):
             "status": status,
             "amount": paid_amount,
             "reason": "Payment is not paid.",
+            "terminal": status in {"FAILED", "CANCELLED", "CANCELED", "PARTIAL_CANCELLED"},
         }
 
     if paid_amount != expected_amount:
@@ -99,6 +100,7 @@ def verify_v2_payment(payment_id: str, expected_amount: int):
             "status": status,
             "amount": paid_amount,
             "reason": "Payment amount does not match.",
+            "terminal": True,
         }
 
     return {
@@ -106,6 +108,7 @@ def verify_v2_payment(payment_id: str, expected_amount: int):
         "status": status,
         "amount": paid_amount,
         "provider_transaction_id": payment_id,
+        "terminal": True,
     }
 
 
@@ -181,6 +184,7 @@ def verify_v1_payment(
             "status": status,
             "amount": paid_amount,
             "reason": "Payment order id does not match.",
+            "terminal": True,
         }
 
     if status != "paid":
@@ -189,6 +193,7 @@ def verify_v1_payment(
             "status": status,
             "amount": paid_amount,
             "reason": "Payment is not paid.",
+            "terminal": status in {"failed", "cancelled", "cancelled_partially"},
         }
 
     if paid_amount != expected_amount:
@@ -197,6 +202,7 @@ def verify_v1_payment(
             "status": status,
             "amount": paid_amount,
             "reason": "Payment amount does not match.",
+            "terminal": True,
         }
 
     return {
@@ -204,4 +210,5 @@ def verify_v1_payment(
         "status": status,
         "amount": paid_amount,
         "provider_transaction_id": payment.get("imp_uid") or imp_uid,
+        "terminal": True,
     }

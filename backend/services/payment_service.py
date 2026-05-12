@@ -147,7 +147,18 @@ def _complete_verified_payment_order(
     )
 
     if not verification["ok"]:
-        payment_order.status = "FAILED"
+        print(
+            "[payments] verification failed "
+            f"payment_id={payment_order.payment_id} "
+            f"sdk={payment_order.payment_sdk} "
+            f"provider_status={verification.get('status')} "
+            f"amount={verification.get('amount')} "
+            f"reason={verification.get('reason')} "
+            f"terminal={verification.get('terminal')}",
+            flush=True,
+        )
+        if verification.get("terminal"):
+            payment_order.status = "FAILED"
         db.commit()
         raise HTTPException(
             status_code=400,
