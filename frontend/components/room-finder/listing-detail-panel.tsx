@@ -168,7 +168,7 @@ const MarketPriceSection = ({
           </p>
           {shouldShowRentForecast && (
             <h3 className="mt-1 text-base font-bold tracking-tight text-stone-900">
-              시세 분석
+              단위 면적 당 시세 분석
             </h3>
           )}
         </div>
@@ -183,13 +183,17 @@ const MarketPriceSection = ({
         <>
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-2xl border border-stone-100 bg-stone-50 p-3">
-              <p className="text-[11px] font-semibold text-stone-500">현재</p>
+              <p className="text-[11px] font-semibold text-stone-500">
+                현재 단위 시세
+              </p>
               <p className="mt-1 text-sm font-extrabold text-stone-900">
                 {formatWon(data.current_rent_per_m2_won)}
               </p>
             </div>
             <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3">
-              <p className="text-[11px] font-semibold text-amber-700">예측</p>
+              <p className="text-[11px] font-semibold text-amber-700">
+                예측 단위 시세
+              </p>
               <p className="mt-1 text-sm font-extrabold text-stone-900">
                 {formatWon(data.predicted_rent_per_m2_won)}
               </p>
@@ -222,7 +226,7 @@ const MarketPriceSection = ({
                 <YAxis
                   tick={{ fontSize: 10, fill: "#78716c" }}
                   tickFormatter={(value) =>
-                    `${Math.round(Number(value) / 1000)}천`
+                    `${Math.round(Number(value) / 10000)}만`
                   }
                   width={38}
                 />
