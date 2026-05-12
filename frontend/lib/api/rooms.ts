@@ -134,6 +134,7 @@ export interface ListingDetailResponse {
 export interface MarketPriceResponse {
   umdNm: string;
   guNm: string | null;
+  market_type: string | null;
   grade: string | null;
   analysis_scope: string | null;
   current_rent_per_m2_won: number | null;

@@ -144,6 +144,8 @@ const MarketPriceSection = ({
 
   if (!data) return null;
 
+  const shouldShowRentForecast = data.market_type !== "전세";
+  const marketGroupLabel = data.market_type === "전세" ? "전세" : "월세/반전세";
   const chartData = [
     ...data.timeseries.map((point) => ({
       dealDate: point.dealDate,
@@ -168,13 +170,15 @@ const MarketPriceSection = ({
             시세 분석
           </h3>
         </div>
-        {data.status_label && (
+        {shouldShowRentForecast && data.status_label && (
           <span className="rounded-full bg-stone-900 px-3 py-1 text-[11px] font-bold text-white">
             {data.status_label}
           </span>
         )}
       </div>
 
+      {shouldShowRentForecast && (
+        <>
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-2xl border border-stone-100 bg-stone-50 p-3">
           <p className="text-[11px] font-semibold text-stone-500">현재</p>
@@ -243,11 +247,13 @@ const MarketPriceSection = ({
           </LineChart>
         </ResponsiveContainer>
       </div>
+        </>
+      )}
 
       {data.recent_prices.length > 0 && (
         <div className="mt-5">
           <h4 className="text-[13px] font-bold text-stone-900">
-            최근 거래내역
+            최근 {marketGroupLabel} 거래내역
           </h4>
           <div className="mt-2 space-y-2">
             {data.recent_prices.map((price) => (
