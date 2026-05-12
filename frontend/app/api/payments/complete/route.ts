@@ -7,36 +7,26 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as {
       user_id?: number;
-      product_id?: string;
-      payment_sdk?: string;
-      payment_channel?: string;
+      payment_id?: string;
+      provider_transaction_id?: string;
     };
 
-    if (
-      !body.user_id ||
-      !body.product_id ||
-      !body.payment_sdk ||
-      !body.payment_channel
-    ) {
+    if (!body.user_id || !body.payment_id) {
       return NextResponse.json(
-        {
-          error:
-            "user_id, product_id, payment_sdk and payment_channel are required.",
-        },
+        { error: "user_id and payment_id are required." },
         { status: 400 },
       );
     }
 
     const response = await fetch(
-      buildBackendApiUrl(BACKEND_URL, "/payments/prepare"),
+      buildBackendApiUrl(BACKEND_URL, "/payments/complete"),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: body.user_id,
-          product_id: body.product_id,
-          payment_sdk: body.payment_sdk,
-          payment_channel: body.payment_channel,
+          payment_id: body.payment_id,
+          provider_transaction_id: body.provider_transaction_id,
         }),
       },
     );
@@ -46,16 +36,16 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: data?.detail ?? data?.error ?? "Failed to prepare payment." },
+        { error: data?.detail ?? data?.error ?? "Failed to complete payment." },
         { status: response.status },
       );
     }
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("[payments/prepare] Error:", error);
+    console.error("[payments/complete] Error:", error);
     return NextResponse.json(
-      { error: "Failed to prepare payment." },
+      { error: "Failed to complete payment." },
       { status: 500 },
     );
   }
