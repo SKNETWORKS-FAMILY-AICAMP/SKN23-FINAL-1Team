@@ -56,6 +56,7 @@ def complete_payment(payload: PaymentCompleteRequest, db: Session = Depends(get_
 @router.post("/webhook", response_model=PaymentWebhookResponse)
 def payment_webhook(payload: PaymentWebhookRequest, db: Session = Depends(get_db)):
     webhook_data = payload.data or {}
+    print(f"[payments/webhook] payload={payload.model_dump()}", flush=True)
     payment_id = (
         payload.payment_id
         or payload.paymentId
@@ -65,19 +66,35 @@ def payment_webhook(payload: PaymentWebhookRequest, db: Session = Depends(get_db
         or webhook_data.get("merchant_uid")
     )
     if not payment_id:
-        raise HTTPException(status_code=400, detail="payment_id or merchant_uid is required.")
+        return {
+            "payment_id": None,
+            "status": "IGNORED",
+            "charged_credit": 0,
+            "reason": "payment_id or merchant_uid is missing.",
+        }
 
-    result = complete_payment_order_from_webhook(
-        db=db,
-        payment_id=payment_id,
-        provider_transaction_id=(
-            payload.imp_uid
-            or payload.tx_id
-            or webhook_data.get("imp_uid")
-            or webhook_data.get("tx_id")
-            or webhook_data.get("transactionId")
-        ),
-    )
+    try:
+        result = complete_payment_order_from_webhook(
+            db=db,
+            payment_id=payment_id,
+            provider_transaction_id=(
+                payload.imp_uid
+                or payload.tx_id
+                or webhook_data.get("imp_uid")
+                or webhook_data.get("tx_id")
+                or webhook_data.get("transactionId")
+            ),
+        )
+    except HTTPException as error:
+        if error.status_code >= 500:
+            raise
+
+        return {
+            "payment_id": payment_id,
+            "status": "IGNORED",
+            "charged_credit": 0,
+            "reason": str(error.detail),
+        }
 
     return {
         "payment_id": result["payment_id"],

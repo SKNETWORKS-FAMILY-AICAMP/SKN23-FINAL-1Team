@@ -48,9 +48,10 @@ class PaymentWebhookRequest(BaseModel):
 
 
 class PaymentWebhookResponse(BaseModel):
-    payment_id: str
+    payment_id: str | None = None
     status: str
     charged_credit: int
+    reason: str | None = None
 
 
 class PaymentOrderResponse(BaseModel):
