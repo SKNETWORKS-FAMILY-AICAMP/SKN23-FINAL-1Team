@@ -214,10 +214,18 @@ def get_rooms(db, req):
     total = db.execute(count_stmt).scalar_one()
 
     sort = getattr(req, "sort", "latest")
+    transaction_type = getattr(req, "transaction_type", "all")
+
     if sort == "price_asc":
-        order_expr = (Room.deposit + Room.rent * 100).asc()
+        if transaction_type == "monthly":
+            order_expr = Room.rent.asc()
+        else:
+            order_expr = (Room.deposit + Room.rent * 100).asc()
     elif sort == "price_desc":
-        order_expr = (Room.deposit + Room.rent * 100).desc()
+        if transaction_type == "monthly":
+            order_expr = Room.rent.desc()
+        else:
+            order_expr = (Room.deposit + Room.rent * 100).desc()
     else:
         order_expr = None
 
