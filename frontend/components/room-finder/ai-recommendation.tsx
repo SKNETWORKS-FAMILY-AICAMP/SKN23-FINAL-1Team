@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { Loader2, Maximize2 } from "lucide-react";
+import { ImagePlus, Loader2, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HouseCatchGame } from "@/components/room-finder/HouseCatchGame";
 import type { Listing } from "./map-view";
@@ -37,6 +37,103 @@ const QUICK_PROMPTS = [
   "채광 좋게 만들어줘",
   "미니멀하게 만들어줘",
 ];
+
+const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg"];
+
+interface PromptInputWithUploadProps {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  placeholder: string;
+  inputSize?: "md" | "sm";
+  attachedFile: File | null;
+  isDragging: boolean;
+  fileError: string;
+  onRemoveFile: () => void;
+  onFileClick: () => void;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+const PromptInputWithUpload = ({
+  value,
+  onChange,
+  onKeyDown,
+  placeholder,
+  inputSize = "md",
+  attachedFile,
+  isDragging,
+  fileError,
+  onRemoveFile,
+  onFileClick,
+  fileInputRef,
+  onFileChange,
+}: PromptInputWithUploadProps) => (
+  <div className="flex w-full flex-col gap-1.5">
+    {attachedFile && (
+      <div className="flex items-center gap-2 rounded-lg border border-[#d6cfc8] bg-[#f5f0eb] px-2 py-1.5">
+        <div className="relative h-7 w-7 flex-shrink-0 overflow-hidden rounded-md">
+          <Image
+            src={URL.createObjectURL(attachedFile)}
+            alt={attachedFile.name}
+            fill
+            className="object-cover"
+          />
+        </div>
+        <span className="flex-1 truncate text-xs text-stone-600">
+          {attachedFile.name}
+        </span>
+        <button
+          type="button"
+          onClick={onRemoveFile}
+          className="text-sm leading-none text-stone-400 transition-colors hover:text-stone-600"
+        >
+          x
+        </button>
+      </div>
+    )}
+
+    <div
+      className={cn(
+        "flex w-full items-center overflow-hidden rounded-xl border transition-all",
+        isDragging
+          ? "border-[#a8896c] ring-2 ring-[#a8896c]/30"
+          : "border-[#d6cfc8]",
+      )}
+    >
+      <button
+        type="button"
+        onClick={onFileClick}
+        className="flex h-full flex-shrink-0 items-center justify-center border-r border-[#d6cfc8] bg-white px-3 transition-colors hover:bg-stone-50"
+        style={{ minHeight: inputSize === "md" ? "42px" : "36px" }}
+        title="이미지 첨부 (PNG, JPEG)"
+      >
+        <ImagePlus className="h-4 w-4 text-stone-500" />
+      </button>
+      <input
+        type="text"
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        placeholder={isDragging ? "이미지를 여기에 놓으세요" : placeholder}
+        className={cn(
+          "min-w-0 flex-1 bg-[#faf7f4] text-stone-800 placeholder:text-stone-400 transition-colors focus:bg-white focus:outline-none",
+          inputSize === "md" ? "px-3 py-2.5 text-sm" : "px-3 py-2 text-xs",
+        )}
+      />
+    </div>
+
+    {fileError && <p className="pl-1 text-[11px] text-red-500">{fileError}</p>}
+
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/png,image/jpeg"
+      className="hidden"
+      onChange={onFileChange}
+    />
+  </div>
+);
 
 function buildSessionImages(
   images: GeneratedImageResponse[],
@@ -107,6 +204,10 @@ export function AIRecommendation({
   const [isEditing, setIsEditing] = useState(false);
   const [isFindingSimilar, setIsFindingSimilar] = useState(false);
   const [showGame, setShowGame] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
  
   const selectedImage = useMemo(
     () => generatedImages.find((image) => image.id === selectedImageId) ?? null,
@@ -122,6 +223,59 @@ export function AIRecommendation({
   useEffect(() => {
     setEditPrompt("");
   }, [selectedImageId]);
+
+  const validateAndSetFile = (file: File) => {
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setFileError("이 파일 형식은 지원하지 않아요.");
+      return;
+    }
+
+    setFileError("");
+    setAttachedFile(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    validateAndSetFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    validateAndSetFile(file);
+  };
+
+  const removeFile = () => {
+    setAttachedFile(null);
+    setFileError("");
+  };
+
+  const sharedFileProps = {
+    attachedFile,
+    isDragging,
+    fileError,
+    onRemoveFile: removeFile,
+    onFileClick: () => fileInputRef.current?.click(),
+    fileInputRef,
+    onFileChange: handleFileChange,
+  };
 
   const requestGeneratedImages = async (
     nextPromptHistory: string[],
@@ -276,6 +430,7 @@ export function AIRecommendation({
         [new Date().toISOString()],
       );
       replaceSession(nextImages);
+      removeFile();
     } catch (error) {
       console.error("Error generating images:", error);
       setMessage(
@@ -436,6 +591,7 @@ export function AIRecommendation({
     setPrompt("");
     setEditPrompt("");
     setMessage("");
+    removeFile();
   };
 
   const renderImageGroup = (group: AIImageGroup) => {
@@ -546,14 +702,14 @@ export function AIRecommendation({
           <span className="shrink-0 text-xs text-neutral-muted md:text-sm">
             {message || "원하는 방 조건을 입력하면 4개의 이미지를 생성해드려요."}
           </span>
-          <div className="flex w-full items-center gap-2 sm:flex-1">
-            <input
-              type="text"
+          <div className="flex w-full items-start gap-2 sm:flex-1">
+            <PromptInputWithUpload
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
               placeholder="다시 생성하려면 프롬프트를 입력하세요..."
-              className="flex-1 rounded-lg border border-border-warm bg-linen px-3 py-2 text-xs text-neutral-dark placeholder:text-neutral-muted focus:outline-none focus:ring-2 focus:ring-warm-brown/50 md:text-sm"
+              inputSize="sm"
+              {...sharedFileProps}
             />
             <button
               onClick={() => handleGenerate()}
@@ -582,7 +738,12 @@ export function AIRecommendation({
       )}
       <div style={{ visibility: showGame ? "hidden" : "visible", display: "contents" }}>
       {screen === "init" && (
-        <div className="flex flex-1 flex-col items-center justify-center gap-5 overflow-y-auto px-5 py-8">
+        <div
+          className="flex flex-1 flex-col items-center justify-center gap-5 overflow-y-auto px-5 py-8"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#e8e0d5] bg-[#f5f0eb]">
             <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
               <rect
@@ -623,13 +784,13 @@ export function AIRecommendation({
           </div>
 
           <div className="flex w-full flex-col gap-2">
-            <input
-              type="text"
+            <PromptInputWithUpload
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
               placeholder="예) 복층 구조에 채광 좋은 원룸..."
-              className="w-full rounded-xl border border-[#d6cfc8] bg-[#faf7f4] px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 focus:bg-white focus:outline-none"
+              inputSize="md"
+              {...sharedFileProps}
             />
             <button
               onClick={() => handleGenerate()}
