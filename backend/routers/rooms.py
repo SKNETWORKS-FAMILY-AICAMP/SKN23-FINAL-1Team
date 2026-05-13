@@ -28,7 +28,7 @@ def build_room_list_request(
     ne_lat: float | None = Query(None),
     ne_lng: float | None = Query(None),
     level: int | None = Query(None),
-    sort: str = Query("latest"),
+    sort: str = Query("recommended"),
     exclude_item_id: int | None = Query(None),
 ) -> RoomListRequest:
     return RoomListRequest(

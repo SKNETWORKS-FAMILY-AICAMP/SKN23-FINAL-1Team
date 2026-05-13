@@ -9,7 +9,7 @@ StructureLiteral = Literal["all", "open", "separated", "duplex"]
 StructureFilter = StructureLiteral | list[StructureLiteral]
 SizeUnitLiteral = Literal["m2", "pyeong"]
 FloorFilterLiteral = Literal["all", "semi-basement", "1", "2", "3", "4plus"]
-SortLiteral = Literal["latest", "price_asc", "price_desc"]
+SortLiteral = Literal["recommended", "latest", "price_asc", "price_desc"]
 
 
 class RoomSearchRequest(BaseModel):
@@ -107,5 +107,5 @@ class RoomListRequest(BaseModel):
     ne_lat: float | None = None
     ne_lng: float | None = None
     level: int | None = None
-    sort: SortLiteral = "latest"
+    sort: SortLiteral = "recommended"
     exclude_item_id: int | None = None
