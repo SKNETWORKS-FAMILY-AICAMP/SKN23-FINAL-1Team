@@ -163,8 +163,8 @@ export function HomeContainer() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
   const [isPanelOpen, setIsPanelOpen] = useState(true);
-  const [sort, setSort] = useState<"latest" | "price_asc" | "price_desc">(
-    "latest",
+  const [sort, setSort] = useState<"recommended" | "latest" | "price_asc" | "price_desc">(
+    "recommended",
   );
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenImages, setFullscreenImages] = useState<string[]>([]);

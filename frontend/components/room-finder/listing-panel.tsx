@@ -27,8 +27,8 @@ interface ListingPanelProps {
   isLoggedIn?: boolean;
   onLoginRequired?: () => void;
   onWishClick?: (listing: Listing) => void;
-  sort?: "latest" | "price_asc" | "price_desc";
-  onSortChange?: (sort: "latest" | "price_asc" | "price_desc") => void;
+  sort?: "recommended" | "latest" | "price_asc" | "price_desc";
+  onSortChange?: (sort: "recommended" | "latest" | "price_asc" | "price_desc") => void;
   onAIPhotoClick?: (images: string[], index: number) => void;
   similarSearchParams?: RoomSearchParams;
   canFindSimilarRooms?: boolean;
@@ -55,7 +55,7 @@ export function ListingPanel({
   isLoggedIn = false,
   onLoginRequired,
   onWishClick,
-  sort = "latest",
+  sort = "recommended",
   onSortChange,
   onAIPhotoClick,
   similarSearchParams,
@@ -105,7 +105,7 @@ export function ListingPanel({
   const handleReset = () => {
     if (!onSortChange) return;
     setIsResetting(true);
-    onSortChange("latest");
+    onSortChange("recommended");
     setTimeout(() => setIsResetting(false), 400);
   };
 
@@ -208,6 +208,15 @@ export function ListingPanel({
 
         {currentTab === "list" && onSortChange && (
           <div className="flex items-center justify-end gap-3 pt-2 pr-3">
+            <button
+              onClick={() => onSortChange("recommended")}
+              className={cn(
+                "cursor-pointer text-xs tracking-tight transition-colors duration-200",
+                sort === "recommended" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
+              )}
+            >
+              추천순
+            </button>
             <button
               onClick={() => onSortChange("latest")}
               className={cn(
