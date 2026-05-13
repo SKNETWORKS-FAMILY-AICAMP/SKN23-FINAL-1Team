@@ -168,13 +168,18 @@ const MarketPriceSection = ({
           </p>
           {shouldShowRentForecast && (
             <h3 className="mt-1 text-base font-bold tracking-tight text-stone-900">
-              단위 면적 당 시세 분석
+              ㎡당 월세 시세 분석
             </h3>
+          )}
+          {shouldShowRentForecast && (
+            <p className="mt-1 text-[11px] font-medium leading-4 text-stone-500">
+              전체 월세가 아닌 단위면적당 예상 금액입니다.
+            </p>
           )}
         </div>
         {shouldShowRentForecast && data.status_label && (
           <span className="rounded-full bg-stone-900 px-3 py-1 text-[11px] font-bold text-white">
-            {data.status_label}
+            {data.status_label} 예측
           </span>
         )}
       </div>
@@ -184,7 +189,7 @@ const MarketPriceSection = ({
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-2xl border border-stone-100 bg-stone-50 p-3">
               <p className="text-[11px] font-semibold text-stone-500">
-                현재 단위 시세
+                현재 ㎡당 시세
               </p>
               <p className="mt-1 text-sm font-extrabold text-stone-900">
                 {formatWon(data.current_rent_per_m2_won)}
@@ -192,7 +197,7 @@ const MarketPriceSection = ({
             </div>
             <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3">
               <p className="text-[11px] font-semibold text-amber-700">
-                예측 단위 시세
+                예측 ㎡당 시세
               </p>
               <p className="mt-1 text-sm font-extrabold text-stone-900">
                 {formatWon(data.predicted_rent_per_m2_won)}
@@ -231,13 +236,16 @@ const MarketPriceSection = ({
                   width={38}
                 />
                 <Tooltip
-                  formatter={(value) => formatWon(Number(value))}
+                  formatter={(value) => [
+                    formatWon(Number(value)),
+                    "㎡당 월세",
+                  ]}
                   labelFormatter={(label) => `${label}`}
                 />
                 <Line
                   type="monotone"
                   dataKey="actual"
-                  name="실거래 기반"
+                  name="실거래 기반 ㎡당 월세"
                   stroke="#292524"
                   strokeWidth={2}
                   dot={false}
@@ -246,7 +254,7 @@ const MarketPriceSection = ({
                 <Line
                   type="monotone"
                   dataKey="predicted"
-                  name="예측"
+                  name="예측 ㎡당 월세"
                   stroke="#f59e0b"
                   strokeWidth={0}
                   dot={{ r: 5, fill: "#f59e0b", strokeWidth: 0 }}
