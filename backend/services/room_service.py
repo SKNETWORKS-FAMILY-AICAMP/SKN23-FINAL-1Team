@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, cast, column, distinct, func, not_, or_, select, table, text
+from sqlalchemy import Integer, cast, case, column, distinct, func, not_, or_, select, table, text
 from sqlalchemy.orm import Session
 from models.item_image import ItemImage
 from models.room import Room
@@ -25,16 +25,12 @@ ITEM_IMAGE_EMBEDDINGS = table(
 def is_valid_image_value(value) -> bool:
     if value is None:
         return False
-
     if not isinstance(value, str):
         return False
-
     normalized = value.strip()
     lowered = normalized.lower()
-
     if lowered in {"", "nan", "none", "null"}:
         return False
-
     return (
         normalized.startswith("http://")
         or normalized.startswith("https://")
@@ -55,10 +51,8 @@ def format_korean_money(value: int | None) -> str:
 def format_price(deposit: int | None, rent: int | None) -> str:
     safe_deposit = int(deposit or 0)
     safe_rent = int(rent or 0)
-
     if safe_rent <= 0:
         return f"전세 {format_korean_money(safe_deposit)}"
-
     return f"{format_korean_money(safe_deposit)} / {safe_rent}만"
 
 
@@ -70,9 +64,6 @@ def format_size(area_m2) -> str:
 
 def get_grid_size_by_level(level: int | None) -> float:
     safe_level = int(level or 4)
-
-    # level 숫자가 작을수록 확대, 클수록 축소
-    # 따라서 축소될수록 grid는 더 커져야 함
     if safe_level == 2:
         return 0.002
     if safe_level == 3:
@@ -87,10 +78,8 @@ def get_grid_size_by_level(level: int | None) -> float:
 def normalize_structures(structure) -> list[str]:
     if structure == "all" or structure is None:
         return []
-
     if isinstance(structure, str):
         return [structure]
-
     return [value for value in structure if value != "all"]
 
 
@@ -156,13 +145,11 @@ def apply_room_filters(stmt, req):
 
     if req.floor != "all":
         basement_condition = get_basement_condition()
-
         if req.floor == "semi-basement":
             stmt = stmt.where(basement_condition)
         else:
             floor_number = get_floor_number_expression()
             stmt = stmt.where(Room.floor.isnot(None), not_(basement_condition))
-
             if req.floor == "4plus":
                 stmt = stmt.where(floor_number >= 4)
             else:
@@ -179,7 +166,6 @@ def apply_room_filters(stmt, req):
 
 def serialize_room_marker(room, embedding_similarity: float | None = None):
     image_urls = [room.image_thumbnail] if is_valid_image_value(room.image_thumbnail) else []
-
     item = {
         "type": "marker",
         "id": str(room.item_id),
@@ -197,10 +183,8 @@ def serialize_room_marker(room, embedding_similarity: float | None = None):
         "structure": room.room_type or "매물",
         "options": [],
     }
-
     if embedding_similarity is not None:
         item["embeddingSimilarity"] = float(embedding_similarity)
-
     return item
 
 
@@ -219,13 +203,23 @@ def get_rooms(db, req):
     if sort == "price_asc":
         if transaction_type == "monthly":
             order_expr = Room.rent.asc()
+        elif transaction_type == "jeonse":
+            order_expr = Room.deposit.asc()
         else:
-            order_expr = (Room.deposit + Room.rent * 100).asc()
+            order_expr = case(
+                (Room.rent > 0, Room.rent),
+                else_=Room.deposit
+            ).asc()
     elif sort == "price_desc":
         if transaction_type == "monthly":
             order_expr = Room.rent.desc()
+        elif transaction_type == "jeonse":
+            order_expr = Room.deposit.desc()
         else:
-            order_expr = (Room.deposit + Room.rent * 100).desc()
+            order_expr = case(
+                (Room.rent > 0, Room.rent),
+                else_=Room.deposit
+            ).desc()
     else:
         order_expr = None
 
@@ -246,10 +240,6 @@ def get_rooms(db, req):
 
 
 def get_rooms_by_similarity(db: Session, req, embedding: list[float] | None = None):
-    """
-    기존 get_rooms 기능을 그대로 쓰되,
-    중복 없이 '가장 비슷한 이미지가 있는 방' 순서로 정렬함.
-    """
     count_stmt = select(func.count(distinct(Room.item_id)))
     has_embedding = bool(embedding)
     exclude_item_id = getattr(req, "exclude_item_id", None)
@@ -261,7 +251,6 @@ def get_rooms_by_similarity(db: Session, req, embedding: list[float] | None = No
         )
         embedding_similarity_expr = (-embedding_distance_expr).label("embedding_similarity")
 
-        # 조인: Room -> ItemImage -> item_image_embeddings
         stmt = select(Room, embedding_similarity_expr)
         stmt = stmt.join(ItemImage, Room.item_id == ItemImage.item_id)
         stmt = stmt.join(ITEM_IMAGE_EMBEDDINGS, ItemImage.id == ITEM_IMAGE_EMBEDDINGS.c.image_id)
@@ -313,10 +302,8 @@ def get_map_items(db, req):
     level = int(req.level or 4)
     print(f"[get_map_items] level={level}")
 
-    # level 2 이상이면 무조건 클러스터
     if level >= 2:
         grid_size = get_grid_size_by_level(level)
-
         lat_bucket = cast(func.floor(Room.lat / grid_size), Integer)
         lng_bucket = cast(func.floor(Room.lng / grid_size), Integer)
 
@@ -356,7 +343,6 @@ def get_map_items(db, req):
             "items": items,
         }
 
-    # level 1일 때만 개별 마커
     rows = db.execute(
         base_stmt.order_by(
             Room.first_crawled_at.desc().nullslast(),
