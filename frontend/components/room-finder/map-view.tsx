@@ -70,6 +70,7 @@ export interface MapFocusRequest {
 interface MapViewProps {
   searchQuery: string;
   mapItems: MapItem[];
+  initialBounds?: MapBounds | null;
   selectedListing?: Listing | null;
   focusRequest?: MapFocusRequest | null;
   onMarkerClick?: (listing: Listing) => void;
@@ -141,6 +142,7 @@ function mapMarkerItemToListing(item: MarkerMapItem): Listing {
 export function MapView({
   searchQuery,
   mapItems,
+  initialBounds,
   selectedListing,
   focusRequest,
   onMarkerClick,
@@ -161,6 +163,9 @@ export function MapView({
   const selectedListingRef = useRef<Listing | null>(selectedListing ?? null);
 
   const pendingSourceRef = useRef<MapBounds["source"]>("initial");
+  const focusRequestIdRef = useRef<number | null>(null);
+  const isApplyingFocusRef = useRef(false);
+  const suppressBoundsUntilRef = useRef(0);
 
   const [isMapReady, setIsMapReady] = useState(false);
 
@@ -500,13 +505,13 @@ export function MapView({
 
         if (!mapInstanceRef.current) {
           const center = new kakao.maps.LatLng(
-            DEFAULT_CENTER.lat,
-            DEFAULT_CENTER.lng,
+            initialBounds?.centerLat ?? DEFAULT_CENTER.lat,
+            initialBounds?.centerLng ?? DEFAULT_CENTER.lng,
           );
 
           mapInstanceRef.current = new kakao.maps.Map(mapRef.current, {
             center,
-            level: 4,
+            level: initialBounds?.level ?? 4,
           });
         }
 
@@ -530,6 +535,24 @@ export function MapView({
             hasMovedToCurrentLocationRef.current = true;
             emitBounds(map);
             onInitialLocationResolved?.(initialSelectedCoords);
+            return;
+          }
+
+          if (initialBounds) {
+            const savedPos = new kakao.maps.LatLng(
+              initialBounds.centerLat,
+              initialBounds.centerLng,
+            );
+
+            pendingSourceRef.current = "user";
+            map.setCenter(savedPos);
+            map.setLevel(initialBounds.level);
+            hasMovedToCurrentLocationRef.current = true;
+            emitBounds(map);
+            onInitialLocationResolved?.({
+              lat: initialBounds.centerLat,
+              lng: initialBounds.centerLng,
+            });
             return;
           }
 
@@ -588,6 +611,8 @@ export function MapView({
     const kakao = window.kakao;
 
     const handleIdle = () => {
+      if (Date.now() < suppressBoundsUntilRef.current) return;
+      if (isApplyingFocusRef.current) return;
       updateVisibleListings(map, kakao);
       emitBounds(map);
     };
@@ -620,6 +645,7 @@ export function MapView({
   useEffect(() => {
     if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
     if (!selectedListing) return;
+    if (focusRequest) return;
 
     const lat = Number(selectedListing.lat);
     const lng = Number(selectedListing.lng);
@@ -637,11 +663,13 @@ export function MapView({
     // Selection move should not be treated as a list refresh trigger
     pendingSourceRef.current = "selection";
     map.panTo(position);
-  }, [selectedListing, isMapReady]);
+  }, [selectedListing, focusRequest, isMapReady]);
 
   useEffect(() => {
     if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
     if (!focusRequest) return;
+    if (focusRequestIdRef.current === focusRequest.id) return;
+    focusRequestIdRef.current = focusRequest.id;
 
     const lat = Number(focusRequest.lat);
     const lng = Number(focusRequest.lng);
@@ -652,11 +680,20 @@ export function MapView({
     const kakao = window.kakao;
     const position = new kakao.maps.LatLng(lat, lng);
 
+    isApplyingFocusRef.current = true;
     pendingSourceRef.current = focusRequest.source;
+    suppressBoundsUntilRef.current =
+      focusRequest.source === "selection" ? Date.now() + 1000 : 0;
     map.setLevel(focusRequest.level);
-    map.panTo(position);
-    window.setTimeout(() => emitBounds(map), 300);
-  }, [focusRequest, isMapReady]);
+    map.setCenter(position);
+
+    window.setTimeout(() => {
+      isApplyingFocusRef.current = false;
+      updateVisibleListings(map, kakao);
+      if (focusRequest.source === "selection") return;
+      emitBounds(map);
+    }, 150);
+  }, [focusRequest, isMapReady, onBoundsChange]);
 
   useEffect(() => {
     const handleResize = () => {

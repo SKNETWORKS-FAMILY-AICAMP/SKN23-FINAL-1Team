@@ -31,6 +31,7 @@ import {
   removeFavorite,
 } from "@/lib/api/favorites";
 import { useRecentStore } from "@/store/recentStore";
+import { useMapViewStore } from "@/store/mapViewStore";
 import { OnboardingGuide } from "@/components/room-finder/OnboardingGuide";
 import { useFavoriteToast } from "@/hooks/useFavoriteToast";
 import { Toast } from "@/components/common/Toast";
@@ -57,6 +58,10 @@ const DEFAULT_MAP_BOUNDS: MapBounds = {
   level: 4,
   source: "initial",
 };
+
+const LISTING_FOCUS_LEVEL = 2;
+const LISTING_FOCUS_LAT_DELTA = 0.018;
+const LISTING_FOCUS_LNG_DELTA = 0.024;
 
 function getMaxDepositByRoomType(roomType: "oneroom" | "tworoom") {
   return roomType === "tworoom" ? TWO_ROOM_MAX_DEPOSIT : ONE_ROOM_MAX_DEPOSIT;
@@ -119,6 +124,24 @@ function isSameBounds(a: MapBounds | null, b: MapBounds | null) {
   return getBoundsKey(a) === getBoundsKey(b);
 }
 
+function getListingFocusBounds(listing: Listing): MapBounds | null {
+  const lat = Number(listing.lat);
+  const lng = Number(listing.lng);
+
+  if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+
+  return normalizeBounds({
+    swLat: lat - LISTING_FOCUS_LAT_DELTA,
+    swLng: lng - LISTING_FOCUS_LNG_DELTA,
+    neLat: lat + LISTING_FOCUS_LAT_DELTA,
+    neLng: lng + LISTING_FOCUS_LNG_DELTA,
+    centerLat: lat,
+    centerLng: lng,
+    level: LISTING_FOCUS_LEVEL,
+    source: "selection",
+  });
+}
+
 function shouldReloadByBounds(source?: MapBounds["source"]) {
   return (
     source === "initial" ||
@@ -155,6 +178,8 @@ function logSimilarRoomScores(items: Listing[], context: string) {
 
 export function HomeContainer() {
   const router = useRouter();
+  const savedMapBounds = useMapViewStore((state) => state.lastMapBounds);
+  const setLastMapBounds = useMapViewStore((state) => state.setLastMapBounds);
   const [roomType, setRoomType] = useState<"oneroom" | "tworoom">("oneroom");
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [searchQuery, setSearchQuery] = useState("");
@@ -190,7 +215,9 @@ export function HomeContainer() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasRequestFailed, setHasRequestFailed] = useState(false);
   const [isLocationReady, setIsLocationReady] = useState(true);
-  const [mapBounds, setMapBounds] = useState<MapBounds | null>(DEFAULT_MAP_BOUNDS);
+  const [mapBounds, setMapBounds] = useState<MapBounds | null>(
+    () => savedMapBounds ?? DEFAULT_MAP_BOUNDS,
+  );
   const [mapFocusRequest, setMapFocusRequest] =
     useState<MapFocusRequest | null>(null);
   const [listScrollResetKey, setListScrollResetKey] = useState(0);
@@ -291,6 +318,31 @@ export function HomeContainer() {
     sort,
   ]);
 
+  const filterKey = useMemo(() => {
+    return JSON.stringify({
+      search: "",
+      transactionType: filters.transactionType,
+      deposit: filters.deposit,
+      monthlyRent: filters.monthlyRent,
+      structure: roomType === "oneroom" ? filters.structure : [],
+      size: filters.size,
+      sizeUnit: filters.sizeUnit,
+      floor: filters.floor,
+      options: filters.options,
+      roomType,
+    });
+  }, [
+    filters.transactionType,
+    filters.deposit,
+    filters.monthlyRent,
+    filters.structure,
+    filters.size,
+    filters.sizeUnit,
+    filters.floor,
+    filters.options,
+    roomType,
+  ]);
+
   const similarSearchParams = useMemo<RoomSearchParams>(
     () => ({
       search: "",
@@ -347,8 +399,13 @@ export function HomeContainer() {
   }, []);
 
   const prevRequestKeyRef = useRef<string>("");
+  const prevFilterKeyRef = useRef<string>("");
   const prevSimilarRequestKeyRef = useRef<string>("");
   const activeListRequestKeyRef = useRef<string>("");
+  const listRequestSeqRef = useRef(0);
+  const mapRequestSeqRef = useRef(0);
+  const prevBoundsRef = useRef<MapBounds | null>(null);
+  const directlyLoadedBoundsKeyRef = useRef<string>("");
 
   const getSimilarRequestKey = useCallback(
     (imageUrl: string) =>
@@ -448,7 +505,22 @@ export function HomeContainer() {
 
   useEffect(() => {
     if (prevRequestKeyRef.current === requestKey) return;
+    const isSortOnlyChange = prevFilterKeyRef.current === filterKey;
+
     prevRequestKeyRef.current = requestKey;
+    prevFilterKeyRef.current = filterKey;
+
+    if (isSortOnlyChange) {
+      setVisibleListings([]);
+      activeListRequestKeyRef.current = "";
+      directlyLoadedBoundsKeyRef.current = "";
+      setOffset(0);
+      setHasMore(true);
+      setHasRequestFailed(false);
+      setIsInitialLoading(false);
+      return;
+    }
+
     if (!similarImageUrl) {
       setRecommendedListings(null);
     }
@@ -461,11 +533,12 @@ export function HomeContainer() {
       setIsDetailOpen(false);
     }
     activeListRequestKeyRef.current = "";
+    directlyLoadedBoundsKeyRef.current = "";
     setOffset(0);
     setHasMore(true);
     setHasRequestFailed(false);
     setIsInitialLoading(true);
-  }, [requestKey, similarImageUrl]);
+  }, [filterKey, requestKey, similarImageUrl]);
 
   useEffect(() => {
     if (!similarImageUrl) return;
@@ -555,6 +628,11 @@ export function HomeContainer() {
     }
 
     const applyBounds = () => {
+      setOffset(0);
+      setHasMore(true);
+      setHasRequestFailed(false);
+      setVisibleListings([]);
+      setLastMapBounds(normalizedBounds);
       setMapBounds((prev) => {
         if (isSameBounds(prev, normalizedBounds)) return prev;
         return normalizedBounds;
@@ -615,6 +693,12 @@ export function HomeContainer() {
 
     const loadPagedItems = async () => {
       if (!isLocationReady || !mapBounds) return;
+      if (
+        offset === 0 &&
+        directlyLoadedBoundsKeyRef.current === getBoundsKey(mapBounds)
+      ) {
+        return;
+      }
       const isFilterReload = activeListRequestKeyRef.current !== requestKey;
       if (!shouldReloadByBounds(mapBounds.source) && !isFilterReload) return;
       if (activeListRequestKeyRef.current !== requestKey && offset !== 0) return;
@@ -624,6 +708,7 @@ export function HomeContainer() {
         activeListRequestKeyRef.current = requestKey;
       }
 
+      const requestSeq = ++listRequestSeqRef.current;
       setIsLoading(true);
 
       try {
@@ -650,19 +735,8 @@ export function HomeContainer() {
           signal: controller.signal,
         };
 
-        let data = await fetchItems(searchParams);
-
-        if (offset === 0 && data.items.length === 0) {
-          data = await fetchItems({
-            ...searchParams,
-            lat: undefined,
-            lng: undefined,
-            swLat: undefined,
-            swLng: undefined,
-            neLat: undefined,
-            neLng: undefined,
-          });
-        }
+        const data = await fetchItems(searchParams);
+        if (requestSeq !== listRequestSeqRef.current) return;
 
         const mapped = data.items.map(mapItemToListing);
         setListings((prev) => (offset === 0 ? mapped : [...prev, ...mapped]));
@@ -672,10 +746,12 @@ export function HomeContainer() {
         setHasMore(data.has_more);
         setHasRequestFailed(false);
       } catch (error) {
+        if (requestSeq !== listRequestSeqRef.current) return;
         if (controller.signal.aborted || isAbortError(error)) return;
         console.error(error);
         setHasRequestFailed(true);
       } finally {
+        if (requestSeq !== listRequestSeqRef.current) return;
         if (controller.signal.aborted) return;
         setIsLoading(false);
         setIsInitialLoading(false);
@@ -710,8 +786,11 @@ export function HomeContainer() {
 
     const loadMapItems = async () => {
       if (!isLocationReady || !mapBounds) return;
+      if (directlyLoadedBoundsKeyRef.current === getBoundsKey(mapBounds)) return;
       const isFilterReload = activeListRequestKeyRef.current !== requestKey;
       if (!shouldReloadByBounds(mapBounds.source) && !isFilterReload) return;
+
+      const requestSeq = ++mapRequestSeqRef.current;
 
       try {
         const data = await fetchMapItems({
@@ -735,8 +814,10 @@ export function HomeContainer() {
           signal: controller.signal,
         });
 
+        if (requestSeq !== mapRequestSeqRef.current) return;
         setMapItems(data.items);
       } catch (error) {
+        if (requestSeq !== mapRequestSeqRef.current) return;
         if (controller.signal.aborted || isAbortError(error)) return;
         console.error(error);
       }
@@ -762,8 +843,6 @@ export function HomeContainer() {
     sort,
   ]);
 
-  const prevBoundsRef = useRef<MapBounds | null>(null);
-
   useEffect(() => {
     if (!mapBounds) return;
     const prevBounds = prevBoundsRef.current;
@@ -782,6 +861,99 @@ export function HomeContainer() {
     setOffset((prev) => prev + PAGE_SIZE);
   }, [hasMore, isLoading]);
 
+  const loadListingArea = useCallback(
+    async (listing: Listing) => {
+      const focusBounds = getListingFocusBounds(listing);
+      if (!focusBounds) return;
+
+      const listRequestSeq = ++listRequestSeqRef.current;
+      const mapRequestSeq = ++mapRequestSeqRef.current;
+      directlyLoadedBoundsKeyRef.current = getBoundsKey(focusBounds);
+
+      setLastMapBounds(focusBounds);
+      setMapBounds(focusBounds);
+      setOffset(0);
+      setHasMore(true);
+      setHasRequestFailed(false);
+      setVisibleListings([]);
+      setIsLoading(true);
+      setIsInitialLoading(false);
+
+      const baseParams: RoomSearchParams = {
+        search: "",
+        transactionType: filters.transactionType,
+        roomType: roomType === "oneroom" ? "원룸" : "투룸",
+        structure: roomType === "oneroom" ? filters.structure : [],
+        deposit: filters.deposit,
+        monthlyRent: filters.monthlyRent,
+        size: filters.size,
+        sizeUnit: filters.sizeUnit,
+        floor: filters.floor,
+        options: filters.options,
+        sort,
+        lat: focusBounds.centerLat,
+        lng: focusBounds.centerLng,
+        swLat: focusBounds.swLat,
+        swLng: focusBounds.swLng,
+        neLat: focusBounds.neLat,
+        neLng: focusBounds.neLng,
+        level: focusBounds.level,
+      };
+
+      try {
+        const [listData, mapData] = await Promise.all([
+          fetchItems({
+            ...baseParams,
+            offset: 0,
+            limit: PAGE_SIZE,
+          }),
+          fetchMapItems(baseParams),
+        ]);
+
+        if (
+          listRequestSeq !== listRequestSeqRef.current ||
+          mapRequestSeq !== mapRequestSeqRef.current
+        ) {
+          return;
+        }
+
+        setListings(listData.items.map(mapItemToListing));
+        setHasMore(listData.has_more);
+        setMapItems(mapData.items);
+        activeListRequestKeyRef.current = requestKey;
+        prevBoundsRef.current = focusBounds;
+        setListScrollResetKey((prev) => prev + 1);
+      } catch (error) {
+        if (isAbortError(error)) return;
+        console.error(error);
+        setHasRequestFailed(true);
+      } finally {
+        if (
+          listRequestSeq !== listRequestSeqRef.current ||
+          mapRequestSeq !== mapRequestSeqRef.current
+        ) {
+          return;
+        }
+
+        setIsLoading(false);
+      }
+    },
+    [
+      filters.transactionType,
+      filters.deposit,
+      filters.monthlyRent,
+      filters.structure,
+      filters.size,
+      filters.sizeUnit,
+      filters.floor,
+      filters.options,
+      requestKey,
+      roomType,
+      setLastMapBounds,
+      sort,
+    ],
+  );
+
   const focusMapOnListing = useCallback((listing: Listing) => {
     const lat = Number(listing.lat);
     const lng = Number(listing.lng);
@@ -793,7 +965,7 @@ export function HomeContainer() {
       id: mapFocusRequestIdRef.current,
       lat,
       lng,
-      level: 2,
+      level: LISTING_FOCUS_LEVEL,
       source: "selection",
     });
   }, []);
@@ -805,8 +977,9 @@ export function HomeContainer() {
       setSelectedListing(listing);
       setIsDetailOpen(true);
       focusMapOnListing(listing);
+      void loadListingArea(listing);
     },
-    [focusMapOnListing, recordRecentListing],
+    [focusMapOnListing, loadListingArea, recordRecentListing],
   );
 
   // 찜목록 클릭 → 지도 이동 + 상세패널 오픈 (매물목록과 동일)
@@ -816,8 +989,9 @@ export function HomeContainer() {
       setSelectedListing(listing);
       setIsDetailOpen(true);
       focusMapOnListing(listing);
+      void loadListingArea(listing);
     },
-    [focusMapOnListing, recordRecentListing],
+    [focusMapOnListing, loadListingArea, recordRecentListing],
   );
 
   const handleSimilarOverlayListingClick = useCallback(
@@ -1195,6 +1369,7 @@ export function HomeContainer() {
             <MapView
               searchQuery={mapSearchQuery}
               mapItems={mapItems}
+              initialBounds={savedMapBounds}
               selectedListing={selectedListing}
               focusRequest={mapFocusRequest}
               onMarkerClick={(listing) => {
@@ -1331,6 +1506,7 @@ export function HomeContainer() {
               <MapView
                 searchQuery={mapSearchQuery}
                 mapItems={mapItems}
+                initialBounds={savedMapBounds}
                 selectedListing={selectedListing}
                 focusRequest={mapFocusRequest}
                 onMarkerClick={(listing) => {
