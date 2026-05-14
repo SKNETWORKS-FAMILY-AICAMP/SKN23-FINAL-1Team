@@ -205,6 +205,7 @@ export function HomeContainer() {
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
+  const [isDesktopLayout, setIsDesktopLayout] = useState<boolean | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [sort, setSort] = useState<"recommended" | "latest" | "price_asc" | "price_desc">(
     "recommended",
@@ -252,6 +253,18 @@ export function HomeContainer() {
   const canFindSimilarRooms = Boolean(
     mapBounds && mapBounds.level <= MAX_SIMILAR_SEARCH_LEVEL,
   );
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const updateLayout = () => setIsDesktopLayout(mediaQuery.matches);
+
+    updateLayout();
+    mediaQuery.addEventListener("change", updateLayout);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateLayout);
+    };
+  }, []);
 
   const recordRecentListing = useCallback(
     (listing: Listing) => {
@@ -1418,7 +1431,8 @@ export function HomeContainer() {
           </div>
         </div>
 
-        <main className="relative hidden flex-1 overflow-hidden lg:block scroll-none">
+        {isDesktopLayout === true && (
+        <main className="relative flex-1 overflow-hidden scroll-none">
           <section className="absolute inset-0 z-0">
             <MapView
               searchQuery={mapSearchQuery}
@@ -1554,8 +1568,10 @@ export function HomeContainer() {
             </div>
           </aside>
         </main>
+        )}
 
-        <main className="flex flex-1 overflow-hidden lg:hidden">
+        {isDesktopLayout === false && (
+        <main className="flex flex-1 overflow-hidden">
           {mobileView === "map" ? (
             <section className="relative flex-1">
               <MapView
@@ -1607,6 +1623,7 @@ export function HomeContainer() {
             </aside>
           )}
         </main>
+        )}
 
         {(isInitialLoading && isLoading && listings.length === 0 && !selectedListing) &&
           !isPendingOpenRef.current && (
