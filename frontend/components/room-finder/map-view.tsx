@@ -455,9 +455,15 @@ export function MapView({
         return;
       }
 
+      const placeResults = data as KakaoPlaceResult[];
+      const seoulResults = placeResults.filter((place) => {
+        const addressText = `${place.address_name ?? ""} ${place.road_address_name ?? ""}`;
+        return addressText.includes("서울");
+      });
+      const targetResults = seoulResults.length > 0 ? seoulResults : placeResults;
       const bounds = new kakao.maps.LatLngBounds();
 
-      data.forEach((place: any) => {
+      targetResults.forEach((place) => {
         bounds.extend(new kakao.maps.LatLng(Number(place.y), Number(place.x)));
       });
 

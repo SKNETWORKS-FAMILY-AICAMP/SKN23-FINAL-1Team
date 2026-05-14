@@ -397,7 +397,7 @@ export function FilterBar({
     setPlaceSuggestions([]);
     setIsPlaceSuggestionsOpen(false);
     onSearchChange(place.name);
-    onSearchSubmit(place.name);
+    onSearchSubmit(place.display_name || place.name);
   };
 
   const handleSearchKeyDown = (

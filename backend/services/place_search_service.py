@@ -64,6 +64,12 @@ def _score_place(place: dict, query: str) -> int:
         elif normalized_query in normalized_value:
             score = max(score, 50)
 
+    if place.get("sido") == SEOUL_SIDO:
+        score += 10
+
+    if place.get("type") == "dong" and _normalize(str(place.get("dong", ""))) == normalized_query:
+        score += 20
+
     return score
 
 
@@ -309,6 +315,17 @@ def _search_places_in_memory(db: Session, query: str, limit: int) -> list[dict]:
     return [_place_response(place) for _, place in scored[:limit]]
 
 
+def _sort_places_for_query(places: list[dict], query: str) -> list[dict]:
+    return sorted(
+        places,
+        key=lambda place: (
+            -_score_place(place, query),
+            -place.get("priority", 0),
+            place.get("name", ""),
+        ),
+    )
+
+
 def search_places(db: Session, query: str, limit: int = 10) -> list[dict]:
     clean_query = query.strip()
     if not clean_query:
@@ -324,7 +341,7 @@ def search_places(db: Session, query: str, limit: int = 10) -> list[dict]:
     try:
         result = es.search(
             index=PLACES_INDEX,
-            size=limit,
+            size=min(limit * 3, 50),
             query={
                 "bool": {
                     "should": [
@@ -343,7 +360,8 @@ def search_places(db: Session, query: str, limit: int = 10) -> list[dict]:
                 {"name.keyword": {"order": "asc"}},
             ],
         )
-        return [_place_response(hit["_source"]) for hit in result["hits"]["hits"]]
+        places = [hit["_source"] for hit in result["hits"]["hits"]]
+        return [_place_response(place) for place in _sort_places_for_query(places, clean_query)[:limit]]
     except Exception as exc:
         print(f"[places] Elasticsearch search failed, using fallback: {exc}")
         return _search_places_in_memory(db, clean_query, limit)
