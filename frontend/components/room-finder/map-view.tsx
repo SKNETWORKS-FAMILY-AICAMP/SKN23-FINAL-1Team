@@ -554,7 +554,7 @@ export function MapView({
               initialBounds.centerLng,
             );
 
-            pendingSourceRef.current = "user";
+            pendingSourceRef.current = "initial";
             map.setCenter(savedPos);
             map.setLevel(initialBounds.level);
             hasMovedToCurrentLocationRef.current = true;
