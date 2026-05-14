@@ -77,6 +77,7 @@ interface MapViewProps {
   onVisibleListingsChange?: (listings: Listing[]) => void;
   onInitialLocationResolved?: (coords: { lat: number; lng: number }) => void;
   onBoundsChange?: (bounds: MapBounds) => void;
+  onFocusSettled?: (bounds: MapBounds) => void;
 }
 
 interface KakaoPlaceResult {
@@ -149,6 +150,7 @@ export function MapView({
   onVisibleListingsChange,
   onInitialLocationResolved,
   onBoundsChange,
+  onFocusSettled,
 }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -196,18 +198,18 @@ export function MapView({
     infoWindowsRef.current = [];
   };
 
-  const emitBounds = (map: any) => {
-    if (!window.kakao) return;
+  const getCurrentBounds = (
+    map: any,
+    source: MapBounds["source"],
+  ): MapBounds | null => {
+    if (!window.kakao) return null;
 
     const bounds = map.getBounds();
     const sw = bounds.getSouthWest();
     const ne = bounds.getNorthEast();
     const center = map.getCenter();
 
-    const source = pendingSourceRef.current;
-    pendingSourceRef.current = "user";
-
-    const nextBounds: MapBounds = {
+    return {
       swLat: roundBoundsValue(sw.getLat()),
       swLng: roundBoundsValue(sw.getLng()),
       neLat: roundBoundsValue(ne.getLat()),
@@ -217,6 +219,14 @@ export function MapView({
       level: typeof map.getLevel === "function" ? map.getLevel() : 4,
       source,
     };
+  };
+
+  const emitBounds = (map: any) => {
+    const source = pendingSourceRef.current;
+    pendingSourceRef.current = "user";
+
+    const nextBounds = getCurrentBounds(map, source);
+    if (!nextBounds) return;
 
     const nextKey = boundsToKey(nextBounds);
 
@@ -690,10 +700,16 @@ export function MapView({
     window.setTimeout(() => {
       isApplyingFocusRef.current = false;
       updateVisibleListings(map, kakao);
-      if (focusRequest.source === "selection") return;
+      if (focusRequest.source === "selection") {
+        const settledBounds = getCurrentBounds(map, focusRequest.source);
+        if (settledBounds) {
+          onFocusSettled?.(settledBounds);
+        }
+        return;
+      }
       emitBounds(map);
     }, 150);
-  }, [focusRequest, isMapReady, onBoundsChange]);
+  }, [focusRequest, isMapReady, onBoundsChange, onFocusSettled]);
 
   useEffect(() => {
     const handleResize = () => {
