@@ -201,6 +201,15 @@ export function ListingPanel({
         {currentTab === "list" && onSortChange && (
           <div className="flex items-center justify-end gap-3 pt-2 pr-3">
             <button
+              onClick={() => onSortChange("recommended")}
+              className={cn(
+                "cursor-pointer text-xs tracking-tight transition-colors duration-200",
+                sort === "recommended" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
+              )}
+            >
+              추천순
+            </button>
+            <button
               onClick={() => onSortChange("latest")}
               className={cn(
                 "cursor-pointer text-xs tracking-tight transition-colors duration-200",
