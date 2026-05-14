@@ -2,7 +2,7 @@
 
 import { type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { ImagePlus, Loader2, Maximize2 } from "lucide-react";
+import { Loader2, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HouseCatchGame } from "@/components/room-finder/HouseCatchGame";
 import type { Listing } from "./map-view";
@@ -108,7 +108,13 @@ const PromptInputWithUpload = ({
         style={{ minHeight: inputSize === "md" ? "42px" : "36px" }}
         title="이미지 첨부 (PNG, JPEG)"
       >
-        <ImagePlus className="h-4 w-4 text-stone-500" />
+        <Image
+          src="/image_icon.png"
+          alt="이미지 첨부"
+          width={18}
+          height={18}
+          className="h-4.5 w-4.5 object-contain"
+        />
       </button>
       <input
         type="text"
