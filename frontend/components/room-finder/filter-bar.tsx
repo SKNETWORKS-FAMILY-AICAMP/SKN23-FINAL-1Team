@@ -476,11 +476,6 @@ export function FilterBar({
       selectPlaceSuggestion(firstSuggestion);
       return;
     }
-
-    const query = searchQuery.trim();
-    if (query) {
-      onSearchSubmit(query);
-    }
   };
 
   return (

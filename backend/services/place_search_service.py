@@ -8,6 +8,7 @@ from models.room import Room
 from services.seoul_places_seed import (
     SEOUL_DISTRICTS,
     SEOUL_DONGS_BY_DISTRICT,
+    SEOUL_LEGAL_DONGS_BY_DISTRICT,
     SEOUL_SUBWAY_STATIONS,
 )
 
@@ -169,6 +170,34 @@ def _static_dong_places() -> list[dict]:
     return places
 
 
+def _static_legal_dong_places() -> list[dict]:
+    places = []
+
+    for sigungu, dongs in SEOUL_LEGAL_DONGS_BY_DISTRICT.items():
+        for dong in dongs:
+            places.append(
+                {
+                    "id": f"legal-dong-seoul-{sigungu}-{dong}",
+                    "type": "dong",
+                    "name": dong,
+                    "display_name": f"{SEOUL_SIDO} {sigungu} {dong}",
+                    "sido": SEOUL_SIDO,
+                    "sigungu": sigungu,
+                    "dong": dong,
+                    "aliases": [
+                        dong,
+                        dong.removesuffix("동"),
+                        f"{sigungu} {dong}",
+                        f"{SEOUL_SIDO} {sigungu} {dong}",
+                    ],
+                    "lines": [],
+                    "priority": 38,
+                }
+            )
+
+    return places
+
+
 def _parse_seoul_dong(address: str) -> tuple[str, str] | None:
     parts = address.split()
     if not parts or parts[0] not in {"서울", "서울시", "서울특별시"}:
@@ -239,6 +268,7 @@ def build_places(db: Session) -> list[dict]:
     for place in [
         *_district_places(),
         *_static_dong_places(),
+        *_static_legal_dong_places(),
         *_subway_places(),
         *_dong_places_from_rooms(db),
     ]:
