@@ -27,8 +27,8 @@ interface ListingPanelProps {
   isLoggedIn?: boolean;
   onLoginRequired?: () => void;
   onWishClick?: (listing: Listing) => void;
-  sort?: "latest" | "price_asc" | "price_desc";
-  onSortChange?: (sort: "latest" | "price_asc" | "price_desc") => void;
+  sort?: "latest" | "price_asc" | "price_desc" | "recommended";
+  onSortChange?: (sort: "latest" | "price_asc" | "price_desc" | "recommended") => void;
   onAIPhotoClick?: (images: string[], index: number) => void;
   similarSearchParams?: RoomSearchParams;
   canFindSimilarRooms?: boolean;
