@@ -31,6 +31,7 @@ import {
   removeFavorite,
 } from "@/lib/api/favorites";
 import { useRecentStore } from "@/store/recentStore";
+import { useMapViewStore } from "@/store/mapViewStore";
 import { OnboardingGuide } from "@/components/room-finder/OnboardingGuide";
 import { useFavoriteToast } from "@/hooks/useFavoriteToast";
 import { Toast } from "@/components/common/Toast";
@@ -177,6 +178,8 @@ function logSimilarRoomScores(items: Listing[], context: string) {
 
 export function HomeContainer() {
   const router = useRouter();
+  const savedMapBounds = useMapViewStore((state) => state.lastMapBounds);
+  const setLastMapBounds = useMapViewStore((state) => state.setLastMapBounds);
   const [roomType, setRoomType] = useState<"oneroom" | "tworoom">("oneroom");
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [searchQuery, setSearchQuery] = useState("");
@@ -212,7 +215,9 @@ export function HomeContainer() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasRequestFailed, setHasRequestFailed] = useState(false);
   const [isLocationReady, setIsLocationReady] = useState(true);
-  const [mapBounds, setMapBounds] = useState<MapBounds | null>(DEFAULT_MAP_BOUNDS);
+  const [mapBounds, setMapBounds] = useState<MapBounds | null>(
+    () => savedMapBounds ?? DEFAULT_MAP_BOUNDS,
+  );
   const [mapFocusRequest, setMapFocusRequest] =
     useState<MapFocusRequest | null>(null);
   const [listScrollResetKey, setListScrollResetKey] = useState(0);
@@ -313,6 +318,31 @@ export function HomeContainer() {
     sort,
   ]);
 
+  const filterKey = useMemo(() => {
+    return JSON.stringify({
+      search: "",
+      transactionType: filters.transactionType,
+      deposit: filters.deposit,
+      monthlyRent: filters.monthlyRent,
+      structure: roomType === "oneroom" ? filters.structure : [],
+      size: filters.size,
+      sizeUnit: filters.sizeUnit,
+      floor: filters.floor,
+      options: filters.options,
+      roomType,
+    });
+  }, [
+    filters.transactionType,
+    filters.deposit,
+    filters.monthlyRent,
+    filters.structure,
+    filters.size,
+    filters.sizeUnit,
+    filters.floor,
+    filters.options,
+    roomType,
+  ]);
+
   const similarSearchParams = useMemo<RoomSearchParams>(
     () => ({
       search: "",
@@ -369,6 +399,7 @@ export function HomeContainer() {
   }, []);
 
   const prevRequestKeyRef = useRef<string>("");
+  const prevFilterKeyRef = useRef<string>("");
   const prevSimilarRequestKeyRef = useRef<string>("");
   const activeListRequestKeyRef = useRef<string>("");
   const listRequestSeqRef = useRef(0);
@@ -474,7 +505,22 @@ export function HomeContainer() {
 
   useEffect(() => {
     if (prevRequestKeyRef.current === requestKey) return;
+    const isSortOnlyChange = prevFilterKeyRef.current === filterKey;
+
     prevRequestKeyRef.current = requestKey;
+    prevFilterKeyRef.current = filterKey;
+
+    if (isSortOnlyChange) {
+      setVisibleListings([]);
+      activeListRequestKeyRef.current = "";
+      directlyLoadedBoundsKeyRef.current = "";
+      setOffset(0);
+      setHasMore(true);
+      setHasRequestFailed(false);
+      setIsInitialLoading(false);
+      return;
+    }
+
     if (!similarImageUrl) {
       setRecommendedListings(null);
     }
@@ -492,7 +538,7 @@ export function HomeContainer() {
     setHasMore(true);
     setHasRequestFailed(false);
     setIsInitialLoading(true);
-  }, [requestKey, similarImageUrl]);
+  }, [filterKey, requestKey, similarImageUrl]);
 
   useEffect(() => {
     if (!similarImageUrl) return;
@@ -586,6 +632,7 @@ export function HomeContainer() {
       setHasMore(true);
       setHasRequestFailed(false);
       setVisibleListings([]);
+      setLastMapBounds(normalizedBounds);
       setMapBounds((prev) => {
         if (isSameBounds(prev, normalizedBounds)) return prev;
         return normalizedBounds;
@@ -823,6 +870,7 @@ export function HomeContainer() {
       const mapRequestSeq = ++mapRequestSeqRef.current;
       directlyLoadedBoundsKeyRef.current = getBoundsKey(focusBounds);
 
+      setLastMapBounds(focusBounds);
       setMapBounds(focusBounds);
       setOffset(0);
       setHasMore(true);
@@ -901,6 +949,7 @@ export function HomeContainer() {
       filters.options,
       requestKey,
       roomType,
+      setLastMapBounds,
       sort,
     ],
   );
@@ -1320,6 +1369,7 @@ export function HomeContainer() {
             <MapView
               searchQuery={mapSearchQuery}
               mapItems={mapItems}
+              initialBounds={savedMapBounds}
               selectedListing={selectedListing}
               focusRequest={mapFocusRequest}
               onMarkerClick={(listing) => {
@@ -1456,6 +1506,7 @@ export function HomeContainer() {
               <MapView
                 searchQuery={mapSearchQuery}
                 mapItems={mapItems}
+                initialBounds={savedMapBounds}
                 selectedListing={selectedListing}
                 focusRequest={mapFocusRequest}
                 onMarkerClick={(listing) => {

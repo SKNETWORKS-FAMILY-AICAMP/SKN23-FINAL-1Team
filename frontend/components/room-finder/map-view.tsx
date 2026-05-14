@@ -70,6 +70,7 @@ export interface MapFocusRequest {
 interface MapViewProps {
   searchQuery: string;
   mapItems: MapItem[];
+  initialBounds?: MapBounds | null;
   selectedListing?: Listing | null;
   focusRequest?: MapFocusRequest | null;
   onMarkerClick?: (listing: Listing) => void;
@@ -141,6 +142,7 @@ function mapMarkerItemToListing(item: MarkerMapItem): Listing {
 export function MapView({
   searchQuery,
   mapItems,
+  initialBounds,
   selectedListing,
   focusRequest,
   onMarkerClick,
@@ -503,13 +505,13 @@ export function MapView({
 
         if (!mapInstanceRef.current) {
           const center = new kakao.maps.LatLng(
-            DEFAULT_CENTER.lat,
-            DEFAULT_CENTER.lng,
+            initialBounds?.centerLat ?? DEFAULT_CENTER.lat,
+            initialBounds?.centerLng ?? DEFAULT_CENTER.lng,
           );
 
           mapInstanceRef.current = new kakao.maps.Map(mapRef.current, {
             center,
-            level: 4,
+            level: initialBounds?.level ?? 4,
           });
         }
 
@@ -533,6 +535,24 @@ export function MapView({
             hasMovedToCurrentLocationRef.current = true;
             emitBounds(map);
             onInitialLocationResolved?.(initialSelectedCoords);
+            return;
+          }
+
+          if (initialBounds) {
+            const savedPos = new kakao.maps.LatLng(
+              initialBounds.centerLat,
+              initialBounds.centerLng,
+            );
+
+            pendingSourceRef.current = "user";
+            map.setCenter(savedPos);
+            map.setLevel(initialBounds.level);
+            hasMovedToCurrentLocationRef.current = true;
+            emitBounds(map);
+            onInitialLocationResolved?.({
+              lat: initialBounds.centerLat,
+              lng: initialBounds.centerLng,
+            });
             return;
           }
 
