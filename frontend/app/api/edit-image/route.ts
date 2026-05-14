@@ -104,6 +104,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       jobId: data?.job_id,
       status: data?.status,
+      remain: data?.remain,
+      credit: data?.credit,
     });
   } catch (error) {
     console.error("[edit-image][POST] Error:", error);

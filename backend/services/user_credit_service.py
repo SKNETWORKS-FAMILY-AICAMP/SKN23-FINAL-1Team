@@ -35,7 +35,7 @@ def decrement_user_remain(db: Session, user_id: int):
 
 
 def ensure_user_has_edit_remain(db: Session, user_id: int):
-    user = get_user_by_id(db, user_id)
+    user = recharge_user_remain_from_credit(db, user_id)
 
     if user is None:
         return None

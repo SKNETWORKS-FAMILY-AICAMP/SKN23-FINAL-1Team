@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Loader2, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,109 @@ const QUICK_PROMPTS = [
   "채광 좋게 만들어줘",
   "미니멀하게 만들어줘",
 ];
+
+const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg"];
+
+interface PromptInputWithUploadProps {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  placeholder: string;
+  inputSize?: "md" | "sm";
+  attachedFile: File | null;
+  isDragging: boolean;
+  fileError: string;
+  onRemoveFile: () => void;
+  onFileClick: () => void;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+const PromptInputWithUpload = ({
+  value,
+  onChange,
+  onKeyDown,
+  placeholder,
+  inputSize = "md",
+  attachedFile,
+  isDragging,
+  fileError,
+  onRemoveFile,
+  onFileClick,
+  fileInputRef,
+  onFileChange,
+}: PromptInputWithUploadProps) => (
+  <div className="flex w-full flex-col gap-1.5">
+    {attachedFile && (
+      <div className="flex items-center gap-2 rounded-lg border border-[#d6cfc8] bg-[#f5f0eb] px-2 py-1.5">
+        <div className="relative h-7 w-7 flex-shrink-0 overflow-hidden rounded-md">
+          <Image
+            src={URL.createObjectURL(attachedFile)}
+            alt={attachedFile.name}
+            fill
+            className="object-cover"
+          />
+        </div>
+        <span className="flex-1 truncate text-xs text-stone-600">
+          {attachedFile.name}
+        </span>
+        <button
+          type="button"
+          onClick={onRemoveFile}
+          className="text-sm leading-none text-stone-400 transition-colors hover:text-stone-600"
+        >
+          x
+        </button>
+      </div>
+    )}
+
+    <div
+      className={cn(
+        "flex w-full items-center overflow-hidden rounded-xl border transition-all",
+        isDragging
+          ? "border-[#a8896c] ring-2 ring-[#a8896c]/30"
+          : "border-[#d6cfc8]",
+      )}
+    >
+      <button
+        type="button"
+        onClick={onFileClick}
+        className="flex h-full flex-shrink-0 items-center justify-center border-r border-[#d6cfc8] bg-white px-3 transition-colors hover:bg-stone-50"
+        style={{ minHeight: inputSize === "md" ? "42px" : "36px" }}
+        title="이미지 첨부 (PNG, JPEG)"
+      >
+        <Image
+          src="/image_icon.png"
+          alt="이미지 첨부"
+          width={18}
+          height={18}
+          className="h-4.5 w-4.5 object-contain"
+        />
+      </button>
+      <input
+        type="text"
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        placeholder={isDragging ? "이미지를 여기에 놓으세요" : placeholder}
+        className={cn(
+          "min-w-0 flex-1 bg-[#faf7f4] text-stone-800 placeholder:text-stone-400 transition-colors focus:bg-white focus:outline-none",
+          inputSize === "md" ? "px-3 py-2.5 text-sm" : "px-3 py-2 text-xs",
+        )}
+      />
+    </div>
+
+    {fileError && <p className="pl-1 text-[11px] text-red-500">{fileError}</p>}
+
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/png,image/jpeg"
+      className="hidden"
+      onChange={onFileChange}
+    />
+  </div>
+);
 
 function buildSessionImages(
   images: GeneratedImageResponse[],
@@ -107,6 +210,10 @@ export function AIRecommendation({
   const [isEditing, setIsEditing] = useState(false);
   const [isFindingSimilar, setIsFindingSimilar] = useState(false);
   const [showGame, setShowGame] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
  
   const selectedImage = useMemo(
     () => generatedImages.find((image) => image.id === selectedImageId) ?? null,
@@ -116,12 +223,69 @@ export function AIRecommendation({
   const promptTimestamps = generatedImages[0]?.promptTimestamps ?? [];
 
   const availableEditCount = Math.max(0, 2 - (selectedImage?.editCount ?? 0));
-  const remainingEdits = Math.min(user?.remain ?? 0, availableEditCount);
+  const availableCreditsForEdit = Math.max(
+    0,
+    (user?.remain ?? 0) + (user?.credit ?? 0),
+  );
+  const remainingEdits = Math.min(availableCreditsForEdit, availableEditCount);
   const hasReachedImageEditLimit = availableEditCount <= 0;
 
   useEffect(() => {
     setEditPrompt("");
   }, [selectedImageId]);
+
+  const validateAndSetFile = (file: File) => {
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setFileError("이 파일 형식은 지원하지 않아요.");
+      return;
+    }
+
+    setFileError("");
+    setAttachedFile(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    validateAndSetFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    validateAndSetFile(file);
+  };
+
+  const removeFile = () => {
+    setAttachedFile(null);
+    setFileError("");
+  };
+
+  const sharedFileProps = {
+    attachedFile,
+    isDragging,
+    fileError,
+    onRemoveFile: removeFile,
+    onFileClick: () => fileInputRef.current?.click(),
+    fileInputRef,
+    onFileChange: handleFileChange,
+  };
 
   const requestGeneratedImages = async (
     nextPromptHistory: string[],
@@ -215,7 +379,16 @@ export function AIRecommendation({
     const startData = (await startResponse.json()) as {
       jobId?: string;
       status?: string;
+      remain?: number;
+      credit?: number;
     };
+
+    if (typeof startData.remain === "number" || typeof startData.credit === "number") {
+      updateUser({
+        remain: typeof startData.remain === "number" ? startData.remain : user?.remain,
+        credit: typeof startData.credit === "number" ? startData.credit : user?.credit,
+      });
+    }
 
     if (!startData.jobId) {
       throw new Error("이미지 수정 작업을 시작하지 못했습니다.");
@@ -276,6 +449,7 @@ export function AIRecommendation({
         [new Date().toISOString()],
       );
       replaceSession(nextImages);
+      removeFile();
     } catch (error) {
       console.error("Error generating images:", error);
       setMessage(
@@ -289,6 +463,7 @@ export function AIRecommendation({
   };
 
   const handleSelectImage = (imageId: string) => {
+    if (isEditing) return;
     if (!generatedImages.some((image) => image.id === imageId)) return;
 
     setSelectedImageId(selectedImageId === imageId ? null : imageId);
@@ -436,6 +611,7 @@ export function AIRecommendation({
     setPrompt("");
     setEditPrompt("");
     setMessage("");
+    removeFile();
   };
 
   const renderImageGroup = (group: AIImageGroup) => {
@@ -546,14 +722,14 @@ export function AIRecommendation({
           <span className="shrink-0 text-xs text-neutral-muted md:text-sm">
             {message || "원하는 방 조건을 입력하면 4개의 이미지를 생성해드려요."}
           </span>
-          <div className="flex w-full items-center gap-2 sm:flex-1">
-            <input
-              type="text"
+          <div className="flex w-full items-start gap-2 sm:flex-1">
+            <PromptInputWithUpload
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
               placeholder="다시 생성하려면 프롬프트를 입력하세요..."
-              className="flex-1 rounded-lg border border-border-warm bg-linen px-3 py-2 text-xs text-neutral-dark placeholder:text-neutral-muted focus:outline-none focus:ring-2 focus:ring-warm-brown/50 md:text-sm"
+              inputSize="sm"
+              {...sharedFileProps}
             />
             <button
               onClick={() => handleGenerate()}
@@ -582,7 +758,12 @@ export function AIRecommendation({
       )}
       <div style={{ visibility: showGame ? "hidden" : "visible", display: "contents" }}>
       {screen === "init" && (
-        <div className="flex flex-1 flex-col items-center justify-center gap-5 overflow-y-auto px-5 py-8">
+        <div
+          className="flex flex-1 flex-col items-center justify-center gap-5 overflow-y-auto px-5 py-8"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#e8e0d5] bg-[#f5f0eb]">
             <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
               <rect
@@ -623,13 +804,13 @@ export function AIRecommendation({
           </div>
 
           <div className="flex w-full flex-col gap-2">
-            <input
-              type="text"
+            <PromptInputWithUpload
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
               placeholder="예) 복층 구조에 채광 좋은 원룸..."
-              className="w-full rounded-xl border border-[#d6cfc8] bg-[#faf7f4] px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 focus:bg-white focus:outline-none"
+              inputSize="md"
+              {...sharedFileProps}
             />
             <button
               onClick={() => handleGenerate()}
@@ -689,9 +870,10 @@ export function AIRecommendation({
 
               <button
                 onClick={handleReset}
-                className="cursor-pointer mt-2 block w-full text-center text-xs text-stone-400 transition-colors hover:text-stone-600"
+                disabled={isGenerating || isEditing || isFindingSimilar}
+                className="cursor-pointer mt-2 block w-full rounded-xl border border-[#d6cfc8] bg-white py-2.5 text-center text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                ← 처음으로
+                새로운 이미지 생성
               </button>
             </div>
           )}
@@ -708,16 +890,11 @@ export function AIRecommendation({
                       현재 남은 수정 횟수: {remainingEdits}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleReset}
-                      className="text-[10px] font-semibold text-stone-400 transition-colors hover:text-stone-600"
-                    >
-                      초기화
-                    </button>
+                  <div className="flex items-center">
                     <button
                       onClick={() => setSelectedImageId(null)}
-                      className="mt-0.5 shrink-0 text-sm leading-none text-stone-400 transition-colors hover:text-stone-600"
+                      disabled={isEditing}
+                      className="mt-0.5 shrink-0 text-sm leading-none text-stone-400 transition-colors hover:text-stone-600 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       ✕
                     </button>
@@ -769,10 +946,10 @@ export function AIRecommendation({
 
               <button
                 onClick={handleFindSimilar}
-                disabled={isFindingSimilar}
+                disabled={isFindingSimilar || isEditing}
                 className="w-full rounded-xl bg-stone-700 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isFindingSimilar ? (
+                {isFindingSimilar || isEditing ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                 ) : (
                   "이 이미지로 유사 매물 검색 →"
@@ -780,6 +957,22 @@ export function AIRecommendation({
               </button>
 
               {message && <p className="text-center text-xs text-red-500">{message}</p>}
+
+              <div className="flex items-center gap-2">
+                <div className="h-px flex-1 bg-[#e8e0d5]" />
+                <span className="text-[10px] text-stone-400">
+                  혹은
+                </span>
+                <div className="h-px flex-1 bg-[#e8e0d5]" />
+              </div>
+
+              <button
+                onClick={handleReset}
+                disabled={isGenerating || isEditing || isFindingSimilar}
+                className="w-full rounded-xl border border-[#d6cfc8] bg-white py-2.5 text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                새로운 이미지 생성
+              </button>
             </div>
           )}
         </>

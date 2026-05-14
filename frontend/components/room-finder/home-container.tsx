@@ -163,8 +163,8 @@ export function HomeContainer() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
   const [isPanelOpen, setIsPanelOpen] = useState(true);
-  const [sort, setSort] = useState<"latest" | "price_asc" | "price_desc">(
-    "latest",
+  const [sort, setSort] = useState<"recommended" | "latest" | "price_asc" | "price_desc">(
+    "recommended",
   );
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenImages, setFullscreenImages] = useState<string[]>([]);
@@ -303,7 +303,7 @@ export function HomeContainer() {
       sizeUnit: filters.sizeUnit,
       floor: filters.floor,
       options: filters.options,
-      sort,
+      sort: "recommended",
       lat: canFindSimilarRooms ? mapBounds?.centerLat : undefined,
       lng: canFindSimilarRooms ? mapBounds?.centerLng : undefined,
       swLat: canFindSimilarRooms ? mapBounds?.swLat : undefined,
@@ -322,7 +322,6 @@ export function HomeContainer() {
       filters.floor,
       filters.options,
       roomType,
-      sort,
       canFindSimilarRooms,
       mapBounds?.centerLat,
       mapBounds?.centerLng,

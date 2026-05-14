@@ -197,8 +197,13 @@ def get_rooms(db, req):
 
     total = db.execute(count_stmt).scalar_one()
 
-    sort = getattr(req, "sort", "latest")
+    sort = getattr(req, "sort", "recommended")
     transaction_type = getattr(req, "transaction_type", "all")
+    recommendation_order = Room.recommendation_score.desc().nullslast()
+    latest_orders = [
+        Room.first_crawled_at.desc().nullslast(),
+        Room.item_id.desc(),
+    ]
 
     if sort == "price_asc":
         if transaction_type == "monthly":
@@ -224,9 +229,11 @@ def get_rooms(db, req):
         order_expr = None
 
     if order_expr is not None:
-        stmt = stmt.order_by(order_expr)
+        stmt = stmt.order_by(order_expr, recommendation_order, *latest_orders)
+    elif sort == "latest":
+        stmt = stmt.order_by(*latest_orders)
     else:
-        stmt = stmt.order_by(Room.first_crawled_at.desc().nullslast(), Room.item_id.desc())
+        stmt = stmt.order_by(recommendation_order, *latest_orders)
 
     rows = db.execute(
         stmt.offset(req.offset).limit(req.limit)
@@ -345,6 +352,7 @@ def get_map_items(db, req):
 
     rows = db.execute(
         base_stmt.order_by(
+            Room.recommendation_score.desc().nullslast(),
             Room.first_crawled_at.desc().nullslast(),
             Room.item_id.desc(),
         ).limit(1000)
