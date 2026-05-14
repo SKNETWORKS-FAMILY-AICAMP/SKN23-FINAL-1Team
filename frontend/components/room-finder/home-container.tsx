@@ -243,6 +243,7 @@ export function HomeContainer() {
     null,
   );
   const mapFocusRequestIdRef = useRef(0);
+  const pendingSimilarOverlayListingRef = useRef<Listing | null>(null);
 
   const user = useAuthStore((state) => state.user);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
@@ -899,8 +900,10 @@ export function HomeContainer() {
   }, [hasMore, isLoading]);
 
   const loadListingArea = useCallback(
-    async (listing: Listing) => {
-      const focusBounds = getListingFocusBounds(listing);
+    async (listing: Listing, settledBounds?: MapBounds) => {
+      const focusBounds = settledBounds
+        ? normalizeBounds({ ...settledBounds, source: "selection" })
+        : getListingFocusBounds(listing);
       if (!focusBounds) return;
 
       const listRequestSeq = ++listRequestSeqRef.current;
@@ -1018,7 +1021,17 @@ export function HomeContainer() {
     });
   }, []);
 
-  // 매물목록 클릭 → 지도 이동 + 상세패널 오픈
+  const handleMapFocusSettled = useCallback(
+    (settledBounds: MapBounds) => {
+      const listing = pendingSimilarOverlayListingRef.current;
+      if (!listing) return;
+
+      pendingSimilarOverlayListingRef.current = null;
+      void loadListingArea(listing, settledBounds);
+    },
+    [loadListingArea],
+  );
+
   const handleListingClick = useCallback(
     (listing: Listing) => {
       recordRecentListing(listing);
@@ -1044,9 +1057,6 @@ export function HomeContainer() {
 
   const handleSimilarOverlayListingClick = useCallback(
     (listing: Listing) => {
-      const lat = Number(listing.lat);
-      const lng = Number(listing.lng);
-
       recordRecentListing(listing);
       setSelectedListing(listing);
       setIsPanelOpen(true);
@@ -1055,19 +1065,11 @@ export function HomeContainer() {
       setHasMore(true);
       setHasRequestFailed(false);
       setListScrollResetKey((prev) => prev + 1);
-
-      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-        mapFocusRequestIdRef.current += 1;
-        setMapFocusRequest({
-          id: mapFocusRequestIdRef.current,
-          lat,
-          lng,
-          level: 2,
-          source: "search",
-        });
-      }
+      setIsLoading(true);
+      pendingSimilarOverlayListingRef.current = listing;
+      focusMapOnListing(listing);
     },
-    [recordRecentListing],
+    [focusMapOnListing, recordRecentListing],
   );
 
   // favoriteIds DB에서 로드
@@ -1428,6 +1430,7 @@ export function HomeContainer() {
               onVisibleListingsChange={handleVisibleListingsChange}
               onInitialLocationResolved={handleInitialLocationResolved}
               onBoundsChange={handleBoundsChange}
+              onFocusSettled={handleMapFocusSettled}
             />
           </section>
 
@@ -1565,6 +1568,7 @@ export function HomeContainer() {
                 onVisibleListingsChange={handleVisibleListingsChange}
                 onInitialLocationResolved={handleInitialLocationResolved}
                 onBoundsChange={handleBoundsChange}
+                onFocusSettled={handleMapFocusSettled}
               />
             </section>
           ) : (
