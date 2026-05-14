@@ -65,6 +65,13 @@ export function composePromptHistory(promptHistory: string[]) {
     .join("\n");
 }
 
+export function composeDisplayPromptHistory(promptHistory: string[]) {
+  return promptHistory
+    .map((prompt) => prompt.trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
 function createImageGroup(images: AIGeneratedImage[]): AIImageGroup | null {
   if (images.length === 0) return null;
 

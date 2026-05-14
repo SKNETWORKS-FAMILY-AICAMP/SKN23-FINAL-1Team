@@ -8,6 +8,7 @@ import { HouseCatchGame } from "@/components/room-finder/HouseCatchGame";
 import type { Listing } from "./map-view";
 import { useAuthStore } from "@/store/authStore";
 import {
+  composeDisplayPromptHistory,
   composePromptHistory,
   type AIPendingJob,
   type AIImageGroup,
@@ -151,11 +152,11 @@ function buildSessionImages(
   promptTimestamps: string[],
   editCount: number,
 ): AIGeneratedImage[] {
-  const composedPrompt = composePromptHistory(promptHistory);
+  const displayPrompt = composeDisplayPromptHistory(promptHistory);
 
   return images.map((image) => ({
     ...image,
-    prompt: composedPrompt,
+    prompt: displayPrompt,
     promptHistory: [...promptHistory],
     promptTimestamps: [...promptTimestamps],
     editCount,
