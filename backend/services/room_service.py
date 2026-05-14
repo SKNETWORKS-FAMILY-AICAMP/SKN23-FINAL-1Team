@@ -39,6 +39,79 @@ def is_valid_image_value(value) -> bool:
     )
 
 
+def is_s3_image_value(value) -> bool:
+    return isinstance(value, str) and value.strip().startswith("s3://")
+
+
+def build_image_lookup(db: Session, rooms) -> dict[int, dict]:
+    item_ids = [
+        room.item_id
+        for room in rooms
+        if is_s3_image_value(room.image_thumbnail)
+    ]
+    if not item_ids:
+        return {}
+
+    image_lookup: dict[int, dict] = {}
+    images = db.execute(
+        select(ItemImage)
+        .where(ItemImage.item_id.in_(item_ids))
+        .order_by(ItemImage.item_id, ItemImage.is_main.desc(), ItemImage.id)
+    ).scalars().all()
+
+    for image in images:
+        lookup = image_lookup.setdefault(
+            image.item_id,
+            {"main_id": None, "by_url": {}},
+        )
+        if lookup["main_id"] is None:
+            lookup["main_id"] = image.id
+        lookup["by_url"][image.s3_url] = image.id
+
+    return image_lookup
+
+
+def to_public_thumbnail_url(room, image_lookup: dict[int, dict]) -> str | None:
+    thumbnail = room.image_thumbnail
+    if not is_valid_image_value(thumbnail):
+        return None
+
+    if not is_s3_image_value(thumbnail):
+        return thumbnail
+
+    lookup = image_lookup.get(room.item_id)
+    if not lookup:
+        return None
+
+    image_id = lookup["by_url"].get(thumbnail) or lookup["main_id"]
+    if image_id is None:
+        return None
+
+    return f"/api/rooms/{room.item_id}/images/{image_id}"
+
+
+def serialize_room_item(room, image_lookup: dict[int, dict]):
+    return {
+        "item_id": room.item_id,
+        "status": room.status,
+        "title": room.title,
+        "url": room.url,
+        "address": room.address,
+        "deposit": room.deposit,
+        "rent": room.rent,
+        "manage_cost": room.manage_cost,
+        "service_type": room.service_type,
+        "room_type": room.room_type,
+        "floor": room.floor,
+        "all_floors": room.all_floors,
+        "area_m2": float(room.area_m2) if room.area_m2 is not None else None,
+        "lat": float(room.lat),
+        "lng": float(room.lng),
+        "geohash": room.geohash,
+        "image_thumbnail": to_public_thumbnail_url(room, image_lookup),
+    }
+
+
 def format_korean_money(value: int | None) -> str:
     safe_value = int(value or 0)
     if safe_value >= 10000:
@@ -164,8 +237,13 @@ def apply_room_filters(stmt, req):
     return stmt
 
 
-def serialize_room_marker(room, embedding_similarity: float | None = None):
-    image_urls = [room.image_thumbnail] if is_valid_image_value(room.image_thumbnail) else []
+def serialize_room_marker(
+    room,
+    image_lookup: dict[int, dict],
+    embedding_similarity: float | None = None,
+):
+    thumbnail_url = to_public_thumbnail_url(room, image_lookup)
+    image_urls = [thumbnail_url] if thumbnail_url else []
     item = {
         "type": "marker",
         "id": str(room.item_id),
@@ -238,9 +316,10 @@ def get_rooms(db, req):
     rows = db.execute(
         stmt.offset(req.offset).limit(req.limit)
     ).scalars().all()
+    image_lookup = build_image_lookup(db, rows)
 
     return {
-        "items": rows,
+        "items": [serialize_room_item(room, image_lookup) for room in rows],
         "total": total,
         "has_more": req.offset + req.limit < total,
     }
@@ -288,12 +367,16 @@ def get_rooms_by_similarity(db: Session, req, embedding: list[float] | None = No
 
     result = db.execute(stmt.offset(req.offset).limit(req.limit))
     if has_embedding:
+        result_rows = result.all()
+        image_lookup = build_image_lookup(db, [room for room, _ in result_rows])
         items = [
-            serialize_room_marker(room, embedding_similarity)
-            for room, embedding_similarity in result.all()
+            serialize_room_marker(room, image_lookup, embedding_similarity)
+            for room, embedding_similarity in result_rows
         ]
     else:
-        items = [serialize_room_marker(room) for room in result.scalars().all()]
+        rooms = result.scalars().all()
+        image_lookup = build_image_lookup(db, rooms)
+        items = [serialize_room_marker(room, image_lookup) for room in rooms]
 
     return {
         "items": items,
@@ -358,7 +441,9 @@ def get_map_items(db, req):
         ).limit(1000)
     ).scalars().all()
 
+    image_lookup = build_image_lookup(db, rows)
+
     return {
         "mode": "marker",
-        "items": [serialize_room_marker(room) for room in rows],
+        "items": [serialize_room_marker(room, image_lookup) for room in rows],
     }

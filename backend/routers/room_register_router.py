@@ -374,7 +374,7 @@ def delete_room_image(item_id: int, image_id: int, user_id: int, db: Session = D
         next_image = db.query(ItemImage).filter(ItemImage.item_id == item_id).first()
         if next_image:
             next_image.is_main = True
-            room.image_thumbnail = f"s3://{BUCKET_NAME}/{next_image.s3_url}"
+            room.image_thumbnail = next_image.s3_url
         else:
             room.image_thumbnail = None
 
