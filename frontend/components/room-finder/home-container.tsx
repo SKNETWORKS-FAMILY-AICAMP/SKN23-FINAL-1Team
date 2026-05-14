@@ -142,6 +142,24 @@ function getListingFocusBounds(listing: Listing): MapBounds | null {
   });
 }
 
+function isInBounds(
+  latValue: number | string | null | undefined,
+  lngValue: number | string | null | undefined,
+  bounds: MapBounds,
+) {
+  const lat = Number(latValue);
+  const lng = Number(lngValue);
+
+  if (Number.isNaN(lat) || Number.isNaN(lng)) return false;
+
+  return (
+    lat >= bounds.swLat &&
+    lat <= bounds.neLat &&
+    lng >= bounds.swLng &&
+    lng <= bounds.neLng
+  );
+}
+
 function shouldReloadByBounds(source?: MapBounds["source"]) {
   return (
     source === "initial" ||
@@ -289,8 +307,6 @@ export function HomeContainer() {
   // listings와 분리된 찜 목록 상태 — 지도 이동해도 유지됨
   const [favoriteListings, setFavoriteListings] = useState<Listing[]>([]);
 
-  const panelListings = visibleListings.length > 0 ? visibleListings : listings;
-
   const requestKey = useMemo(() => {
     return JSON.stringify({
       search: "",
@@ -406,6 +422,12 @@ export function HomeContainer() {
   const mapRequestSeqRef = useRef(0);
   const prevBoundsRef = useRef<MapBounds | null>(null);
   const directlyLoadedBoundsKeyRef = useRef<string>("");
+  const loadedListBoundsKeyRef = useRef<string>("");
+
+  const currentBoundsKey = mapBounds ? getBoundsKey(mapBounds) : "";
+  const isListingResultForCurrentBounds =
+    Boolean(currentBoundsKey) && loadedListBoundsKeyRef.current === currentBoundsKey;
+  const panelListings = isListingResultForCurrentBounds ? listings : [];
 
   const getSimilarRequestKey = useCallback(
     (imageUrl: string) =>
@@ -514,6 +536,7 @@ export function HomeContainer() {
       setVisibleListings([]);
       activeListRequestKeyRef.current = "";
       directlyLoadedBoundsKeyRef.current = "";
+      loadedListBoundsKeyRef.current = "";
       setOffset(0);
       setHasMore(true);
       setHasRequestFailed(false);
@@ -534,6 +557,7 @@ export function HomeContainer() {
     }
     activeListRequestKeyRef.current = "";
     directlyLoadedBoundsKeyRef.current = "";
+    loadedListBoundsKeyRef.current = "";
     setOffset(0);
     setHasMore(true);
     setHasRequestFailed(false);
@@ -628,15 +652,21 @@ export function HomeContainer() {
     }
 
     const applyBounds = () => {
+      if (isSameBounds(mapBounds, normalizedBounds)) return;
+
+      const nextBoundsKey = getBoundsKey(normalizedBounds);
+      if (directlyLoadedBoundsKeyRef.current !== nextBoundsKey) {
+        directlyLoadedBoundsKeyRef.current = "";
+      }
+      loadedListBoundsKeyRef.current = "";
       setOffset(0);
       setHasMore(true);
       setHasRequestFailed(false);
+      setListings([]);
+      setMapItems([]);
       setVisibleListings([]);
       setLastMapBounds(normalizedBounds);
-      setMapBounds((prev) => {
-        if (isSameBounds(prev, normalizedBounds)) return prev;
-        return normalizedBounds;
-      });
+      setMapBounds(normalizedBounds);
     };
 
     if (normalizedBounds.source === "user") {
@@ -648,7 +678,7 @@ export function HomeContainer() {
     }
 
     applyBounds();
-  }, []);
+  }, [mapBounds, setLastMapBounds]);
 
   const handleVisibleListingsChange = useCallback((nextListings: Listing[]) => {
     setVisibleListings(nextListings);
@@ -738,12 +768,17 @@ export function HomeContainer() {
         const data = await fetchItems(searchParams);
         if (requestSeq !== listRequestSeqRef.current) return;
 
-        const mapped = data.items.map(mapItemToListing);
+        const boundedItems = data.items.filter((item) =>
+          isInBounds(item.lat, item.lng, mapBounds),
+        );
+        const droppedOutOfBounds = boundedItems.length !== data.items.length;
+        const mapped = boundedItems.map(mapItemToListing);
         setListings((prev) => (offset === 0 ? mapped : [...prev, ...mapped]));
         if (offset === 0) {
+          loadedListBoundsKeyRef.current = getBoundsKey(mapBounds);
           setListScrollResetKey((prev) => prev + 1);
         }
-        setHasMore(data.has_more);
+        setHasMore(droppedOutOfBounds ? false : data.has_more);
         setHasRequestFailed(false);
       } catch (error) {
         if (requestSeq !== listRequestSeqRef.current) return;
@@ -815,7 +850,9 @@ export function HomeContainer() {
         });
 
         if (requestSeq !== mapRequestSeqRef.current) return;
-        setMapItems(data.items);
+        setMapItems(
+          data.items.filter((item) => isInBounds(item.lat, item.lng, mapBounds)),
+        );
       } catch (error) {
         if (requestSeq !== mapRequestSeqRef.current) return;
         if (controller.signal.aborted || isAbortError(error)) return;
@@ -917,11 +954,22 @@ export function HomeContainer() {
           return;
         }
 
-        setListings(listData.items.map(mapItemToListing));
-        setHasMore(listData.has_more);
-        setMapItems(mapData.items);
+        const boundedListItems = listData.items.filter((item) =>
+          isInBounds(item.lat, item.lng, focusBounds),
+        );
+        const droppedOutOfBounds =
+          boundedListItems.length !== listData.items.length;
+
+        setListings(boundedListItems.map(mapItemToListing));
+        setHasMore(droppedOutOfBounds ? false : listData.has_more);
+        setMapItems(
+          mapData.items.filter((item) =>
+            isInBounds(item.lat, item.lng, focusBounds),
+          ),
+        );
         activeListRequestKeyRef.current = requestKey;
         prevBoundsRef.current = focusBounds;
+        loadedListBoundsKeyRef.current = getBoundsKey(focusBounds);
         setListScrollResetKey((prev) => prev + 1);
       } catch (error) {
         if (isAbortError(error)) return;
