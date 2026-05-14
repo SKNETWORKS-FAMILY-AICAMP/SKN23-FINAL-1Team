@@ -223,7 +223,11 @@ export function AIRecommendation({
   const promptTimestamps = generatedImages[0]?.promptTimestamps ?? [];
 
   const availableEditCount = Math.max(0, 2 - (selectedImage?.editCount ?? 0));
-  const remainingEdits = Math.min(user?.remain ?? 0, availableEditCount);
+  const availableCreditsForEdit = Math.max(
+    0,
+    (user?.remain ?? 0) + (user?.credit ?? 0),
+  );
+  const remainingEdits = Math.min(availableCreditsForEdit, availableEditCount);
   const hasReachedImageEditLimit = availableEditCount <= 0;
 
   useEffect(() => {
@@ -375,7 +379,16 @@ export function AIRecommendation({
     const startData = (await startResponse.json()) as {
       jobId?: string;
       status?: string;
+      remain?: number;
+      credit?: number;
     };
+
+    if (typeof startData.remain === "number" || typeof startData.credit === "number") {
+      updateUser({
+        remain: typeof startData.remain === "number" ? startData.remain : user?.remain,
+        credit: typeof startData.credit === "number" ? startData.credit : user?.credit,
+      });
+    }
 
     if (!startData.jobId) {
       throw new Error("이미지 수정 작업을 시작하지 못했습니다.");
@@ -450,6 +463,7 @@ export function AIRecommendation({
   };
 
   const handleSelectImage = (imageId: string) => {
+    if (isEditing) return;
     if (!generatedImages.some((image) => image.id === imageId)) return;
 
     setSelectedImageId(selectedImageId === imageId ? null : imageId);
@@ -856,9 +870,10 @@ export function AIRecommendation({
 
               <button
                 onClick={handleReset}
-                className="cursor-pointer mt-2 block w-full text-center text-xs text-stone-400 transition-colors hover:text-stone-600"
+                disabled={isGenerating || isEditing || isFindingSimilar}
+                className="cursor-pointer mt-2 block w-full rounded-xl border border-[#d6cfc8] bg-white py-2.5 text-center text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                ← 처음으로
+                새로운 이미지 생성
               </button>
             </div>
           )}
@@ -875,16 +890,11 @@ export function AIRecommendation({
                       현재 남은 수정 횟수: {remainingEdits}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleReset}
-                      className="text-[10px] font-semibold text-stone-400 transition-colors hover:text-stone-600"
-                    >
-                      초기화
-                    </button>
+                  <div className="flex items-center">
                     <button
                       onClick={() => setSelectedImageId(null)}
-                      className="mt-0.5 shrink-0 text-sm leading-none text-stone-400 transition-colors hover:text-stone-600"
+                      disabled={isEditing}
+                      className="mt-0.5 shrink-0 text-sm leading-none text-stone-400 transition-colors hover:text-stone-600 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       ✕
                     </button>
@@ -936,10 +946,10 @@ export function AIRecommendation({
 
               <button
                 onClick={handleFindSimilar}
-                disabled={isFindingSimilar}
+                disabled={isFindingSimilar || isEditing}
                 className="w-full rounded-xl bg-stone-700 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isFindingSimilar ? (
+                {isFindingSimilar || isEditing ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                 ) : (
                   "이 이미지로 유사 매물 검색 →"
@@ -947,6 +957,22 @@ export function AIRecommendation({
               </button>
 
               {message && <p className="text-center text-xs text-red-500">{message}</p>}
+
+              <div className="flex items-center gap-2">
+                <div className="h-px flex-1 bg-[#e8e0d5]" />
+                <span className="text-[10px] text-stone-400">
+                  혹은
+                </span>
+                <div className="h-px flex-1 bg-[#e8e0d5]" />
+              </div>
+
+              <button
+                onClick={handleReset}
+                disabled={isGenerating || isEditing || isFindingSimilar}
+                className="w-full rounded-xl border border-[#d6cfc8] bg-white py-2.5 text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                새로운 이미지 생성
+              </button>
             </div>
           )}
         </>

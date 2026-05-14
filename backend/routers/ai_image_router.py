@@ -84,6 +84,8 @@ class EditImageResponse(ImageResponse):
 class EditImageJobCreateResponse(BaseModel):
     job_id: str
     status: str
+    remain: int | None = None
+    credit: int | None = None
 
 
 class GenerateImageJobCreateResponse(BaseModel):
@@ -414,6 +416,8 @@ async def create_edit_image_job(
     return {
         "job_id": job["job_id"],
         "status": job["status"],
+        "remain": user.remain,
+        "credit": user.credit,
     }
 
 
