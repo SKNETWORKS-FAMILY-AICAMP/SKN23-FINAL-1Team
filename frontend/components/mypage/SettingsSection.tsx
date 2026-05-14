@@ -5,7 +5,7 @@ import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { useRouter } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 
 interface SettingsSectionProps {
   onLogout?: () => void;
@@ -15,6 +15,7 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
   const user = useAuthStore((state) => state.user);
   const clearUser = useAuthStore((state) => state.clearUser);
   const updateUser = useAuthStore((state) => state.updateUser);
+  const { update: updateSession } = useSession();
   const router = useRouter();
   const [openItem, setOpenItem] = useState<string | null>(null);
   const [nickname, setNickname] = useState(user?.nickname ?? "");
@@ -45,7 +46,12 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
         setNicknameMsg(err?.detail ?? "닉네임 변경에 실패했습니다.");
         return;
       }
-      updateUser({ nickname: nickname.trim() });
+      const data = (await res.json().catch(() => null)) as
+        | { nickname?: string }
+        | null;
+      const nextNickname = data?.nickname ?? nickname.trim();
+      updateUser({ nickname: nextNickname });
+      await updateSession({ nickname: nextNickname });
       setNicknameMsg("닉네임이 변경되었습니다!");
     } catch {
       setNicknameMsg("오류가 발생했습니다.");
