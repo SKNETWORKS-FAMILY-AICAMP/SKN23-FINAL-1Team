@@ -1127,6 +1127,10 @@ export function HomeContainer() {
     }
   }, [hasLoadedFavoriteListings, isLoggedIn, user?.user_id]);
 
+  useEffect(() => {
+    void loadFavoriteListings();
+  }, [loadFavoriteListings]);
+
   const handleToggleFavorite = useCallback(
     async (listingId: number) => {
       if (!isLoggedIn || !user?.user_id) {
