@@ -268,7 +268,7 @@ export function HouseCatchGame({ isGenerating, onClose }: HouseCatchGameProps) {
             }}>
               <p style={{ fontSize: "15px", fontWeight: 600, color: "var(--color-text-primary)", margin: 0 }}>🧱 벽돌깨기</p>
               <p style={{ fontSize: "12px", color: "var(--color-text-secondary)", textAlign: "center", lineHeight: 1.6, margin: 0 }}>
-                마우스 또는 ← → 키로 패들을 움직여<br />벽돌을 모두 깨세요!
+                마우스로 패들을 움직여<br />벽돌을 모두 깨세요!
               </p>
               <button
                 onClick={startGame}
