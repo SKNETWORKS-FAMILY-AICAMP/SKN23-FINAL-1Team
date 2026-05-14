@@ -372,7 +372,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
         strategy="afterInteractive"
         onLoad={() => setIsIamportReady(true)}
       />
-      <header className="relative z-[1000] border-b border-stone-200/80 bg-white/70 backdrop-blur-xl">
+      <header className="relative z-[99] border-b border-stone-200/80 bg-white/70 backdrop-blur-xl">
         <div className="flex h-12 items-center">
         <div className="flex h-full w-28 shrink-0 items-center justify-center border-stone-200/80 px-3 sm:w-40 md:w-56 md:px-6">
           <button
@@ -449,7 +449,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
                 </span>
               </button>
               {isCreditMenuOpen && (
-                <div className="absolute right-0 top-9 z-[1001] w-[320px] overflow-hidden rounded-lg border border-stone-200 bg-white shadow-2xl shadow-stone-900/15">
+                <div className="absolute right-0 top-9 z-[99] w-[320px] overflow-hidden rounded-lg border border-stone-200 bg-white shadow-2xl shadow-stone-900/15">
                   <div className="space-y-3 p-4">
                     <section>
                       <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold text-stone-700">
