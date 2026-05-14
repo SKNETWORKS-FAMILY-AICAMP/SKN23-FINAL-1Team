@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Listing } from "@/components/room-finder/map-view";
 import { ListingCard } from "@/components/common/ListingCards";
 import { AIRecommendation } from "@/components/room-finder/ai-recommendation";
-import { Sparkles, House, Heart, RotateCcw, Star } from "lucide-react";
+import { Sparkles, House, Heart, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRecentStore } from "@/store/recentStore";
 import type { RoomSearchParams } from "@/lib/api/rooms";
@@ -27,8 +27,8 @@ interface ListingPanelProps {
   isLoggedIn?: boolean;
   onLoginRequired?: () => void;
   onWishClick?: (listing: Listing) => void;
-  sort?: "recommended" | "latest" | "price_asc" | "price_desc";
-  onSortChange?: (sort: "recommended" | "latest" | "price_asc" | "price_desc") => void;
+  sort?: "latest" | "price_asc" | "price_desc";
+  onSortChange?: (sort: "latest" | "price_asc" | "price_desc") => void;
   onAIPhotoClick?: (images: string[], index: number) => void;
   similarSearchParams?: RoomSearchParams;
   canFindSimilarRooms?: boolean;
@@ -55,7 +55,7 @@ export function ListingPanel({
   isLoggedIn = false,
   onLoginRequired,
   onWishClick,
-  sort = "recommended",
+  sort = "latest",
   onSortChange,
   onAIPhotoClick,
   similarSearchParams,
@@ -100,14 +100,6 @@ export function ListingPanel({
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState<PanelTab>("list");
   const currentTab = !isLoggedIn && activeTab === "wish" ? "list" : activeTab;
-  const [isResetting, setIsResetting] = useState(false);
-
-  const handleReset = () => {
-    if (!onSortChange) return;
-    setIsResetting(true);
-    onSortChange("recommended");
-    setTimeout(() => setIsResetting(false), 400);
-  };
 
   const topAiRecommendedListings = aiRecommendedListings.slice(0, 4);
 
@@ -209,15 +201,6 @@ export function ListingPanel({
         {currentTab === "list" && onSortChange && (
           <div className="flex items-center justify-end gap-3 pt-2 pr-3">
             <button
-              onClick={() => onSortChange("recommended")}
-              className={cn(
-                "cursor-pointer text-xs tracking-tight transition-colors duration-200",
-                sort === "recommended" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
-              )}
-            >
-              추천순
-            </button>
-            <button
               onClick={() => onSortChange("latest")}
               className={cn(
                 "cursor-pointer text-xs tracking-tight transition-colors duration-200",
@@ -250,24 +233,8 @@ export function ListingPanel({
                 보증금 + 월세 × 100 기준
               </div>
             </div>
-            <div className="relative group/reset">
-              <button
-                onClick={handleReset}
-                className="cursor-pointer flex h-6 w-6 items-center justify-center rounded-full text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600"
-              >
-                <RotateCcw
-                  className={cn(
-                    "h-3 w-3 transition-transform",
-                    isResetting && "animate-spin"
-                  )}
-                />
-              </button>
-              <div className="absolute bottom-7 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-[10px] px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover/reset:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
-                등록순으로 초기화
-              </div>
-            </div>
           </div>
-        )}  
+        )}
       </div>
 
       <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
@@ -281,10 +248,7 @@ export function ListingPanel({
                 </div>
                 <div className="space-y-3 px-4 py-4">
                   {topAiRecommendedListings.map((listing, index) => (
-                    <div
-                      key={`ai-${listing.id}`}
-                      className="relative pl-10"
-                    >
+                    <div key={`ai-${listing.id}`} className="relative pl-10">
                       <div className="absolute left-0 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white shadow-sm">
                         {index + 1}
                       </div>
