@@ -1573,26 +1573,28 @@ export function HomeContainer() {
         {isDesktopLayout === false && (
         <main className="relative flex min-h-0 flex-1 overflow-hidden">
           {mobileView === "map" ? (
-            <section className="relative min-h-0 flex-1">
-              <MapView
-                searchQuery={mapSearchQuery}
-                mapItems={mapItems}
-                initialBounds={savedMapBounds}
-                selectedListing={selectedListing}
-                focusRequest={mapFocusRequest}
-                onMarkerClick={(listing) => {
-                  recordRecentListing(listing);
-                  setSelectedListing(listing);
-                  setMobileView("list");
-                }}
-                onVisibleListingsChange={handleVisibleListingsChange}
-                onInitialLocationResolved={handleInitialLocationResolved}
-                onBoundsChange={handleBoundsChange}
-                onFocusSettled={handleMapFocusSettled}
-              />
+            <section className="relative flex min-h-0 flex-1 bg-ivory px-2 pb-2">
+              <div className="min-h-0 flex-1 overflow-hidden rounded-xl">
+                <MapView
+                  searchQuery={mapSearchQuery}
+                  mapItems={mapItems}
+                  initialBounds={savedMapBounds}
+                  selectedListing={selectedListing}
+                  focusRequest={mapFocusRequest}
+                  onMarkerClick={(listing) => {
+                    recordRecentListing(listing);
+                    setSelectedListing(listing);
+                    setMobileView("list");
+                  }}
+                  onVisibleListingsChange={handleVisibleListingsChange}
+                  onInitialLocationResolved={handleInitialLocationResolved}
+                  onBoundsChange={handleBoundsChange}
+                  onFocusSettled={handleMapFocusSettled}
+                />
+              </div>
             </section>
           ) : (
-            <aside className="flex-1">
+            <aside className="min-w-0 flex-1 overflow-hidden">
               <ListingPanel
                 listings={panelListings}
                 selectedListing={selectedListing}

@@ -58,12 +58,12 @@ export function ListingCard({
       tabIndex={onClick ? 0 : undefined}
       onClick={handleSelect}
       onKeyDown={handleKeyDown}
-      className={cn("w-full text-left", onClick && "cursor-pointer")}
+      className={cn("w-full min-w-0 overflow-hidden text-left", onClick && "cursor-pointer")}
       aria-label={onClick ? `${listing.title} 상세 보기` : undefined}
     >
       <div
         className={cn(
-          "group relative flex flex-col items-stretch gap-3 rounded-2xl border bg-white p-3 transition-all duration-200 sm:flex-row sm:items-center",
+          "group relative flex min-w-0 flex-col items-stretch gap-3 overflow-hidden rounded-2xl border bg-white p-3 transition-all duration-200 sm:flex-row sm:items-center",
           isSelected
             ? "border-amber-200 shadow-[0_4px_16px_rgba(245,158,11,0.14)] ring-1 ring-amber-100"
             : "border-stone-200/80 hover:border-stone-300 hover:shadow-[0_4px_12px_rgba(15,23,42,0.08)]",
@@ -71,7 +71,7 @@ export function ListingCard({
       >
         {/* 썸네일 */}
         <div
-          className="relative aspect-[4/3] w-full flex-shrink-0 cursor-pointer overflow-hidden rounded-xl bg-stone-100 sm:h-[130px] sm:w-[130px]"
+          className="relative aspect-[4/3] w-full flex-shrink-0 cursor-pointer overflow-hidden rounded-xl bg-stone-100 sm:h-28 sm:w-28 md:h-[130px] md:w-[130px]"
           onClick={(e) => {
             e.stopPropagation();
             onImageClick?.(listing);
@@ -84,7 +84,7 @@ export function ListingCard({
                 alt={listing.title}
                 fill
                 className="object-cover transition-transform duration-500 group-hover:scale-105"
-                sizes="(min-width: 640px) 130px, 100vw"
+                sizes="(min-width: 768px) 130px, (min-width: 640px) 112px, 100vw"
               />
               <div className="absolute left-1.5 top-1.5 z-10 rounded-md bg-black/50 px-1.5 py-0.5 text-[9px] font-medium text-white backdrop-blur-sm">
                 {listing.structure || "매물"}
@@ -105,17 +105,17 @@ export function ListingCard({
         </div>
 
         {/* 텍스트 */}
-        <div className="min-w-0 flex-1 py-1">
-          <p className="truncate text-[13px] font-medium leading-snug text-stone-800">
+        <div className="min-w-0 flex-1 overflow-hidden py-1">
+          <p className="line-clamp-2 text-[13px] font-medium leading-snug text-stone-800">
             {listing.title}
           </p>
-          <p className="mt-1.5 text-[16px] font-semibold text-stone-900">
+          <p className="mt-1.5 truncate text-[16px] font-semibold text-stone-900">
             {listing.price}
           </p>
           <p className="mt-1.5 truncate text-[11px] text-stone-400">
             {listing.address}
           </p>
-          <p className="mt-0.5 text-[11px] text-stone-400">
+          <p className="mt-0.5 truncate text-[11px] text-stone-400">
             {[listing.size, listing.floor ? `${listing.floor}층` : null]
               .filter(Boolean)
               .join(" · ")}
