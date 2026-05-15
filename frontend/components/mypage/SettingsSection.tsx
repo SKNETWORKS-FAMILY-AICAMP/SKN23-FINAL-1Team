@@ -83,7 +83,7 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
       label: "닉네임 변경",
       content: (
         <div className="pb-4">
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <div className="relative flex-1">
               <input
                 type="text"
@@ -105,7 +105,7 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
             <button
               onClick={handleNicknameUpdate}
               disabled={nicknameLoading}
-              className="rounded-xl bg-stone-800 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 cursor-pointer"
+              className="rounded-xl bg-stone-800 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 cursor-pointer sm:w-auto"
             >
               {nicknameLoading ? "저장 중..." : "저장"}
             </button>
@@ -211,7 +211,7 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
               회원탈퇴
             </button>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
               <span className="text-sm text-stone-500">정말 탈퇴하시겠어요?</span>
               <button
                 onClick={handleWithdraw}

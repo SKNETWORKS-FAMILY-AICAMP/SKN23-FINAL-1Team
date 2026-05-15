@@ -147,8 +147,8 @@ export default function RegisterPhotoPage() {
 
   if (isDone) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)]">
-        <div className="flex flex-col items-center gap-6 rounded-[24px] border border-stone-200/80 bg-white/80 p-10 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)] px-4">
+        <div className="flex w-full max-w-sm flex-col items-center gap-6 rounded-[24px] border border-stone-200/80 bg-white/80 p-6 shadow-[0_8px_24px_rgba(15,23,42,0.06)] sm:p-10">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
             <CheckCircle className="h-8 w-8 text-green-500" />
           </div>
@@ -164,7 +164,7 @@ export default function RegisterPhotoPage() {
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)]">
-      <div className="mx-auto max-w-lg px-4 py-8">
+      <div className="mx-auto max-w-lg px-3 py-5 sm:px-4 sm:py-8">
         <button
           onClick={() => router.back()}
           className="mb-6 flex items-center gap-2 text-sm font-semibold text-stone-500 hover:text-stone-800 cursor-pointer"
@@ -176,13 +176,13 @@ export default function RegisterPhotoPage() {
           사진 업로드
         </p>
 
-        <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+        <div className="rounded-[20px] border border-stone-200/80 bg-white/80 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-5">
           <div
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`mb-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed py-8 transition-colors ${
+            className={`mb-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors ${
               isDragging ? "border-stone-400 bg-stone-50" : "border-stone-200 hover:border-stone-300 hover:bg-stone-50"
             }`}
           >
@@ -204,7 +204,7 @@ export default function RegisterPhotoPage() {
             <div className="mb-4">
               <div className="flex flex-wrap gap-2">
                 {photos.map((photo, idx) => (
-                  <div key={idx} className="relative h-20 w-20 overflow-hidden rounded-xl border border-stone-200">
+                  <div key={idx} className="relative aspect-square w-[calc((100%_-_1rem)/3)] overflow-hidden rounded-xl border border-stone-200 sm:h-20 sm:w-20">
                     {idx === 0 && (
                       <span className="absolute left-1 top-1 rounded bg-stone-800/70 px-1 py-0.5 text-[9px] font-bold text-white">
                         대표
@@ -222,7 +222,7 @@ export default function RegisterPhotoPage() {
                 {photos.length < 10 && (
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex h-20 w-20 flex-shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-stone-200 hover:border-stone-300"
+                    className="flex aspect-square w-[calc((100%_-_1rem)/3)] flex-shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-stone-200 hover:border-stone-300 sm:h-20 sm:w-20"
                   >
                     <Plus className="h-5 w-5 text-stone-400" />
                     <span className="text-[11px] text-stone-400">추가</span>

@@ -140,11 +140,11 @@ export function ListingPanel({
   }, [currentTab, onWishTabOpen]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-white md:bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">
-      <div className="border-b border-stone-200/80 bg-white/70 px-5 pb-2 pt-3 backdrop-blur-md shrink-0">
+    <div className="flex h-full min-w-0 flex-col overflow-hidden bg-white md:bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(245,242,236,0.92)_100%)]">
+      <div className="shrink-0 border-b border-stone-200/80 bg-white/70 px-3 pb-2 pt-3 backdrop-blur-md sm:px-5">
         <div
           className={cn(
-            "rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
+            "grid min-w-0 gap-1 rounded-2xl border border-stone-200/80 bg-stone-100/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
             isLoggedIn ? "grid grid-cols-3" : "grid grid-cols-2",
           )}
         >
@@ -152,28 +152,28 @@ export function ListingPanel({
             type="button"
             onClick={() => setActiveTab("list")}
             className={cn(
-              "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
+              "inline-flex min-w-0 cursor-pointer items-center justify-center gap-1 rounded-xl px-1.5 py-2.5 text-xs font-semibold tracking-tight transition-all duration-200 sm:gap-1.5 sm:px-2 sm:text-sm",
               currentTab === "list"
                 ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                 : "text-stone-500 hover:text-stone-800",
             )}
           >
-            <House className="h-4 w-4" />
-            매물목록
+            <House className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 truncate">매물목록</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("ai")}
             className={cn(
-              "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
+              "inline-flex min-w-0 cursor-pointer items-center justify-center gap-1 rounded-xl px-1.5 py-2.5 text-xs font-semibold tracking-tight transition-all duration-200 sm:gap-1.5 sm:px-2 sm:text-sm",
               currentTab === "ai"
                 ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                 : "text-stone-500 hover:text-stone-800",
             )}
           >
-            <Sparkles className="h-4 w-4" />
-            AI추천
+            <Sparkles className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 truncate">AI추천</span>
           </button>
 
           {isLoggedIn && (
@@ -181,16 +181,16 @@ export function ListingPanel({
               type="button"
               onClick={() => setActiveTab("wish")}
               className={cn(
-                "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold tracking-tight transition-all duration-200",
+                "inline-flex min-w-0 cursor-pointer items-center justify-center gap-1 rounded-xl px-1.5 py-2.5 text-xs font-semibold tracking-tight transition-all duration-200 sm:gap-1.5 sm:px-2 sm:text-sm",
                 currentTab === "wish"
                   ? "bg-white text-stone-900 shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
                   : "text-stone-500 hover:text-stone-800",
               )}
             >
-              <Heart className="h-4 w-4" />
-              찜목록
+              <Heart className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 truncate">찜목록</span>
               {favoriteListings.length > 0 && (
-                <span className="ml-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600">
+                <span className="ml-0.5 shrink-0 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600">
                   {favoriteListings.length}
                 </span>
               )}
@@ -199,7 +199,7 @@ export function ListingPanel({
         </div>
 
         {currentTab === "list" && onSortChange && (
-          <div className="flex items-center justify-end gap-3 pt-2 pr-3">
+          <div className="flex items-center justify-start gap-3 overflow-x-auto pt-2 pr-1 scrollbar-hide sm:justify-end sm:pr-3">
             <button
               onClick={() => onSortChange("recommended")}
               className={cn(
@@ -246,9 +246,9 @@ export function ListingPanel({
         )}
       </div>
 
-      <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {activeTab === "list" && (
-          <div ref={scrollContainerRef} className="h-full overflow-y-auto px-4 py-4">
+          <div ref={scrollContainerRef} className="h-full overflow-y-auto px-3 py-4 sm:px-4">
             {topAiRecommendedListings.length > 0 && (
               <section className="-mx-4 -mt-4 mb-4 border-b border-emerald-200 bg-emerald-50/70">
                 <div className="flex items-center gap-2 border-b border-emerald-200 px-5 py-3 text-sm font-bold text-emerald-800">
@@ -282,7 +282,7 @@ export function ListingPanel({
                 전체 매물
               </div>
             )}
-            <div className="space-y-4">
+            <div className="mx-auto w-full max-w-[720px] space-y-4">
               {listings.map((listing) => (
                 <div key={listing.id} className="cursor-pointer transition-transform duration-200">
                   <ListingCard
@@ -336,13 +336,13 @@ export function ListingPanel({
         </div>
 
         {activeTab === "wish" && isLoggedIn && (
-          <div className="h-full overflow-y-auto px-4 py-4">
+          <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">
             {favoriteListings.length === 0 ? (
               <div className="rounded-[24px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
                 찜한 매물이 없습니다.
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="mx-auto w-full max-w-[720px] space-y-4">
                 {favoriteListings.map((listing) => (
                   <div key={listing.id} className="cursor-pointer transition-transform duration-200">
                     <ListingCard

@@ -1571,28 +1571,30 @@ export function HomeContainer() {
         )}
 
         {isDesktopLayout === false && (
-        <main className="flex flex-1 overflow-hidden">
+        <main className="relative flex min-h-0 flex-1 overflow-hidden">
           {mobileView === "map" ? (
-            <section className="relative flex-1">
-              <MapView
-                searchQuery={mapSearchQuery}
-                mapItems={mapItems}
-                initialBounds={savedMapBounds}
-                selectedListing={selectedListing}
-                focusRequest={mapFocusRequest}
-                onMarkerClick={(listing) => {
-                  recordRecentListing(listing);
-                  setSelectedListing(listing);
-                  setMobileView("list");
-                }}
-                onVisibleListingsChange={handleVisibleListingsChange}
-                onInitialLocationResolved={handleInitialLocationResolved}
-                onBoundsChange={handleBoundsChange}
-                onFocusSettled={handleMapFocusSettled}
-              />
+            <section className="relative flex min-h-0 flex-1 bg-ivory px-2 pb-2">
+              <div className="min-h-0 flex-1 overflow-hidden rounded-xl">
+                <MapView
+                  searchQuery={mapSearchQuery}
+                  mapItems={mapItems}
+                  initialBounds={savedMapBounds}
+                  selectedListing={selectedListing}
+                  focusRequest={mapFocusRequest}
+                  onMarkerClick={(listing) => {
+                    recordRecentListing(listing);
+                    setSelectedListing(listing);
+                    setMobileView("list");
+                  }}
+                  onVisibleListingsChange={handleVisibleListingsChange}
+                  onInitialLocationResolved={handleInitialLocationResolved}
+                  onBoundsChange={handleBoundsChange}
+                  onFocusSettled={handleMapFocusSettled}
+                />
+              </div>
             </section>
           ) : (
-            <aside className="flex-1">
+            <aside className="min-w-0 flex-1 overflow-hidden">
               <ListingPanel
                 listings={panelListings}
                 selectedListing={selectedListing}
@@ -1622,6 +1624,37 @@ export function HomeContainer() {
               />
             </aside>
           )}
+
+          <div
+            className={`absolute inset-0 z-40 transition-transform duration-300 ease-in-out ${
+              isDetailOpen && selectedListing
+                ? "translate-x-0 pointer-events-auto"
+                : "translate-x-full pointer-events-none"
+            }`}
+          >
+            <ListingDetailPanel
+              listing={selectedListing}
+              isOpen={isDetailOpen && !!selectedListing}
+              onClose={() => {
+                setIsDetailOpen(false);
+                setSelectedListing(null);
+                isPendingOpenRef.current = false;
+                setIsInitialLoading(false);
+                setIsLocationReady(true);
+              }}
+              listPanelOpen={isPanelOpen}
+              favoriteIds={favoriteIds}
+              favoriteLoadingIds={favoriteLoadingIds}
+              onToggleFavorite={handleToggleFavorite}
+              onPhotoClick={(images, index) => {
+                setFullscreenImages(images);
+                setFullscreenIndex(index);
+                setIsFullscreen(true);
+              }}
+              onFindSimilarFromPhoto={handleFindSimilarFromPhoto}
+              isFindingSimilarFromPhoto={isFindingPhotoSimilar}
+            />
+          </div>
         </main>
         )}
 

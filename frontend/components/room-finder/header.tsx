@@ -373,8 +373,8 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
         onLoad={() => setIsIamportReady(true)}
       />
       <header className="relative z-[99] border-b border-stone-200/80 bg-white/70 backdrop-blur-xl">
-        <div className="flex h-12 items-center">
-        <div className="flex h-full w-28 shrink-0 items-center justify-center border-stone-200/80 px-3 sm:w-40 md:w-56 md:px-6">
+        <div className="flex min-h-12 flex-wrap items-center gap-y-2 py-2 md:h-12 md:flex-nowrap md:py-0">
+        <div className="flex h-full w-24 shrink-0 items-center justify-center border-stone-200/80 px-3 sm:w-36 md:w-56 md:px-6">
           <button
             type="button"
             onClick={() => {
@@ -394,7 +394,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
           </button>
         </div>
 
-        <div className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto px-4 scrollbar-hide sm:gap-5 md:gap-7 md:px-6">
+        <div className="order-3 flex min-w-0 flex-1 basis-full items-center gap-3 overflow-x-auto px-4 scrollbar-hide sm:gap-5 md:order-none md:basis-auto md:gap-7 md:px-6">
           <button
             onClick={() => onRoomTypeChange("oneroom")}
             className={cn(
@@ -435,21 +435,21 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
         </div>
 
         {isLoggedIn && user ? (
-          <div className="flex w-auto shrink-0 items-center justify-end gap-1.5 px-3 sm:gap-2 md:px-6">
+          <div className="flex min-w-0 flex-1 shrink items-center justify-end gap-1.5 overflow-x-auto px-3 scrollbar-hide sm:gap-2 md:w-auto md:flex-none md:px-6">
             <div className="relative">
               <button
                 onClick={() => setIsCreditMenuOpen((isOpen) => !isOpen)}
                 disabled={isChargingCredit}
-                className="inline-flex items-center gap-1.5 rounded-full border border-stone-900 bg-stone-950 px-3 py-1.5 text-[11px] font-bold tracking-tight text-white shadow-sm transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-full border border-stone-900 bg-stone-950 px-2.5 py-1.5 text-[11px] font-bold tracking-tight text-white shadow-sm transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
                 aria-label="크레딧 충전"
               >
-                <span>크레딧 충전</span>
+                <span className="hidden sm:inline">크레딧 충전</span>
                 <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white text-stone-950">
                   <Plus className="h-3 w-3" />
                 </span>
               </button>
               {isCreditMenuOpen && (
-                <div className="absolute right-0 top-9 z-[99] w-[320px] overflow-hidden rounded-lg border border-stone-200 bg-white shadow-2xl shadow-stone-900/15">
+                <div className="absolute right-0 top-9 z-[99] w-[calc(100vw-1.5rem)] max-w-[320px] overflow-hidden rounded-lg border border-stone-200 bg-white shadow-2xl shadow-stone-900/15">
                   <div className="space-y-3 p-4">
                     <section>
                       <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold text-stone-700">
@@ -581,7 +581,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
                   <path d="M5 9l2.5 2.5L13 6" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               )}
-              <span className="text-[12px] font-semibold tracking-tight text-stone-800 sm:text-sm">
+              <span className="max-w-16 truncate text-[12px] font-semibold tracking-tight text-stone-800 sm:max-w-24 sm:text-sm">
                 {user.nickname}
               </span>
             </div>
