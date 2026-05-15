@@ -8,13 +8,16 @@ import { HouseCatchGame } from "@/components/room-finder/HouseCatchGame";
 import type { Listing } from "./map-view";
 import { useAuthStore } from "@/store/authStore";
 import {
+  composeDisplayPromptHistory,
   composePromptHistory,
+  type AIPendingJob,
   type AIImageGroup,
   type AIGeneratedImage,
   useAIImageSessionStore,
 } from "@/store/aiImageSessionStore";
 import { buildSearchBody, type RoomSearchParams } from "@/lib/api/rooms";
 import { mapSimilarItemToListing } from "@/utils/roomMappers";
+import { toast } from "@/hooks/use-toast";
 
 interface AIRecommendationProps {
   onSimilarListingsFound: (listings: Listing[], imageUrl?: string) => void;
@@ -39,6 +42,8 @@ const QUICK_PROMPTS = [
 ];
 
 const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg"];
+const IMAGE_JOB_POLL_INTERVAL_MS = 2000;
+const IMAGE_JOB_MAX_ATTEMPTS = 120;
 
 interface PromptInputWithUploadProps {
   value: string;
@@ -147,11 +152,11 @@ function buildSessionImages(
   promptTimestamps: string[],
   editCount: number,
 ): AIGeneratedImage[] {
-  const composedPrompt = composePromptHistory(promptHistory);
+  const displayPrompt = composeDisplayPromptHistory(promptHistory);
 
   return images.map((image) => ({
     ...image,
-    prompt: composedPrompt,
+    prompt: displayPrompt,
     promptHistory: [...promptHistory],
     promptTimestamps: [...promptTimestamps],
     editCount,
@@ -202,6 +207,12 @@ export function AIRecommendation({
     (state) => state.setSelectedImageId,
   );
   const resetSessionStore = useAIImageSessionStore((state) => state.resetSession);
+  const setHasPendingTask = useAIImageSessionStore(
+    (state) => state.setHasPendingTask,
+  );
+  const pendingJob = useAIImageSessionStore((state) => state.pendingJob);
+  const setPendingJob = useAIImageSessionStore((state) => state.setPendingJob);
+  const clearPendingJob = useAIImageSessionStore((state) => state.clearPendingJob);
 
   const [prompt, setPrompt] = useState("");
   const [editPrompt, setEditPrompt] = useState("");
@@ -214,6 +225,7 @@ export function AIRecommendation({
   const [fileError, setFileError] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const resumedJobIdRef = useRef<string | null>(null);
  
   const selectedImage = useMemo(
     () => generatedImages.find((image) => image.id === selectedImageId) ?? null,
@@ -233,6 +245,23 @@ export function AIRecommendation({
   useEffect(() => {
     setEditPrompt("");
   }, [selectedImageId]);
+
+  useEffect(() => {
+    const hasPendingImageTask = isGenerating || isEditing;
+    setHasPendingTask(hasPendingImageTask);
+    if (!hasPendingImageTask) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      setHasPendingTask(false);
+    };
+  }, [isGenerating, isEditing, setHasPendingTask]);
 
   const validateAndSetFile = (file: File) => {
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
@@ -287,6 +316,99 @@ export function AIRecommendation({
     onFileChange: handleFileChange,
   };
 
+  const pollGeneratedImageJob = async (
+    jobId: string,
+    nextPromptHistory: string[],
+    nextPromptTimestamps: string[],
+    shouldContinue: () => boolean = () => true,
+  ) => {
+    for (let attempt = 0; attempt < IMAGE_JOB_MAX_ATTEMPTS; attempt += 1) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, IMAGE_JOB_POLL_INTERVAL_MS),
+      );
+      if (!shouldContinue()) return null;
+
+      const statusResponse = await fetch(
+        `/api/generate-image?jobId=${encodeURIComponent(jobId)}`,
+      );
+
+      const data = (await statusResponse.json().catch(() => null)) as {
+        status?: string;
+        error?: string;
+        images?: GeneratedImageResponse[];
+      } | null;
+
+      if (!statusResponse.ok) {
+        throw new Error(data?.error ?? "이미지 생성 상태 조회에 실패했습니다.");
+      }
+
+      if (data?.status === "completed") {
+        return buildSessionImages(
+          data.images ?? [],
+          nextPromptHistory,
+          nextPromptTimestamps,
+          0,
+        );
+      }
+
+      if (data?.status === "failed") {
+        throw new Error(data.error ?? "이미지 생성에 실패했습니다.");
+      }
+    }
+
+    throw new Error("이미지 생성 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
+  };
+
+  const pollEditedImageJob = async (
+    jobId: string,
+    nextPromptHistory: string[],
+    nextPromptTimestamps: string[],
+    nextEditCount: number,
+    shouldContinue: () => boolean = () => true,
+  ) => {
+    for (let attempt = 0; attempt < IMAGE_JOB_MAX_ATTEMPTS; attempt += 1) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, IMAGE_JOB_POLL_INTERVAL_MS),
+      );
+      if (!shouldContinue()) return null;
+
+      const statusResponse = await fetch(
+        `/api/edit-image?jobId=${encodeURIComponent(jobId)}`,
+      );
+
+      const data = (await statusResponse.json().catch(() => null)) as {
+        status?: string;
+        error?: string;
+        images?: GeneratedImageResponse[];
+        remain?: number;
+        credit?: number;
+      } | null;
+
+      if (!statusResponse.ok) {
+        throw new Error(data?.error ?? "이미지 수정 상태 조회에 실패했습니다.");
+      }
+
+      if (data?.status === "completed") {
+        return {
+          images: buildSessionImages(
+            data.images ?? [],
+            nextPromptHistory,
+            nextPromptTimestamps,
+            nextEditCount,
+          ),
+          remain: data.remain,
+          credit: data.credit,
+        };
+      }
+
+      if (data?.status === "failed") {
+        throw new Error(data.error ?? "이미지 수정에 실패했습니다.");
+      }
+    }
+
+    throw new Error("이미지 수정 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
+  };
+
   const requestGeneratedImages = async (
     nextPromptHistory: string[],
     nextPromptTimestamps: string[],
@@ -315,38 +437,19 @@ export function AIRecommendation({
       throw new Error("이미지 생성 작업을 시작하지 못했습니다.");
     }
 
-    for (let attempt = 0; attempt < 120; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+    resumedJobIdRef.current = startData.jobId;
+    setPendingJob({
+      kind: "generate",
+      jobId: startData.jobId,
+      promptHistory: nextPromptHistory,
+      promptTimestamps: nextPromptTimestamps,
+    });
 
-      const statusResponse = await fetch(
-        `/api/generate-image?jobId=${encodeURIComponent(startData.jobId)}`,
-      );
-
-      const data = (await statusResponse.json().catch(() => null)) as {
-        status?: string;
-        error?: string;
-        images?: GeneratedImageResponse[];
-      } | null;
-
-      if (!statusResponse.ok) {
-        throw new Error(data?.error ?? "이미지 생성 상태 조회에 실패했습니다.");
-      }
-
-      if (data?.status === "completed") {
-        return buildSessionImages(
-          data.images ?? [],
-          nextPromptHistory,
-          nextPromptTimestamps,
-          0,
-        );
-      }
-
-      if (data?.status === "failed") {
-        throw new Error(data.error ?? "이미지 생성에 실패했습니다.");
-      }
-    }
-
-    throw new Error("이미지 생성 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
+    return pollGeneratedImageJob(
+      startData.jobId,
+      nextPromptHistory,
+      nextPromptTimestamps,
+    );
   };
 
   const requestEditedImage = async (
@@ -394,45 +497,108 @@ export function AIRecommendation({
       throw new Error("이미지 수정 작업을 시작하지 못했습니다.");
     }
 
-    for (let attempt = 0; attempt < 120; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+    resumedJobIdRef.current = startData.jobId;
+    setPendingJob({
+      kind: "edit",
+      jobId: startData.jobId,
+      sourceImageId: selectedImage?.id ?? "",
+      promptHistory: nextPromptHistory,
+      promptTimestamps: nextPromptTimestamps,
+      editCount: nextEditCount,
+    });
 
-      const statusResponse = await fetch(
-        `/api/edit-image?jobId=${encodeURIComponent(startData.jobId)}`,
-      );
-
-      const data = (await statusResponse.json().catch(() => null)) as {
-        status?: string;
-        error?: string;
-        images?: GeneratedImageResponse[];
-        remain?: number;
-        credit?: number;
-      } | null;
-
-      if (!statusResponse.ok) {
-        throw new Error(data?.error ?? "이미지 수정 상태 조회에 실패했습니다.");
-      }
-
-      if (data?.status === "completed") {
-        return {
-          images: buildSessionImages(
-            data.images ?? [],
-            nextPromptHistory,
-            nextPromptTimestamps,
-            nextEditCount,
-          ),
-          remain: data.remain,
-          credit: data.credit,
-        };
-      }
-
-      if (data?.status === "failed") {
-        throw new Error(data.error ?? "이미지 수정에 실패했습니다.");
-      }
-    }
-
-    throw new Error("이미지 수정 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
+    return pollEditedImageJob(
+      startData.jobId,
+      nextPromptHistory,
+      nextPromptTimestamps,
+      nextEditCount,
+    );
   };
+
+  useEffect(() => {
+    if (!pendingJob) return;
+    if (resumedJobIdRef.current === pendingJob.jobId) return;
+
+    let isActive = true;
+    resumedJobIdRef.current = pendingJob.jobId;
+    setHasPendingTask(true);
+
+    const resumePendingJob = async (job: AIPendingJob) => {
+      try {
+        if (job.kind === "generate") {
+          setIsGenerating(true);
+          setMessage("이미지를 생성하는 중입니다. 잠시만 기다려주세요.");
+          setShowGame(true);
+
+          const nextImages = await pollGeneratedImageJob(
+            job.jobId,
+            job.promptHistory,
+            job.promptTimestamps,
+            () => isActive,
+          );
+
+          if (!isActive || !nextImages) return;
+          replaceSession(nextImages);
+          removeFile();
+          setMessage("");
+          toast({ title: "이미지가 생성되었습니다!" });
+          clearPendingJob();
+          return;
+        }
+
+        setIsEditing(true);
+        setMessage("이미지를 수정하는 중입니다. 잠시만 기다려주세요.");
+
+        const result = await pollEditedImageJob(
+          job.jobId,
+          job.promptHistory,
+          job.promptTimestamps,
+          job.editCount,
+          () => isActive,
+        );
+
+        if (!isActive || !result) return;
+        appendSession(result.images, job.sourceImageId);
+        updateUser({
+          remain: result.remain ?? user?.remain,
+          credit: result.credit ?? user?.credit,
+        });
+        setEditPrompt("");
+        setMessage("");
+        toast({ title: "이미지가 수정되었습니다!" });
+        clearPendingJob();
+      } catch (error) {
+        if (!isActive) return;
+        console.error("Error resuming image job:", error);
+        clearPendingJob();
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "진행 중이던 이미지 작업을 이어가지 못했습니다.",
+        );
+      } finally {
+        if (!isActive) return;
+        setIsGenerating(false);
+        setIsEditing(false);
+        resumedJobIdRef.current = null;
+      }
+    };
+
+    resumePendingJob(pendingJob);
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    appendSession,
+    clearPendingJob,
+    pendingJob,
+    replaceSession,
+    setHasPendingTask,
+    updateUser,
+    user?.credit,
+    user?.remain,
+  ]);
 
   const handleGenerate = async (overridePrompt?: string) => {
     const activePrompt = (overridePrompt ?? prompt).trim();
@@ -448,10 +614,14 @@ export function AIRecommendation({
         [activePrompt],
         [new Date().toISOString()],
       );
+      if (!nextImages) return;
       replaceSession(nextImages);
+      clearPendingJob();
       removeFile();
+      toast({ title: "이미지가 생성되었습니다!" });
     } catch (error) {
       console.error("Error generating images:", error);
+      clearPendingJob();
       setMessage(
         error instanceof Error
           ? error.message
@@ -459,6 +629,7 @@ export function AIRecommendation({
       );
     } finally {
       setIsGenerating(false);
+      resumedJobIdRef.current = null;
     }
   };
 
@@ -507,16 +678,20 @@ export function AIRecommendation({
         nextPromptTimestamps,
         nextEditCount,
       );
+      if (!result) return;
 
       appendSession(result.images, selectedImage.id);
+      clearPendingJob();
       updateUser({
         remain: result.remain ?? user.remain,
         credit: result.credit ?? user.credit,
       });
       setEditPrompt("");
       setMessage("");
+      toast({ title: "이미지가 수정되었습니다!" });
     } catch (error) {
       console.error("Error editing images:", error);
+      clearPendingJob();
       setMessage(
         error instanceof Error
           ? error.message
