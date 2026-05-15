@@ -15,7 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, RotateCcw } from "lucide-react";
 import {
   fetchPlaceSuggestions,
   type PlaceSuggestion,
@@ -103,6 +103,42 @@ function parseDepositInput(value: string, max: number) {
   return clampDeposit(Number(numericValue), max);
 }
 
+function valueToSliderPosition(value: number, marks: number[]) {
+  if (value <= marks[0]) return 0;
+
+  const lastIndex = marks.length - 1;
+  if (value >= marks[lastIndex]) return lastIndex;
+
+  for (let index = 0; index < lastIndex; index += 1) {
+    const start = marks[index];
+    const end = marks[index + 1];
+
+    if (value <= end) {
+      return index + (value - start) / (end - start);
+    }
+  }
+
+  return lastIndex;
+}
+
+function sliderPositionToValue(position: number, marks: number[]) {
+  const lastIndex = marks.length - 1;
+  const clampedPosition = Math.min(Math.max(position, 0), lastIndex);
+  const startIndex = Math.floor(clampedPosition);
+  const endIndex = Math.min(startIndex + 1, lastIndex);
+
+  if (startIndex === endIndex) return marks[startIndex];
+
+  const progress = clampedPosition - startIndex;
+  return marks[startIndex] + (marks[endIndex] - marks[startIndex]) * progress;
+}
+
+function roundToStep(value: number, step: number) {
+  const precision = String(step).split(".")[1]?.length ?? 0;
+
+  return Number((Math.round(value / step) * step).toFixed(precision));
+}
+
 export function FilterBar({
   filters,
   onFiltersChange,
@@ -144,6 +180,7 @@ export function FilterBar({
 
   const depositMax = getMaxDeposit(roomType);
   const depositMarks = getDepositMarks(roomType);
+  const depositSliderMax = depositMarks.length - 1;
   const canFilterStructure = roomType === "oneroom";
 
   useEffect(() => {
@@ -243,6 +280,7 @@ export function FilterBar({
 
   const sizeMax = getMaxSize(roomType, filters.sizeUnit);
   const sizeMarks = getSizeMarks(roomType, filters.sizeUnit);
+  const sizeSliderMax = sizeMarks.length - 1;
   const sizeStep = filters.sizeUnit === "m2" ? 1 : 0.5;
 
   const sizeLabel =
@@ -333,6 +371,22 @@ export function FilterBar({
     onFiltersChange({ ...filters, structure: [] });
   };
 
+  const resetAllFilters = () => {
+    setDepositDraft(0);
+    setMonthlyRentDraft(0);
+    setSizeDraft(0);
+    onFiltersChange({
+      transactionType: "all",
+      deposit: "all",
+      monthlyRent: "all",
+      structure: [],
+      size: "all",
+      sizeUnit: "m2",
+      floor: "all",
+      options: [],
+    });
+  };
+
   const priceLabel = (() => {
     if (filters.transactionType === "jeonse") {
       return filters.deposit === "all"
@@ -367,6 +421,16 @@ export function FilterBar({
   const isSizeSelected = filters.size !== "all";
   const isFloorSelected = filters.floor !== "all";
   const isOptionsSelected = filters.options.length > 0;
+  const hasActiveFilters =
+    isTransactionSelected ||
+    isPriceSelected ||
+    isStructureSelected ||
+    isSizeSelected ||
+    isFloorSelected ||
+    isOptionsSelected;
+  const filterGridColumnsClass = canFilterStructure
+    ? "md:grid-cols-[repeat(6,minmax(0,1fr))_auto]"
+    : "md:grid-cols-[repeat(5,minmax(0,1fr))_auto]";
 
   const selectedStyle = "border-warm-brown bg-warm-brown !text-white hover:opacity-90 rounded-xl";
   const defaultStyle = "border-stone-200/80 bg-white/90 text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] hover:border-stone-300 hover:bg-white rounded-xl";
@@ -397,7 +461,7 @@ export function FilterBar({
     setPlaceSuggestions([]);
     setIsPlaceSuggestionsOpen(false);
     onSearchChange(place.name);
-    onSearchSubmit(place.name);
+    onSearchSubmit(place.display_name || place.name);
   };
 
   const handleSearchKeyDown = (
@@ -411,11 +475,6 @@ export function FilterBar({
     if (firstSuggestion) {
       selectPlaceSuggestion(firstSuggestion);
       return;
-    }
-
-    const query = searchQuery.trim();
-    if (query) {
-      onSearchSubmit(query);
     }
   };
 
@@ -464,9 +523,7 @@ export function FilterBar({
         )}
       </div>
       <div
-        className={`flex gap-2 overflow-x-auto pb-2 md:grid md:gap-4 md:pb-0 ${
-          canFilterStructure ? "md:grid-cols-6" : "md:grid-cols-5"
-        } scrollbar-hide`}
+        className={`flex gap-2 overflow-x-auto pb-2 md:grid md:gap-4 md:pb-0 ${filterGridColumnsClass} scrollbar-hide`}
       >
         <Select
           value={filters.transactionType}
@@ -532,12 +589,20 @@ export function FilterBar({
                 </div>
 
                 <Slider
-                  value={[depositDraft]}
+                  value={[valueToSliderPosition(depositDraft, depositMarks)]}
                   min={0}
-                  max={depositMax}
-                  step={100}
+                  max={depositSliderMax}
+                  step={0.01}
                   onValueChange={(value) =>
-                    setDepositDraft(clampDeposit(value[0], depositMax))
+                    setDepositDraft(
+                      clampDeposit(
+                        roundToStep(
+                          sliderPositionToValue(value[0], depositMarks),
+                          100,
+                        ),
+                        depositMax,
+                      ),
+                    )
                   }
                 />
 
@@ -752,12 +817,20 @@ export function FilterBar({
               </div>
 
               <Slider
-                value={[sizeDraft]}
+                value={[valueToSliderPosition(sizeDraft, sizeMarks)]}
                 min={0}
-                max={sizeMax}
-                step={sizeStep}
+                max={sizeSliderMax}
+                step={0.01}
                 onValueChange={(value) =>
-                  setSizeDraft(clampSize(value[0], sizeMax))
+                  setSizeDraft(
+                    clampSize(
+                      roundToStep(
+                        sliderPositionToValue(value[0], sizeMarks),
+                        sizeStep,
+                      ),
+                      sizeMax,
+                    ),
+                  )
                 }
               />
 
@@ -876,6 +949,17 @@ export function FilterBar({
             </div>
           </PopoverContent>
         </Popover>
+
+        <button
+          type="button"
+          onClick={resetAllFilters}
+          disabled={!hasActiveFilters}
+          aria-label="전체 초기화"
+          title="전체 초기화"
+          className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-stone-200/80 bg-white/90 text-stone-500 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-stone-300 hover:bg-white hover:text-stone-900 disabled:cursor-default disabled:opacity-40 disabled:hover:border-stone-200/80 disabled:hover:text-stone-500"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </button>
       </div>
 
 

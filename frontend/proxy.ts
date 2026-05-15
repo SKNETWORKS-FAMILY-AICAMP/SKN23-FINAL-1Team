@@ -9,5 +9,5 @@ const proxy = withAuth({
 export default proxy;
 
 export const config = {
-  matcher: ["/mypage/:path*"],
+  matcher: ["/mypage/:path*", "/register"],
 };

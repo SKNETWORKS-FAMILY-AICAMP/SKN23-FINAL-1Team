@@ -99,7 +99,7 @@ const handler = NextAuth({
       }
     },
 
-    async jwt({ token, user, account, profile }) {
+    async jwt({ token, user, account, profile, trigger, session }) {
       if (account) {
         token.social_type = account.provider;
       }
@@ -139,6 +139,10 @@ const handler = NextAuth({
         token.backend_access_token = (user as any).backend_access_token;
         token.backend_refresh_token = (user as any).backend_refresh_token;
         token.image = (user as any).profile_image || token.image;
+      }
+
+      if (trigger === "update" && (session as any)?.nickname) {
+        token.nickname = (session as any).nickname;
       }
 
       return token;
