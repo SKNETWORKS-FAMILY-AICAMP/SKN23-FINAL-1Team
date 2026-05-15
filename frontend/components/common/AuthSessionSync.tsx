@@ -39,16 +39,22 @@ export default function AuthSessionSync() {
 
     const syncUserCredit = async () => {
       try {
-        const response = await fetch(`/api/user-credit?user_id=${userId}`);
-        const data = (await response.json().catch(() => null)) as
+        const [creditResponse, roleResponse] = await Promise.all([
+          fetch(`/api/user-credit?user_id=${userId}`),
+          fetch(`/backend/api/user-role/role/${userId}`),
+        ]);
+
+        const data = (await creditResponse.json().catch(() => null)) as
           | { credit?: number; remain?: number }
           | null;
+        const roleData = await roleResponse.json().catch(() => null);
 
-        if (!response.ok || ignore || !data) return;
+        if (!creditResponse.ok || ignore || !data) return;
 
         updateUser({
           remain: data.remain,
           credit: data.credit,
+          role: roleData?.role ?? undefined,
         });
       } catch (error) {
         console.error("[AuthSessionSync] Failed to sync user credit:", error);
