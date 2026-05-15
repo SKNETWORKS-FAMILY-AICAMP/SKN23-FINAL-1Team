@@ -97,12 +97,12 @@ export function GallerySection({ userId }: GallerySectionProps) {
           저장된 AI 이미지가 없습니다.
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
           {galleryImages.map((item) => (
             <div
               key={item.id}
               className="group relative w-full overflow-hidden rounded-2xl border border-stone-200/80"
-              style={{ height: "320px" }}
+              style={{ minHeight: "220px", height: "clamp(220px, 55vw, 320px)" }}
             >
               <Image
                 src={getGalleryImageSrc(item.image_url)}
@@ -155,7 +155,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
 
           <div
             className="flex w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-stone-200 bg-white/80 transition-colors hover:bg-stone-50"
-            style={{ height: "320px" }}
+            style={{ minHeight: "220px", height: "clamp(220px, 55vw, 320px)" }}
             onClick={() => router.push("/home")}
           >
             <ImageIcon className="h-5 w-5 text-stone-300" />
@@ -214,7 +214,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
               <p className="mb-4 text-xs text-stone-400">
                 {new Date(selectedImage.created_at).toLocaleDateString("ko-KR")}
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <button
                   onClick={() => handleFindSimilar(selectedImage.image_url)}
                   className="flex-1 rounded-xl bg-[#5C8A62] py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#4a7050]"

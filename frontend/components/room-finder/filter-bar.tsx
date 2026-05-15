@@ -436,13 +436,13 @@ export function FilterBar({
   const defaultStyle = "border-stone-200/80 bg-white/90 text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] hover:border-stone-300 hover:bg-white rounded-xl";
 
   const selectTriggerClass = (isSelected: boolean) =>
-    `w-[160px] md:w-full py-5 rounded-xl border text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
+    `w-[140px] sm:w-[160px] md:w-full py-5 rounded-xl border text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
 
   const popoverTriggerClass = (isSelected: boolean) =>
-    `cursor-pointer w-[160px] md:w-full flex items-center justify-between rounded-xl border px-4 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
+    `cursor-pointer w-[140px] sm:w-[160px] md:w-full flex items-center justify-between rounded-xl border px-4 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
 
   const popoverContentClass =
-    "border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,246,241,0.96)_100%)] p-5 shadow-[0_18px_40px_rgba(15,23,42,0.12)]";
+    "max-w-[calc(100vw-2rem)] border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,246,241,0.96)_100%)] p-5 shadow-[0_18px_40px_rgba(15,23,42,0.12)]";
 
   const dropdownContentClass =
     "border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,246,241,0.96)_100%)] p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] rounded-2xl";
@@ -558,7 +558,7 @@ export function FilterBar({
 
           <PopoverContent
             align="start"
-            className={`w-[300px] md:w-[360px] lg:w-[420px] ${popoverContentClass}`}
+            className={`w-[calc(100vw-2rem)] md:w-[360px] lg:w-[420px] ${popoverContentClass}`}
           >
             <div className="space-y-6">
               <div className="space-y-4">
@@ -606,7 +606,7 @@ export function FilterBar({
                   }
                 />
 
-                <div className="flex justify-between text-xs text-neutral-muted">
+                <div className="flex justify-between gap-2 text-[11px] text-neutral-muted sm:text-xs">
                   {depositMarks.map((mark) => (
                     <span key={mark}>
                       {mark === 0 ? "전체" : formatDeposit(mark)}
@@ -636,7 +636,7 @@ export function FilterBar({
                     onValueChange={(value) => setMonthlyRentDraft(value[0])}
                   />
 
-                  <div className="flex justify-between text-xs text-neutral-muted">
+                  <div className="flex justify-between gap-2 text-[11px] text-neutral-muted sm:text-xs">
                     <span>전체</span>
                     <span>50</span>
                     <span>100</span>
@@ -680,7 +680,7 @@ export function FilterBar({
 
             <PopoverContent
               align="start"
-              className={`w-[240px] md:w-[320px] lg:w-[380px] ${popoverContentClass}`}
+              className={`w-[calc(100vw-2rem)] md:w-[320px] lg:w-[380px] ${popoverContentClass}`}
             >
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
@@ -744,7 +744,7 @@ export function FilterBar({
 
           <PopoverContent
             align="start"
-            className={`w-[300px] md:w-[360px] lg:w-[420px] ${popoverContentClass}`}
+            className={`w-[calc(100vw-2rem)] md:w-[360px] lg:w-[420px] ${popoverContentClass}`}
           >
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -834,7 +834,7 @@ export function FilterBar({
                 }
               />
 
-              <div className="flex justify-between text-xs text-neutral-muted">
+              <div className="flex justify-between gap-2 text-[11px] text-neutral-muted sm:text-xs">
                 {sizeMarks.map((mark) => (
                   <span key={mark}>
                     {mark === 0
@@ -897,7 +897,7 @@ export function FilterBar({
 
           <PopoverContent
             align="start"
-            className={`w-[240px] md:w-[320px] lg:w-[380px] ${popoverContentClass}`}
+            className={`w-[calc(100vw-2rem)] md:w-[320px] lg:w-[380px] ${popoverContentClass}`}
           >
             <div className="space-y-4">
               <div className="flex items-center gap-2">

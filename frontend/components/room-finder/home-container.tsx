@@ -1571,9 +1571,9 @@ export function HomeContainer() {
         )}
 
         {isDesktopLayout === false && (
-        <main className="flex flex-1 overflow-hidden">
+        <main className="relative flex min-h-0 flex-1 overflow-hidden">
           {mobileView === "map" ? (
-            <section className="relative flex-1">
+            <section className="relative min-h-0 flex-1">
               <MapView
                 searchQuery={mapSearchQuery}
                 mapItems={mapItems}
@@ -1622,6 +1622,37 @@ export function HomeContainer() {
               />
             </aside>
           )}
+
+          <div
+            className={`absolute inset-0 z-40 transition-transform duration-300 ease-in-out ${
+              isDetailOpen && selectedListing
+                ? "translate-x-0 pointer-events-auto"
+                : "translate-x-full pointer-events-none"
+            }`}
+          >
+            <ListingDetailPanel
+              listing={selectedListing}
+              isOpen={isDetailOpen && !!selectedListing}
+              onClose={() => {
+                setIsDetailOpen(false);
+                setSelectedListing(null);
+                isPendingOpenRef.current = false;
+                setIsInitialLoading(false);
+                setIsLocationReady(true);
+              }}
+              listPanelOpen={isPanelOpen}
+              favoriteIds={favoriteIds}
+              favoriteLoadingIds={favoriteLoadingIds}
+              onToggleFavorite={handleToggleFavorite}
+              onPhotoClick={(images, index) => {
+                setFullscreenImages(images);
+                setFullscreenIndex(index);
+                setIsFullscreen(true);
+              }}
+              onFindSimilarFromPhoto={handleFindSimilarFromPhoto}
+              isFindingSimilarFromPhoto={isFindingPhotoSimilar}
+            />
+          </div>
         </main>
         )}
 

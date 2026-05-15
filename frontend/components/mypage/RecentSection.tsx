@@ -20,7 +20,7 @@ export function RecentSection() {
           {"\uCD5C\uADFC \uBCF8 \uB9E4\uBB3C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4."}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-3">
           {recentListings.map((listing) => (
             <div
               key={listing.id}

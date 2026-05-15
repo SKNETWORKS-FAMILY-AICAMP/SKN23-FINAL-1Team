@@ -936,7 +936,7 @@ export function AIRecommendation({
       <div style={{ visibility: showGame ? "hidden" : "visible", display: "contents" }}>
       {screen === "init" && (
         <div
-          className="flex flex-1 flex-col items-center justify-center gap-5 overflow-y-auto px-5 py-8"
+          className="flex flex-1 flex-col items-center justify-start gap-4 overflow-y-auto px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6 sm:justify-center sm:gap-5 sm:py-8"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
