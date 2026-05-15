@@ -711,10 +711,29 @@ export function ListingDetailPanel({
                         면적
                       </span>
                       <div className="flex items-center gap-3">
-                        <div className="relative inline-grid grid-cols-2 gap-1 rounded-xl border border-stone-200 bg-stone-50 p-1 shadow-inner">
-                          <span className={`absolute bottom-1 top-1 w-[calc(50%-0.375rem)] rounded-lg bg-stone-900 shadow-sm transition-transform duration-200 ease-out ${areaUnit === "pyeong" ? "translate-x-[calc(100%+0.25rem)]" : "translate-x-0"}`} />
-                          <button type="button" onClick={() => setAreaUnit("m2")} className={`relative z-10 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors cursor-pointer scale-110 ${areaUnit === "m2" ? "text-white" : "text-stone-600 hover:text-stone-900"}`}>m²</button>
-                          <button type="button" onClick={() => setAreaUnit("pyeong")} className={`relative z-10 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors cursor-pointer scale-110 ${areaUnit === "pyeong" ? "text-white" : "text-stone-600 hover:text-stone-900"}`}>평</button>
+                        <div className="flex rounded-lg border border-stone-200 overflow-hidden text-xs font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => setAreaUnit("m2")}
+                            className={`px-3 py-1.5 cursor-pointer transition-colors ${
+                              areaUnit === "m2"
+                                ? "bg-stone-900 text-white"
+                                : "bg-white text-stone-600 hover:bg-stone-50"
+                            }`}
+                          >
+                            m²
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAreaUnit("pyeong")}
+                            className={`px-3 py-1.5 cursor-pointer transition-colors border-l border-stone-200 ${
+                              areaUnit === "pyeong"
+                                ? "bg-stone-900 text-white"
+                                : "bg-white text-stone-600 hover:bg-stone-50"
+                            }`}
+                          >
+                            평
+                          </button>
                         </div>
                         <span className="break-words text-right text-sm font-bold text-stone-800">
                           {areaText}
