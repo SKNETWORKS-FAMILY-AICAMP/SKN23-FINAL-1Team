@@ -727,14 +727,14 @@ export function MapView({
   }, [onBoundsChange]);
 
   return (
-    <div className="relative h-full min-h-[400px] w-full">
+    <div className="relative h-full min-h-0 w-full md:min-h-[400px]">
       {!isMapReady && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-100">
           {"\uC9C0\uB3C4 \uB85C\uB529 \uC911."}
         </div>
       )}
 
-      <div ref={mapRef} className="h-full min-h-[400px] w-full" />
+      <div ref={mapRef} className="h-full min-h-0 w-full md:min-h-[400px]" />
 
       {searchQuery && (
         <div className="absolute top-2 left-2 z-10 rounded-lg bg-linen/90 px-3 py-1.5 shadow-md backdrop-blur-sm md:top-4 md:left-4 md:px-4 md:py-2">

@@ -42,7 +42,7 @@ const inputBase = "w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-no
 const inputNormal = `${inputBase} border-stone-200 bg-stone-50 focus:border-stone-400`;
 const inputError = `${inputBase} border-red-400 bg-red-50 focus:border-red-400`;
 const labelClass = "mb-1 block text-xs font-semibold text-stone-500";
-const tagBase = "rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-150 cursor-pointer";
+const tagBase = "rounded-full border px-3 py-2 text-xs font-semibold transition-all duration-150 cursor-pointer sm:px-4";
 const tagActive = "border-[#A8896C] bg-[#A8896C] text-white";
 const tagInactive = "border-stone-200 bg-white text-stone-500 hover:border-stone-400";
 const nextBtn = "cursor-pointer rounded-full bg-stone-800 border border-stone-800 px-5 py-2 text-xs font-semibold text-white hover:opacity-90";
@@ -246,7 +246,7 @@ export default function RegisterPage() {
             </div>
             <div>
               <label className={labelClass}>주소 *</label>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <input name="address" value={form.address} onChange={handleChange}
                   className={`${errors.address ? inputError : inputNormal} cursor-pointer`}
                   placeholder="주소를 검색해주세요" readOnly onClick={openAddressSearch} />
@@ -280,7 +280,7 @@ export default function RegisterPage() {
                 ))}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className={labelClass}>보증금 (만원) *</label>
                 <input name="deposit" value={form.deposit} onChange={handleChange}
@@ -322,7 +322,7 @@ export default function RegisterPage() {
                 ))}
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
                 <label className={labelClass}>층수</label>
                 <input name="floor" value={form.floor} onChange={handleChange} className={inputNormal} placeholder="예) 3" />
@@ -336,7 +336,7 @@ export default function RegisterPage() {
                 <input name="pyeong" value={form.pyeong} onChange={handleChange} className={inputNormal} placeholder="예) 10" type="number" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className={labelClass}>욕실 수</label>
                 <input name="bathroom_count" value={form.bathroom_count} onChange={handleChange} className={inputNormal} placeholder="예) 1" type="number" />
@@ -349,7 +349,7 @@ export default function RegisterPage() {
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className={labelClass}>주거 형태</label>
                 <select name="residence_type" value={form.residence_type} onChange={handleChange} className={`${inputNormal} cursor-pointer`}>
@@ -407,7 +407,7 @@ export default function RegisterPage() {
                       {env.label}
                     </button>
                     {tooltip === env.key && (
-                      <div className="absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-stone-800 px-3 py-1.5 text-[11px] text-white shadow-lg z-10">
+                      <div className="absolute left-0 top-full z-10 mt-2 max-w-[calc(100vw-3rem)] rounded-lg bg-stone-800 px-3 py-1.5 text-[11px] text-white shadow-lg sm:left-1/2 sm:-translate-x-1/2 sm:whitespace-nowrap">
                         {env.tooltip}
                         <div className="absolute left-1/2 bottom-full -translate-x-1/2 border-4 border-transparent border-b-stone-800" />
                       </div>
@@ -418,7 +418,7 @@ export default function RegisterPage() {
             </div>
             <div>
               <p className="mb-3 text-xs font-semibold text-stone-500">주변 시설 거리</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className={labelClass}>지하철역 (m)</label>
                   <input name="dist_subway" value={form.dist_subway} onChange={handleChange} className={inputNormal} placeholder="예) 300" type="number" />
@@ -468,7 +468,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,244,238,0.94)_100%)]">
       <header className="border-b border-stone-200/80 bg-white/70 backdrop-blur-xl flex-shrink-0">
-        <div className="flex h-16 items-center px-6">
+        <div className="flex h-16 items-center px-4 sm:px-6">
           <button onClick={() => router.back()} className="text-sm font-semibold text-stone-500 hover:text-stone-800 cursor-pointer">
             ← 돌아가기
           </button>
@@ -477,7 +477,7 @@ export default function RegisterPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-2xl px-4 py-8 space-y-3">
+      <div className="mx-auto max-w-2xl space-y-3 px-3 py-5 sm:px-4 sm:py-8">
         {SECTIONS.map((section) => {
           const isOpen = openSection === section.id;
           const isCompleted = completedSections.includes(section.id);
@@ -489,9 +489,9 @@ export default function RegisterPage() {
               }`}>
               <button
                 onClick={() => setOpenSection(section.id)}
-                className="flex w-full items-center justify-between px-6 py-4 cursor-pointer"
+                className="flex w-full items-center justify-between gap-3 px-4 py-4 cursor-pointer sm:px-6"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   {isCompleted && !isOpen ? (
                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
                       <Check className="h-3.5 w-3.5 text-white" />
@@ -503,7 +503,7 @@ export default function RegisterPage() {
                       {SECTIONS.findIndex((s) => s.id === section.id) + 1}
                     </div>
                   )}
-                  <span className={`text-sm font-semibold ${isOpen ? "text-stone-900" : isCompleted ? "text-green-500" : "text-stone-500"}`}>
+                  <span className={`truncate text-sm font-semibold ${isOpen ? "text-stone-900" : isCompleted ? "text-green-500" : "text-stone-500"}`}>
                     {section.label}
                   </span>
                   {isCompleted && !isOpen && (
@@ -518,7 +518,7 @@ export default function RegisterPage() {
               </button>
 
               {isOpen && (
-                <div className="px-6 pb-5 border-t border-stone-100">
+                <div className="border-t border-stone-100 px-4 pb-5 sm:px-6">
                   {renderSectionContent(section.id)}
                 </div>
               )}

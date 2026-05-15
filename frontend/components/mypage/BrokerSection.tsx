@@ -359,13 +359,13 @@ export function BrokerSection({ userId }: { userId: number }) {
             <div
               key={room.item_id}
               onClick={() => handleRoomClick(room)}
-              className={`flex items-center gap-4 rounded-[20px] border border-stone-200/80 bg-white/80 p-6 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer transition-all duration-200 ${
+              className={`flex flex-col gap-4 rounded-[20px] border border-stone-200/80 bg-white/80 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)] cursor-pointer transition-all duration-200 sm:flex-row sm:items-center sm:p-6 ${
                 room.status === "INACTIVE"
                   ? "opacity-60 hover:opacity-80"
                   : "hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)]"
               }`}
             >
-              <div className="h-28 w-28 flex-shrink-0 overflow-hidden rounded-xl bg-stone-100">
+              <div className="aspect-[4/3] w-full flex-shrink-0 overflow-hidden rounded-xl bg-stone-100 sm:h-28 sm:w-28">
                 {room.image_thumbnail ? (
                   <img src={room.image_thumbnail} alt={room.title ?? ""} className="h-full w-full object-cover" />
                 ) : (
@@ -376,7 +376,7 @@ export function BrokerSection({ userId }: { userId: number }) {
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                     room.status === "ACTIVE" ? "bg-green-100 text-green-600" : "bg-stone-100 text-stone-400"
                   }`}>
@@ -394,7 +394,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                 </p>
               </div>
 
-              <div className="flex flex-shrink-0 items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <div className="flex w-full flex-shrink-0 items-center justify-end gap-2 sm:w-auto" onClick={(e) => e.stopPropagation()}>
                 <div className="relative">
                   <button
                     onMouseEnter={() => setTooltip(`edit-${room.item_id}`)}
@@ -450,12 +450,12 @@ export function BrokerSection({ userId }: { userId: number }) {
       {editingRoom && editForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setEditingRoom(null); setEditForm(null); setNewPhotos([]); }}>
           <div
-            className="w-full max-w-md rounded-[20px] border border-stone-200/80 bg-white p-6 shadow-xl mx-4 max-h-[90vh] overflow-y-auto"
+            className="mx-3 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[20px] border border-stone-200/80 bg-white p-4 shadow-xl sm:mx-4 sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-5 flex items-center justify-between">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-semibold text-stone-900">매물 수정</p>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between gap-3 sm:justify-start">
                 <div className="flex items-center bg-stone-100 rounded-full p-1">
                   <button
                     onClick={() => setEditForm((p) => p ? ({ ...p, status: "ACTIVE" }) : p)}
@@ -490,7 +490,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                 <p className="mb-2 text-xs font-semibold text-stone-500">사진</p>
                 <div className="flex flex-wrap gap-2">
                   {editImages.map((img) => (
-                    <div key={img.id} className="relative h-20 w-20 overflow-hidden rounded-xl border border-stone-200">
+                    <div key={img.id} className="relative aspect-square w-[calc((100%_-_1rem)/3)] overflow-hidden rounded-xl border border-stone-200 sm:h-20 sm:w-20">
                       {img.is_main && (
                         <span className="absolute left-1 top-1 rounded bg-stone-800/70 px-1 py-0.5 text-[9px] font-bold text-white z-10">대표</span>
                       )}
@@ -504,7 +504,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                     </div>
                   ))}
                   {newPhotos.map((photo, idx) => (
-                    <div key={`new-${idx}`} className="relative h-20 w-20 overflow-hidden rounded-xl border border-[#A8896C]/40">
+                    <div key={`new-${idx}`} className="relative aspect-square w-[calc((100%_-_1rem)/3)] overflow-hidden rounded-xl border border-[#A8896C]/40 sm:h-20 sm:w-20">
                       <span className="absolute left-1 top-1 rounded bg-[#A8896C]/70 px-1 py-0.5 text-[9px] font-bold text-white z-10">새 사진</span>
                       <img src={photo.preview} alt="" className="h-full w-full object-cover" />
                       <button
@@ -517,7 +517,7 @@ export function BrokerSection({ userId }: { userId: number }) {
                   ))}
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex h-20 w-20 flex-shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-stone-200 hover:border-stone-300"
+                    className="flex aspect-square w-[calc((100%_-_1rem)/3)] flex-shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-stone-200 hover:border-stone-300 sm:h-20 sm:w-20"
                   >
                     <Plus className="h-5 w-5 text-stone-400" />
                     <span className="text-[11px] text-stone-400">추가</span>
@@ -547,7 +547,7 @@ export function BrokerSection({ userId }: { userId: number }) {
               {/* 가격 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">가격</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div>
                     <p className="mb-1 text-xs text-stone-400">보증금 (만원)</p>
                     <input type="number" value={editForm.deposit} onChange={(e) => setEditForm((p) => p ? ({ ...p, deposit: e.target.value }) : p)} className={inputClass} />
@@ -598,7 +598,7 @@ export function BrokerSection({ userId }: { userId: number }) {
               {/* 주변 시설 거리 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">주변 시설 거리</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {DISTANCES.map((dist) => (
                     <div key={dist.key}>
                       <p className="mb-1 text-xs text-stone-400">{dist.label}</p>
@@ -617,7 +617,7 @@ export function BrokerSection({ userId }: { userId: number }) {
               {/* 상세 설명 */}
               <div>
                 <p className="mb-2 text-xs font-semibold text-stone-500">주변 시설 거리</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {DISTANCES.map((dist) => (
                     <div key={dist.key}>
                       <p className="mb-1 text-xs text-stone-400">{dist.label}</p>
