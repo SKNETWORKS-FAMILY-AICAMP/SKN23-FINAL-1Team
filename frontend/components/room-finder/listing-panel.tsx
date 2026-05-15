@@ -238,7 +238,7 @@ export function ListingPanel({
             </button>
             <div className="relative group">
               <span className="text-[10px] text-stone-400 border border-stone-300 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center cursor-default">i</span>
-              <div className="absolute bottom-5 right-0 bg-stone-800 text-white text-[11px] px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+              <div className="absolute bottom-5 right-0 bg-stone-800 text-white text-[11px] px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
                 보증금 + 월세 × 100 기준
               </div>
             </div>
