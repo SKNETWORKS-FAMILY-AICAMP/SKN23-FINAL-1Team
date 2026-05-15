@@ -15,29 +15,25 @@ interface Step {
 const steps: Step[] = [
   {
     title: "지역 검색",
-    description:
-      "찾고 싶은 지역을 검색해보세요. 역이나 동네 이름을 입력하면 해당 위치로 이동해요.",
+    description: "찾고 싶은 지역을 검색해보세요. 역이나 동네 이름을 입력하면 해당 위치로 이동해요.",
     position: "bottom",
     highlight: "search",
   },
   {
     title: "필터 설정",
-    description:
-      "전세, 보증금, 월세, 구조 같은 조건으로 매물을 더 쉽게 좁혀볼 수 있어요.",
+    description: "전세, 보증금, 월세, 구조 같은 조건으로 매물을 더 쉽게 좁혀볼 수 있어요.",
     position: "bottom",
     highlight: "filter",
   },
   {
     title: "지도에서 탐색",
-    description:
-      "지도 위 마커를 누르면 해당 위치의 매물을 확인할 수 있어요. 숫자가 크면 근처 매물이 많다는 뜻이에요.",
+    description: "지도 위 마커를 누르면 해당 위치의 매물을 확인할 수 있어요. 숫자가 크면 근처 매물이 많다는 뜻이에요.",
     position: "center",
     highlight: "map",
   },
   {
     title: "AI 이미지 검색",
-    description:
-      "AI 추천 영역에 원하는 방 분위기를 텍스트로 입력하면 비슷한 매물을 찾아드려요.",
+    description: "AI 추천 영역에 원하는 방 분위기를 텍스트로 입력하면 비슷한 매물을 찾아드려요.",
     position: "center",
     highlight: "panel",
   },
@@ -57,7 +53,6 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   useEffect(() => {
     const key = userId ? `hasSeenGuide_${userId}` : "hasSeenGuide_guest";
     const seen = localStorage.getItem(key);
-
     if (!seen) {
       const timer = setTimeout(() => setVisible(true), 1500);
       return () => clearTimeout(timer);
@@ -66,7 +61,6 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
 
   useEffect(() => {
     if (!isOpen) return;
-
     setCurrentStep(0);
     setVisible(true);
     closeGuide();
@@ -83,7 +77,6 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
       setCurrentStep((prev) => prev + 1);
       return;
     }
-
     handleClose();
   };
 
@@ -97,11 +90,31 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
 
   const step = steps[currentStep];
 
-  const highlightClass = {
-    search: "top-[49px] left-0 right-0 h-[62px]",
-    filter: "top-[96px] left-0 right-0 h-[81px]",
-    map: "top-[177px] left-0 right-[450px] bottom-0",
-    panel: "top-[177px] right-0 w-[450px] bottom-0",
+  const highlightClass: Record<string, React.CSSProperties> = {
+    search: {
+      top: 62,
+      left: 24,
+      right: 24,
+      height: 46,
+    },
+    filter: {
+      top: 119,
+      left: 24,
+      right: 24,
+      height: 42,
+    },
+    map: {
+      top: 177,
+      left: 0,
+      right: 450,
+      bottom: 0,
+    },
+    panel: {
+      top: 177,
+      right: 0,
+      width: 450,
+      bottom: 0,
+    },
   };
 
   const tooltipPosition = {
@@ -114,14 +127,16 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
     <div className="fixed inset-0 z-[100] hidden lg:block">
       {step.highlight && (
         <div
-          className={cn(
-            "absolute rounded-lg border-2 border-warm-brown",
-            highlightClass[step.highlight],
-          )}
-          style={{ boxShadow: "0 0 0 9999px rgba(0,0,0,0.5)" }}
+          className="absolute rounded-xl border-2 border-warm-brown"
+          style={{
+            ...highlightClass[step.highlight],
+            boxShadow: "0 0 0 9999px rgba(0,0,0,0.5)",
+            zIndex: 1,
+          }}
         />
       )}
 
+      {/* 툴팁 카드 */}
       <div
         className={cn(
           "absolute w-[320px] rounded-2xl bg-white p-5 shadow-2xl",
@@ -129,6 +144,7 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
             ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
             : "left-1/2 -translate-x-1/2 " + tooltipPosition[step.position],
         )}
+        style={{ zIndex: 2 }}
       >
         <div className="mb-3 flex items-start justify-between">
           <h3 className="text-base font-bold text-stone-900">{step.title}</h3>
@@ -167,7 +183,6 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
           ) : (
             <div className="flex-1" />
           )}
-
           <button
             onClick={handleNext}
             className="cursor-pointer flex-1 rounded-xl bg-warm-brown py-2.5 text-sm font-semibold text-white hover:opacity-90"

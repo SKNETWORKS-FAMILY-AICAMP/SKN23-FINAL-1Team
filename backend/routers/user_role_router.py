@@ -117,3 +117,11 @@ def withdraw_user(user_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return {"success": True}
+
+
+@router.get("/role/{user_id}")
+def get_user_role(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+    return {"user_id": user.user_id, "role": user.role}
