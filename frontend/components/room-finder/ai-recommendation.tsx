@@ -487,6 +487,7 @@ export function AIRecommendation({
     }
 
     setIsEditing(true);
+    setShowGame(true);  // 추가
     setMessage("이미지를 수정하는 중입니다. 잠시만 기다려주세요.");
 
     try {
@@ -523,6 +524,7 @@ export function AIRecommendation({
       );
     } finally {
       setIsEditing(false);
+      setShowGame(false);  // 추가
     }
   };
 
