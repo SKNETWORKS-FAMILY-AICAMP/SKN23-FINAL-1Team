@@ -206,3 +206,4 @@ catboost_info/
 
 !ml_research/xgboost/xgb_오피스텔.json
 !ml_research/xgboost/xgb_원룸.json
+!public/onboarding-*.png
