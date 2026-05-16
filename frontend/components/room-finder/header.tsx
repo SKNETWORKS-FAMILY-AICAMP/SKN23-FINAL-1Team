@@ -366,11 +366,13 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
         src="https://cdn.portone.io/v2/browser-sdk.js"
         strategy="afterInteractive"
         onLoad={() => setIsPortOneReady(true)}
+        onReady={() => setIsPortOneReady(true)}
       />
       <Script
         src="https://cdn.iamport.kr/v1/iamport.js"
         strategy="afterInteractive"
         onLoad={() => setIsIamportReady(true)}
+        onReady={() => setIsIamportReady(true)}
       />
       <header className="relative z-[99] border-b border-stone-200/80 bg-white/70 backdrop-blur-xl">
         <div className="flex min-h-12 flex-wrap items-center gap-y-2 py-2 md:h-12 md:flex-nowrap md:py-0">
@@ -435,21 +437,23 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
         </div>
 
         {isLoggedIn && user ? (
-          <div className="flex min-w-0 flex-1 shrink items-center justify-end gap-1.5 overflow-x-auto px-3 scrollbar-hide sm:gap-2 md:w-auto md:flex-none md:px-6">
+          <div className="flex min-w-0 flex-1 shrink items-center justify-end gap-1.5 overflow-visible px-2 sm:gap-2 sm:px-3 md:w-auto md:flex-none md:px-6">
             <div className="relative">
               <button
+                type="button"
                 onClick={() => setIsCreditMenuOpen((isOpen) => !isOpen)}
                 disabled={isChargingCredit}
-                className="inline-flex items-center gap-1.5 rounded-full border border-stone-900 bg-stone-950 px-2.5 py-1.5 text-[11px] font-bold tracking-tight text-white shadow-sm transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
+                className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-stone-900 bg-stone-950 px-2.5 py-1.5 text-[11px] font-bold tracking-tight text-white shadow-sm transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
                 aria-label="크레딧 충전"
               >
+                <span className="sm:hidden">충전</span>
                 <span className="hidden sm:inline">크레딧 충전</span>
                 <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white text-stone-950">
                   <Plus className="h-3 w-3" />
                 </span>
               </button>
               {isCreditMenuOpen && (
-                <div className="absolute right-0 top-9 z-[99] w-[calc(100vw-1.5rem)] max-w-[320px] overflow-hidden rounded-lg border border-stone-200 bg-white shadow-2xl shadow-stone-900/15">
+                <div className="fixed left-3 right-3 top-16 z-[200] max-h-[calc(100vh-5rem)] overflow-y-auto rounded-lg border border-stone-200 bg-white shadow-2xl shadow-stone-900/15 sm:absolute sm:left-auto sm:right-0 sm:top-9 sm:w-[320px] sm:max-h-none sm:overflow-hidden">
                   <div className="space-y-3 p-4">
                     <section>
                       <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold text-stone-700">
