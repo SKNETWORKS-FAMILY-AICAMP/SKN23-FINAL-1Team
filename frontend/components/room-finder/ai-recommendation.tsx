@@ -733,6 +733,7 @@ export function AIRecommendation({
     setIsFindingSimilar(true);
     setMessage("");
     const searchImageUrl = selectedImage.url;
+    let galleryImageId: number | null = null;
 
     try {
       if (user?.user_id) {
@@ -753,6 +754,10 @@ export function AIRecommendation({
             galleryResponse.status,
             errorText,
           );
+        } else {
+          const galleryData = await galleryResponse.json().catch(() => null);
+          galleryImageId =
+            typeof galleryData?.id === "number" ? galleryData.id : null;
         }
       }
 
@@ -767,6 +772,7 @@ export function AIRecommendation({
           }),
           image_url: searchImageUrl,
           user_id: user?.user_id ?? null,
+          gallery_image_id: galleryImageId,
         }),
       });
 

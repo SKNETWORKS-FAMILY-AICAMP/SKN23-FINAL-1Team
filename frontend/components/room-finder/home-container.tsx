@@ -257,13 +257,22 @@ export function HomeContainer() {
     mapBounds && mapBounds.level <= MAX_SIMILAR_SEARCH_LEVEL,
   );
   const gallerySimilarImageUrl = searchParams.get("similarImageUrl");
+  const galleryImageIdParam = searchParams.get("galleryImageId");
+  const galleryImageId =
+    galleryImageIdParam && /^\d+$/.test(galleryImageIdParam)
+      ? Number(galleryImageIdParam)
+      : null;
+  const [similarGalleryImageId, setSimilarGalleryImageId] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     if (!gallerySimilarImageUrl) return;
 
     setSimilarImageUrl(gallerySimilarImageUrl);
+    setSimilarGalleryImageId(galleryImageId);
     router.replace(`/${locale}/home`, { scroll: false });
-  }, [gallerySimilarImageUrl, locale, router]);
+  }, [galleryImageId, gallerySimilarImageUrl, locale, router]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
@@ -472,6 +481,7 @@ export function HomeContainer() {
       const topSimilar = similar.slice(0, 4);
       if (imageUrl) {
         setSimilarImageUrl(imageUrl);
+        setSimilarGalleryImageId(null);
         prevSimilarRequestKeyRef.current = getSimilarRequestKey(imageUrl);
       }
       setRecommendedListings(topSimilar);
@@ -616,6 +626,7 @@ export function HomeContainer() {
             }),
             image_url: similarImageUrl,
             user_id: user?.user_id ?? null,
+            gallery_image_id: similarGalleryImageId,
           }),
           signal: controller.signal,
         });
@@ -656,6 +667,7 @@ export function HomeContainer() {
     canFindSimilarRooms,
     getSimilarRequestKey,
     mapBounds?.source,
+    similarGalleryImageId,
     similarImageUrl,
     similarSearchParams,
     updateUser,
