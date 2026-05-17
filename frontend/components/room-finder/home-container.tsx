@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LogIn, X } from "lucide-react";
 import { Header } from "@/components/room-finder/header";
 import { FilterBar, type Filters } from "@/components/room-finder/filter-bar";
@@ -198,6 +198,7 @@ function logSimilarRoomScores(items: Listing[], context: string) {
 export function HomeContainer() {
   const { locale, t } = useI18n();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const savedMapBounds = useMapViewStore((state) => state.lastMapBounds);
   const setLastMapBounds = useMapViewStore((state) => state.setLastMapBounds);
   const [roomType, setRoomType] = useState<"oneroom" | "tworoom">("oneroom");
@@ -255,6 +256,14 @@ export function HomeContainer() {
   const canFindSimilarRooms = Boolean(
     mapBounds && mapBounds.level <= MAX_SIMILAR_SEARCH_LEVEL,
   );
+  const gallerySimilarImageUrl = searchParams.get("similarImageUrl");
+
+  useEffect(() => {
+    if (!gallerySimilarImageUrl) return;
+
+    setSimilarImageUrl(gallerySimilarImageUrl);
+    router.replace(`/${locale}/home`, { scroll: false });
+  }, [gallerySimilarImageUrl, locale, router]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");

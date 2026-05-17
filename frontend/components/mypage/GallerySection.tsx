@@ -77,7 +77,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
   };
 
   const handleFindSimilar = (imageUrl: string) => {
-    router.push(`/${locale}/home`);
+    router.push(`/${locale}/home?similarImageUrl=${encodeURIComponent(imageUrl)}`);
   };
 
   if (isLoading) {
