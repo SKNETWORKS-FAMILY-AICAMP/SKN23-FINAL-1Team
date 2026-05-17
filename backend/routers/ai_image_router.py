@@ -37,6 +37,7 @@ from services.ai_image_job_service import (
     update_generate_job,
 )
 from services.embedding_service import EmbeddingService
+from services.gallery_service import save_or_update_gallery_embedding
 from services.room_service import get_rooms_by_similarity
 from services.user_credit_service import (
     decrement_user_remain,
@@ -483,6 +484,14 @@ async def find_similar_rooms_endpoint(
             raise HTTPException(
                 status_code=500,
                 detail="이미지 임베딩 추출에 실패했습니다.",
+            )
+
+        if body.user_id is not None and not is_existing_room_image:
+            save_or_update_gallery_embedding(
+                db,
+                user_id=body.user_id,
+                image_url=body.image_url,
+                embedding=embedding,
             )
 
         result = get_rooms_by_similarity(db, req=body, embedding=embedding)
