@@ -2,6 +2,7 @@ import json
 import os
 from urllib.parse import unquote, urlparse
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from models.user_item_image import UserItemImage
 from datetime import datetime, timedelta, timezone
@@ -44,25 +45,38 @@ def save_or_update_gallery_embedding(
     gallery_image_id: int | None = None,
 ):
     serialized_embedding = _serialize_embedding(embedding)
-    gallery_item = None
-
     if gallery_image_id is not None:
-        gallery_item = (
-            db.query(UserItemImage)
-            .filter(
-                UserItemImage.id == gallery_image_id,
-                UserItemImage.user_id == user_id,
-            )
-            .first()
-        )
+        updated_id = db.execute(
+            text(
+                """
+                UPDATE public.user_item_image
+                SET embedding = :embedding
+                WHERE id = :gallery_image_id
+                  AND user_id = :user_id
+                RETURNING id
+                """
+            ),
+            {
+                "embedding": serialized_embedding,
+                "gallery_image_id": gallery_image_id,
+                "user_id": user_id,
+            },
+        ).scalar_one_or_none()
 
-    if gallery_item is None:
-        gallery_item = (
-            db.query(UserItemImage)
-            .filter(UserItemImage.user_id == user_id, UserItemImage.image_url == image_url)
-            .order_by(UserItemImage.created_at.desc(), UserItemImage.id.desc())
-            .first()
-        )
+        if updated_id is not None:
+            db.commit()
+            return (
+                db.query(UserItemImage)
+                .filter(UserItemImage.id == updated_id)
+                .first()
+            )
+
+    gallery_item = (
+        db.query(UserItemImage)
+        .filter(UserItemImage.user_id == user_id, UserItemImage.image_url == image_url)
+        .order_by(UserItemImage.created_at.desc(), UserItemImage.id.desc())
+        .first()
+    )
 
     filename = _get_image_filename(image_url)
     if gallery_item is None and filename is not None:

@@ -487,16 +487,25 @@ async def find_similar_rooms_endpoint(
                 detail="이미지 임베딩 추출에 실패했습니다.",
             )
 
-        if body.user_id is not None and not is_existing_room_image:
-            save_or_update_gallery_embedding(
-                db,
-                user_id=body.user_id,
-                image_url=body.image_url,
-                embedding=embedding,
-                gallery_image_id=body.gallery_image_id,
-            )
-
         result = get_rooms_by_similarity(db, req=body, embedding=embedding)
+
+        if body.user_id is not None and not is_existing_room_image:
+            try:
+                save_or_update_gallery_embedding(
+                    db,
+                    user_id=body.user_id,
+                    image_url=body.image_url,
+                    embedding=embedding,
+                    gallery_image_id=body.gallery_image_id,
+                )
+            except Exception as exc:
+                db.rollback()
+                print(
+                    "[WARN] failed to save gallery embedding: "
+                    f"user_id={body.user_id}, "
+                    f"gallery_image_id={body.gallery_image_id}, "
+                    f"image_url={body.image_url}, error={exc}"
+                )
 
         if body.user_id is not None:
             user = recharge_user_remain_from_credit(db, body.user_id)
