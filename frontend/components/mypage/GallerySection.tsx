@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { Loader2, Trash2, Maximize2, ImageIcon, X, Copy, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/lib/i18n";
 
 interface GalleryImage {
   id: number;
@@ -24,6 +25,7 @@ function getGalleryImageSrc(imageUrl: string) {
 }
 
 export function GallerySection({ userId }: GallerySectionProps) {
+  const { locale, t } = useI18n();
   const router = useRouter();
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -75,7 +77,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
   };
 
   const handleFindSimilar = (imageUrl: string) => {
-    router.push("/home");
+    router.push(`/${locale}/home`);
   };
 
   if (isLoading) {
@@ -89,12 +91,12 @@ export function GallerySection({ userId }: GallerySectionProps) {
   return (
     <div>
       <p className="mb-3 text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400 md:mb-4">
-        AI 생성 이미지 갤러리
+        {t("mypageSections.galleryTitle")}
       </p>
 
       {galleryImages.length === 0 ? (
         <div className="rounded-[20px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500">
-          저장된 AI 이미지가 없습니다.
+          {t("mypageSections.emptyGallery")}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
@@ -106,7 +108,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
             >
               <Image
                 src={getGalleryImageSrc(item.image_url)}
-                alt={item.prompt ?? "AI 생성 이미지"}
+                alt={item.prompt ?? t("mypageSections.aiImageAlt")}
                 fill
                 unoptimized
                 className="object-cover"
@@ -118,7 +120,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
                 <button
                   onClick={() => setSelectedImage(item)}
                   className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 transition-colors hover:bg-white"
-                  title="확대"
+                  title={t("mypageSections.expand")}
                 >
                   <Maximize2 className="h-3.5 w-3.5 text-stone-600" />
                 </button>
@@ -126,7 +128,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
                   onClick={() => handleDelete(item.id)}
                   disabled={deletingId === item.id}
                   className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/90 transition-colors hover:bg-red-500"
-                  title="삭제"
+                  title={t("mypageSections.delete")}
                 >
                   {deletingId === item.id ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
@@ -141,7 +143,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
                   onClick={() => handleFindSimilar(item.image_url)}
                   className="rounded-full bg-[#5C8A62] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#4a7050] pointer-events-auto"
                 >
-                  유사 매물 찾기 →
+                  {t("mypageSections.findSimilar")}
                 </button>
               </div>
 
@@ -156,10 +158,10 @@ export function GallerySection({ userId }: GallerySectionProps) {
           <div
             className="flex w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-stone-200 bg-white/80 transition-colors hover:bg-stone-50"
             style={{ minHeight: "220px", height: "clamp(220px, 55vw, 320px)" }}
-            onClick={() => router.push("/home")}
+            onClick={() => router.push(`/${locale}/home`)}
           >
             <ImageIcon className="h-5 w-5 text-stone-300" />
-            <span className="text-xs font-medium text-stone-400">새 검색</span>
+            <span className="text-xs font-medium text-stone-400">{t("mypageSections.newSearch")}</span>
           </div>
         </div>
       )}
@@ -178,7 +180,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
             <div className="relative aspect-square w-full">
               <Image
                 src={getGalleryImageSrc(selectedImage.image_url)}
-                alt={selectedImage.prompt ?? "AI 생성 이미지"}
+                alt={selectedImage.prompt ?? t("mypageSections.aiImageAlt")}
                 fill
                 unoptimized
                 className="object-cover"
@@ -201,7 +203,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
                   <button
                     onClick={() => handleCopyPrompt(selectedImage.prompt!)}
                     className="shrink-0 mt-0.5 text-stone-400 hover:text-stone-600 cursor-pointer"
-                    title="프롬프트 복사"
+                    title={t("mypageSections.copyPrompt")}
                   >
                     {copied ? (
                       <Check className="h-4 w-4 text-green-500" />
@@ -219,7 +221,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
                   onClick={() => handleFindSimilar(selectedImage.image_url)}
                   className="flex-1 rounded-xl bg-[#5C8A62] py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#4a7050]"
                 >
-                  이 이미지로 유사 매물 찾기 →
+                  {t("mypageSections.findSimilarWithImage")}
                 </button>
                 <button
                   onClick={() => handleDelete(selectedImage.id)}

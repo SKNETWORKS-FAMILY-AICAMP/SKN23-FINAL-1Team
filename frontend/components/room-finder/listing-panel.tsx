@@ -8,6 +8,7 @@ import { Sparkles, House, Heart, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRecentStore } from "@/store/recentStore";
 import type { RoomSearchParams } from "@/lib/api/rooms";
+import { useI18n } from "@/lib/i18n";
 
 interface ListingPanelProps {
   listings: Listing[];
@@ -62,6 +63,7 @@ export function ListingPanel({
   canFindSimilarRooms = true,
   onFindSimilarBlocked,
 }: ListingPanelProps) {
+  const { t } = useI18n();
   const addRecent = useRecentStore((state) => state.addRecent);
 
   const handleListingClick = (listing: Listing) => {
@@ -159,7 +161,7 @@ export function ListingPanel({
             )}
           >
             <House className="h-4 w-4 shrink-0" />
-            <span className="min-w-0 truncate">매물목록</span>
+            <span className="min-w-0 truncate">{t("listingPanel.listTab")}</span>
           </button>
 
           <button
@@ -173,7 +175,7 @@ export function ListingPanel({
             )}
           >
             <Sparkles className="h-4 w-4 shrink-0" />
-            <span className="min-w-0 truncate">AI추천</span>
+            <span className="min-w-0 truncate">{t("listingPanel.aiTab")}</span>
           </button>
 
           {isLoggedIn && (
@@ -188,7 +190,7 @@ export function ListingPanel({
               )}
             >
               <Heart className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 truncate">찜목록</span>
+              <span className="min-w-0 truncate">{t("listingPanel.wishTab")}</span>
               {favoriteListings.length > 0 && (
                 <span className="ml-0.5 shrink-0 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600">
                   {favoriteListings.length}
@@ -207,7 +209,7 @@ export function ListingPanel({
                 sort === "recommended" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
               )}
             >
-              추천순
+              {t("listingPanel.recommendedSort")}
             </button>
             <button
               onClick={() => onSortChange("latest")}
@@ -216,7 +218,7 @@ export function ListingPanel({
                 sort === "latest" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
               )}
             >
-              등록순
+              {t("listingPanel.latestSort")}
             </button>
             <button
               onClick={() => onSortChange("price_asc")}
@@ -225,7 +227,7 @@ export function ListingPanel({
                 sort === "price_asc" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
               )}
             >
-              낮은 가격순
+              {t("listingPanel.priceAscSort")}
             </button>
             <button
               onClick={() => onSortChange("price_desc")}
@@ -234,12 +236,12 @@ export function ListingPanel({
                 sort === "price_desc" ? "font-semibold text-stone-900" : "text-stone-400 hover:text-stone-600"
               )}
             >
-              높은 가격순
+              {t("listingPanel.priceDescSort")}
             </button>
             <div className="relative group">
               <span className="text-[10px] text-stone-400 border border-stone-300 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center cursor-default">i</span>
               <div className="absolute top-5 right-0 bg-stone-800 text-white text-[11px] px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                보증금 + 월세 × 100 기준
+                {t("listingPanel.priceSortHelp")}
               </div>
             </div>
           </div>
@@ -253,7 +255,7 @@ export function ListingPanel({
               <section className="-mx-4 -mt-4 mb-4 border-b border-emerald-200 bg-emerald-50/70">
                 <div className="flex items-center gap-2 border-b border-emerald-200 px-5 py-3 text-sm font-bold text-emerald-800">
                   <Star className="h-4 w-4 fill-emerald-700 text-emerald-700" />
-                  AI 추천 매물
+                  {t("listingPanel.aiRecommended")}
                 </div>
                 <div className="space-y-3 px-4 py-4">
                   {topAiRecommendedListings.map((listing, index) => (
@@ -279,7 +281,7 @@ export function ListingPanel({
             )}
             {topAiRecommendedListings.length > 0 && (
               <div className="-mx-4 mb-4 border-y border-stone-200 bg-stone-100/70 px-5 py-3 text-sm font-bold text-stone-700">
-                전체 매물
+                {t("listingPanel.allListings")}
               </div>
             )}
             <div className="mx-auto w-full max-w-[720px] space-y-4">
@@ -302,17 +304,17 @@ export function ListingPanel({
             <div ref={observerRef} className="h-10" />
             {isLoading && (
               <div className="py-6 text-center text-sm font-medium text-stone-500">
-                더 불러오는 중...
+                {t("listingPanel.loadingMore")}
               </div>
             )}
             {!hasMore && listings.length > 0 && (
               <div className="py-6 text-center text-sm font-medium text-stone-400">
-                마지막 매물입니다.
+                {t("listingPanel.lastListing")}
               </div>
             )}
             {!isLoading && listings.length === 0 && (
               <div className="rounded-[24px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-                표시할 매물이 없습니다.
+                {t("listingPanel.emptyListings")}
               </div>
             )}
           </div>
@@ -339,7 +341,7 @@ export function ListingPanel({
           <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">
             {favoriteListings.length === 0 ? (
               <div className="rounded-[24px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-                찜한 매물이 없습니다.
+                {t("listingPanel.emptyFavorites")}
               </div>
             ) : (
               <div className="mx-auto w-full max-w-[720px] space-y-4">

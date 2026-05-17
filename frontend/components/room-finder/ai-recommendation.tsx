@@ -19,6 +19,7 @@ import {
 import { buildSearchBody, type RoomSearchParams } from "@/lib/api/rooms";
 import { mapSimilarItemToListing } from "@/utils/roomMappers";
 import { toast } from "@/hooks/use-toast";
+import { useI18n } from "@/lib/i18n";
 
 interface AIRecommendationProps {
   onSimilarListingsFound: (listings: Listing[], imageUrl?: string) => void;
@@ -76,7 +77,10 @@ const PromptInputWithUpload = ({
   fileInputRef,
   onFileChange,
   disabled = false,
-}: PromptInputWithUploadProps) => (
+}: PromptInputWithUploadProps) => {
+  const { t } = useI18n();
+
+  return (
   <div className="flex w-full flex-col gap-1.5">
     {attachedFile && (
       <div className="flex items-center gap-2 rounded-lg border border-[#d6cfc8] bg-[#f5f0eb] px-2 py-1.5">
@@ -115,11 +119,11 @@ const PromptInputWithUpload = ({
         disabled={disabled}
         className="flex h-full flex-shrink-0 items-center justify-center border-r border-[#d6cfc8] bg-white px-3 transition-colors hover:bg-stone-50"
         style={{ minHeight: inputSize === "md" ? "42px" : "36px" }}
-        title="이미지 첨부 (PNG, JPEG)"
+        title={t("aiRecommendation.uploadTitle")}
       >
         <Image
           src="/image_icon.png"
-          alt="이미지 첨부"
+          alt={t("aiRecommendation.uploadAlt")}
           width={18}
           height={18}
           className="h-4.5 w-4.5 object-contain"
@@ -131,7 +135,7 @@ const PromptInputWithUpload = ({
         onChange={onChange}
         onKeyDown={onKeyDown}
         disabled={disabled}
-        placeholder={isDragging ? "이미지를 여기에 놓으세요" : placeholder}
+        placeholder={isDragging ? t("aiRecommendation.dropImage") : placeholder}
         className={cn(
           "min-w-0 flex-1 bg-[#faf7f4] text-stone-800 placeholder:text-stone-400 transition-colors focus:bg-white focus:outline-none disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400",
           inputSize === "md" ? "px-3 py-2.5 text-sm" : "px-3 py-2 text-xs",
@@ -150,7 +154,8 @@ const PromptInputWithUpload = ({
       disabled={disabled}
     />
   </div>
-);
+  );
+};
 
 function buildSessionImages(
   images: GeneratedImageResponse[],
@@ -200,6 +205,7 @@ export function AIRecommendation({
   canFindSimilarRooms = true,
   onFindSimilarBlocked,
 }: AIRecommendationProps) {
+  const { locale, t } = useI18n();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
@@ -806,8 +812,15 @@ export function AIRecommendation({
   };
 
   const handleLoginRedirect = () => {
-    router.push("/login");
+    router.push(`/${locale}/login`);
   };
+
+  const quickPrompts = [
+    t("aiRecommendation.quickDuplex"),
+    t("aiRecommendation.quickKitchen"),
+    t("aiRecommendation.quickSunlight"),
+    t("aiRecommendation.quickMinimal"),
+  ];
 
   const renderImageGroup = (group: AIImageGroup) => {
     const activeGroupId = imageGroups[imageGroups.length - 1]?.id ?? group.id;
@@ -905,7 +918,7 @@ export function AIRecommendation({
   if (!hasHydrated) {
     return (
       <div className="flex flex-1 items-center justify-center px-4 py-8 text-xs text-stone-400">
-        AI 세션을 불러오는 중...
+        {t("aiRecommendation.loadingSession")}
       </div>
     );
   }
@@ -917,15 +930,15 @@ export function AIRecommendation({
           <span className="shrink-0 text-xs text-neutral-muted md:text-sm">
             {message ||
               (isAIInputLocked
-                ? "로그인하면 AI 추천 이미지를 생성할 수 있습니다."
-                : "원하는 방 조건을 입력하면 4개의 이미지를 생성해드려요.")}
+                ? t("aiRecommendation.loginRequiredMessage")
+                : t("aiRecommendation.compactGuide"))}
           </span>
           <div className="flex w-full items-start gap-2 sm:flex-1">
             <PromptInputWithUpload
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
-              placeholder="다시 생성하려면 프롬프트를 입력하세요..."
+              placeholder={t("aiRecommendation.compactPlaceholder")}
               inputSize="sm"
               disabled={isAIInputLocked}
               {...sharedFileProps}
@@ -938,9 +951,9 @@ export function AIRecommendation({
               {isGenerating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : isAIInputLocked ? (
-                "로그인"
+                t("aiRecommendation.login")
               ) : (
-                "입력"
+                t("aiRecommendation.submit")
               )}
             </button>
           </div>
@@ -995,12 +1008,12 @@ export function AIRecommendation({
 
           <div className="text-center">
             <p className="mb-1 text-sm font-semibold text-stone-800">
-              원하는 방 구조를 설명해주세요
+              {t("aiRecommendation.title")}
             </p>
             <p className="text-xs leading-relaxed text-stone-500">
-              설명한 내용을 바탕으로 AI가
+              {t("aiRecommendation.descriptionLine1")}
               <br />
-              이미지를 만들어드려요
+              {t("aiRecommendation.descriptionLine2")}
             </p>
           </div>
 
@@ -1009,7 +1022,7 @@ export function AIRecommendation({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
-              placeholder="예) 복층 구조에 채광 좋은 원룸..."
+              placeholder={t("aiRecommendation.initialPlaceholder")}
               inputSize="md"
               disabled={isAIInputLocked}
               {...sharedFileProps}
@@ -1022,16 +1035,16 @@ export function AIRecommendation({
               {isGenerating ? (
                 <Loader2 className="mx-auto h-4 w-4 animate-spin" />
               ) : isAIInputLocked ? (
-                "로그인하고 생성하기"
+                t("aiRecommendation.loginAndGenerate")
               ) : (
-                "이미지 생성하기!"
+                t("aiRecommendation.generate")
               )}
             </button>
           </div>
 
           {!isAIInputLocked && (
             <div className="grid w-full grid-cols-2 gap-2">
-              {QUICK_PROMPTS.map((quickPrompt) => (
+              {quickPrompts.map((quickPrompt) => (
                 <button
                   key={quickPrompt}
                   onClick={() => {
@@ -1071,7 +1084,7 @@ export function AIRecommendation({
           {!selectedImage && (
             <div className="shrink-0 border-t border-[#e8e0d5] px-3 py-3">
               <p className="mb-2 text-center text-xs text-stone-500">
-                마음에 드는 이미지를 선택하세요
+                {t("aiRecommendation.selectImage")}
               </p>
 
               <button
@@ -1079,7 +1092,7 @@ export function AIRecommendation({
                 disabled={isGenerating || isEditing || isFindingSimilar}
                 className="cursor-pointer mt-2 block w-full rounded-xl border border-[#d6cfc8] bg-white py-2.5 text-center text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                새로운 이미지 생성
+                {t("aiRecommendation.newImage")}
               </button>
             </div>
           )}
@@ -1090,10 +1103,10 @@ export function AIRecommendation({
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <div>
                     <p className="text-xs font-semibold leading-relaxed text-stone-700">
-                      조금 더 바꾸고 싶다면? 구체적일수록 잘 반영돼요
+                      {t("aiRecommendation.editGuide")}
                     </p>
                     <p className="mt-1 text-[10px] text-stone-400">
-                      현재 남은 수정 횟수: {remainingEdits}
+                      {t("aiRecommendation.remainingEdits", { count: remainingEdits })}
                     </p>
                   </div>
                   <div className="flex items-center">
@@ -1115,10 +1128,10 @@ export function AIRecommendation({
                     onKeyDown={(e) => e.key === "Enter" && handleEdit()}
                     placeholder={
                       remainingEdits > 0 && !hasReachedImageEditLimit
-                        ? "변경사항을 입력하세요..."
+                        ? t("aiRecommendation.editPlaceholder")
                         : hasReachedImageEditLimit
-                          ? "이미지 수정은 최대 2번까지 가능합니다"
-                          : "남은 수정 횟수가 없습니다"
+                          ? t("aiRecommendation.editLimit")
+                          : t("aiRecommendation.noEditsLeft")
                     }
                     disabled={remainingEdits === 0 || hasReachedImageEditLimit}
                     className="flex-1 rounded-lg border border-[#d6cfc8] bg-white px-3 py-2 text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-400/40 disabled:cursor-not-allowed disabled:bg-stone-100"
@@ -1136,7 +1149,7 @@ export function AIRecommendation({
                     {isEditing ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
-                      "수정하기!"
+                      t("aiRecommendation.edit")
                     )}
                   </button>
                 </div>
@@ -1145,7 +1158,7 @@ export function AIRecommendation({
               <div className="flex items-center gap-2">
                 <div className="h-px flex-1 bg-[#e8e0d5]" />
                 <span className="text-[10px] text-stone-400">
-                  이 이미지가 마음에 든다면
+                  {t("aiRecommendation.ifLikeImage")}
                 </span>
                 <div className="h-px flex-1 bg-[#e8e0d5]" />
               </div>
@@ -1158,7 +1171,7 @@ export function AIRecommendation({
                 {isFindingSimilar || isEditing ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                 ) : (
-                  "이 이미지로 유사 매물 검색 →"
+                  t("aiRecommendation.findSimilar")
                 )}
               </button>
 
@@ -1167,7 +1180,7 @@ export function AIRecommendation({
               <div className="flex items-center gap-2">
                 <div className="h-px flex-1 bg-[#e8e0d5]" />
                 <span className="text-[10px] text-stone-400">
-                  혹은
+                  {t("aiRecommendation.or")}
                 </span>
                 <div className="h-px flex-1 bg-[#e8e0d5]" />
               </div>
@@ -1177,7 +1190,7 @@ export function AIRecommendation({
                 disabled={isGenerating || isEditing || isFindingSimilar}
                 className="w-full rounded-xl border border-[#d6cfc8] bg-white py-2.5 text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                새로운 이미지 생성
+                {t("aiRecommendation.newImage")}
               </button>
             </div>
           )}

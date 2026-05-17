@@ -10,6 +10,8 @@ import Script from "next/script";
 import { useState } from "react";
 import Logo from "@/assets/Logo.png";
 import { useOnboardingStore } from "@/store/onboardingStore";
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
+import { useI18n } from "@/lib/i18n";
 
 interface HeaderProps {
   roomType: "oneroom" | "tworoom";
@@ -82,20 +84,20 @@ const navButtonInactive = "text-stone-500";
 const creditProducts = [
   {
     productId: "credit_2",
-    label: "\ud06c\ub808\ub527 2\uac1c",
+    creditAmount: 2,
     price: "500\uc6d0",
     unitPrice: "1\uac1c\ub2f9 250\uc6d0",
   },
   {
     productId: "credit_5",
-    label: "\ud06c\ub808\ub527 5\uac1c",
+    creditAmount: 5,
     price: "1,000\uc6d0",
     unitPrice: "1\uac1c\ub2f9 200\uc6d0",
     recommended: true,
   },
   {
     productId: "credit_10",
-    label: "\ud06c\ub808\ub527 10\uac1c",
+    creditAmount: 10,
     price: "1,500\uc6d0",
     unitPrice: "1\uac1c\ub2f9 150\uc6d0",
     bestValue: true,
@@ -136,6 +138,7 @@ const paymentChannels = [
 
 export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
   const router = useRouter();
+  const { locale, t } = useI18n();
   const user = useAuthStore((state) => state.user);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const updateUser = useAuthStore((state) => state.updateUser);
@@ -384,11 +387,11 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
               window.location.reload();
             }}
             className="flex cursor-pointer items-center"
-            aria-label="홈으로 이동"
+            aria-label={t("common.home")}
           >
             <Image
               src={Logo}
-              alt="로고"
+              alt={t("common.logo")}
               width={120}
               height={40}
               className="object-contain"
@@ -404,7 +407,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
               roomType === "oneroom" ? navButtonActive : navButtonInactive,
             )}
           >
-            원룸
+            {t("header.oneRoom")}
           </button>
 
           <button
@@ -414,24 +417,24 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
               roomType === "tworoom" ? navButtonActive : navButtonInactive,
             )}
           >
-            투룸
+            {t("header.twoRoom")}
           </button>
 
           {isLoggedIn && user && (
             <button
-              onClick={() => router.push("/mypage")}
+              onClick={() => router.push(`/${locale}/mypage`)}
               className={cn(navButtonBase, navButtonInactive)}
             >
-              마이페이지
+              {t("common.mypage")}
             </button>
           )}
 
           {user?.role === "BROKER" && (
             <button
-              onClick={() => router.push("/register")}
+              onClick={() => router.push(`/${locale}/register`)}
               className={cn(navButtonBase, navButtonInactive)}
             >
-              매물등록
+              {t("header.registerListing")}
             </button>
           )}
         </div>
@@ -444,10 +447,10 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
                 onClick={() => setIsCreditMenuOpen((isOpen) => !isOpen)}
                 disabled={isChargingCredit}
                 className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-stone-900 bg-stone-950 px-2.5 py-1.5 text-[11px] font-bold tracking-tight text-white shadow-sm transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
-                aria-label="크레딧 충전"
+                aria-label={t("header.chargeCredit")}
               >
-                <span className="sm:hidden">충전</span>
-                <span className="hidden sm:inline">크레딧 충전</span>
+                <span className="sm:hidden">{t("header.charge")}</span>
+                <span className="hidden sm:inline">{t("header.chargeCredit")}</span>
                 <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white text-stone-950">
                   <Plus className="h-3 w-3" />
                 </span>
@@ -458,7 +461,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
                     <section>
                       <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold text-stone-700">
                         <CreditCard className="h-3.5 w-3.5" />
-                        결제수단
+                        {t("header.paymentMethod")}
                       </div>
                       <div className="grid grid-cols-2 gap-1.5">
                     {paymentChannels.map((channel) => (
@@ -490,7 +493,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
                     <section>
                       <div className="mb-2 flex items-center justify-between">
                         <p className="text-[11px] font-bold text-stone-700">
-                          충전 상품
+                          {t("header.creditProducts")}
                         </p>
                         <p className="text-[10px] font-semibold text-stone-500">
                           {selectedPaymentChannelForMenu.label}
@@ -509,7 +512,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
                               <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full">
                                 <Image
                                   src="/coin.png"
-                                  alt="크레딧"
+                                  alt={t("header.creditAlt")}
                                   width={32}
                                   height={32}
                                   className="h-full w-full object-cover"
@@ -517,15 +520,15 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
                               </span>
                               <span className="min-w-0">
                                 <span className="flex items-center gap-1.5 text-[13px] font-bold text-stone-900">
-                                  {product.label}
+                                  {t("header.creditCount", { count: product.creditAmount })}
                                   {product.recommended && (
                                     <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">
-                                      추천
+                                      {t("header.recommended")}
                                     </span>
                                   )}
                                   {product.bestValue && (
                                     <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">
-                                      혜택
+                                      {t("header.bestValue")}
                                     </span>
                                   )}
                                 </span>
@@ -539,7 +542,7 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
                                 {product.price}
                               </span>
                               <span className="text-[10px] font-semibold text-stone-500">
-                                결제하기
+                                {t("header.pay")}
                               </span>
                             </span>
                           </button>
@@ -548,13 +551,13 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
                     </section>
 
                     <div className="rounded-md bg-stone-50 px-3 py-2 text-[10px] font-medium leading-4 text-stone-500">
-                      테스트 결제용 충전입니다. 결제 완료 후 서버 검증을 거쳐 크레딧이 반영됩니다.
+                      {t("header.testPaymentNotice")}
                     </div>
 
                     {isChargingCredit && (
                       <div className="flex items-center gap-2 rounded-md bg-stone-950 px-3 py-2 text-[11px] font-bold text-white">
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        결제창을 준비하고 있습니다
+                        {t("header.preparingPayment")}
                       </div>
                     )}
 
@@ -571,12 +574,12 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
             <div className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-bold tracking-tight text-amber-800 shadow-sm">
               <Image
                 src="/coin.png"
-                alt="크레딧"
+                alt={t("header.creditAlt")}
                 width={16}
                 height={16}
                 className="h-4 w-4 object-cover"
               />
-              {user.credit ?? 0}개
+              {t("header.creditCount", { count: user.credit ?? 0 })}
             </div>
             <div className="flex items-center gap-1.5">
               {user.role === "BROKER" && (
@@ -594,19 +597,21 @@ export function Header({ roomType, onRoomTypeChange }: HeaderProps) {
               onClick={openGuide}
               className="hidden shrink-0 cursor-pointer text-[12px] font-semibold tracking-tight text-stone-500 transition-all duration-200 hover:text-stone-900 sm:text-sm lg:block"
             >
-              도움말
+              {t("header.help")}
             </button>
             <div className="hidden h-4 w-px bg-stone-200 sm:h-5 lg:block" />
+            <LanguageSwitcher className="hidden xl:inline-flex" />
             <LogoutButton />
           </div>
         ) : (
           <button
-            onClick={() => router.push("/login")}
+            onClick={() => router.push(`/${locale}/login`)}
             className="mr-3 shrink-0 cursor-pointer px-2.5 py-2 text-[12px] font-semibold tracking-tight text-stone-800 transition-all duration-200 hover:text-stone-500 sm:mr-4 sm:px-4 sm:text-sm md:mr-6"
           >
-            로그인
+            {t("common.login")}
           </button>
         )}
+        {!isLoggedIn && <LanguageSwitcher className="mr-3" />}
         </div>
       </header>
     </>
