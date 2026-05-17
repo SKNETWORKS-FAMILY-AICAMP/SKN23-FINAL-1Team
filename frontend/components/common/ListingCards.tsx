@@ -5,6 +5,7 @@ import type { KeyboardEvent } from "react";
 import type { Listing } from "@/components/room-finder/map-view";
 import { FavoriteButton } from "@/components/common/Button";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 interface ListingCardProps {
   listing: Listing;
@@ -40,6 +41,7 @@ export function ListingCard({
   requiresLogin = false,
   onLoginRequired,
 }: ListingCardProps) {
+  const { t } = useI18n();
   const imageSrc = isValidImageSrc(listing.images?.[0])
     ? listing.images[0]
     : null;
@@ -59,7 +61,7 @@ export function ListingCard({
       onClick={handleSelect}
       onKeyDown={handleKeyDown}
       className={cn("w-full min-w-0 overflow-hidden text-left", onClick && "cursor-pointer")}
-      aria-label={onClick ? `${listing.title} 상세 보기` : undefined}
+      aria-label={onClick ? t("listingCard.detailsLabel", { title: listing.title }) : undefined}
     >
       <div
         className={cn(
@@ -87,7 +89,7 @@ export function ListingCard({
                 sizes="(min-width: 768px) 130px, (min-width: 640px) 112px, 100vw"
               />
               <div className="absolute left-1.5 top-1.5 z-10 rounded-md bg-black/50 px-1.5 py-0.5 text-[9px] font-medium text-white backdrop-blur-sm">
-                {listing.structure || "매물"}
+                {listing.structure || t("listingCard.fallbackType")}
               </div>
             </>
           ) : (
@@ -98,7 +100,7 @@ export function ListingCard({
                 <path d="M2 20L9 14L14 18L19 13L26 20" stroke="#aaa" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span className="rounded-md bg-stone-200 px-2 py-0.5 text-[10px] font-medium text-stone-600">
-                {listing.structure || "매물"}
+                {listing.structure || t("listingCard.fallbackType")}
               </span>
             </div>
           )}

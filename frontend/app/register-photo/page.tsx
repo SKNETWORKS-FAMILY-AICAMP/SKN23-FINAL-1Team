@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { Plus, X, CheckCircle } from "lucide-react";
 import { useRegisterStore } from "@/store/registerStore";
 import { useAuthStore } from "@/store/authStore";
+import { useI18n } from "@/lib/i18n";
 
 export default function RegisterPhotoPage() {
+  const { locale } = useI18n();
   const router = useRouter();
   const form = useRegisterStore((state) => state.form);
   const clearForm = useRegisterStore((state) => state.clearForm);
@@ -24,30 +26,30 @@ export default function RegisterPhotoPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!form && !isDone) {
-        router.push("/register");
+        router.push(`/${locale}/register`);
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [form, isDone, router]);
+  }, [form, isDone, locale, router]);
 
   useEffect(() => {
     if (isDone) {
       const timer = setTimeout(() => {
         clearForm();
-        router.push("/home");
+        router.push(`/${locale}/home`);
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [isDone, router, clearForm]);
+  }, [isDone, locale, router, clearForm]);
 
   useEffect(() => {
     if (isDone) {
       const timer = setTimeout(() => {
-        router.push("/home");
+        router.push(`/${locale}/home`);
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [isDone, router]);
+  }, [isDone, locale, router]);
 
   const addPhotos = useCallback((files: FileList | null) => {
     if (!files) return;
@@ -77,7 +79,7 @@ export default function RegisterPhotoPage() {
 
   const handleSubmit = async () => {
     if (!form) {
-      router.push("/register");
+      router.push(`/${locale}/register`);
       return;
     }
 

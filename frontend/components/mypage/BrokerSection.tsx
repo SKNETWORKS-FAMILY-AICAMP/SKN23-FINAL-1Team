@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Building2, Trash2, Pencil, X, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { usePendingListingStore } from "@/store/pendingListingStore";
+import { useI18n } from "@/lib/i18n";
 
 const OPTIONS = [
   { key: "has_air_con", label: "에어컨" },
@@ -123,6 +124,7 @@ const tagActive = "border-[#A8896C] bg-[#A8896C] text-white";
 const tagInactive = "border-stone-200 bg-white text-stone-500 hover:border-stone-400";
 
 export function BrokerSection({ userId }: { userId: number }) {
+  const { locale } = useI18n();
   const router = useRouter();
   const setPendingListing = usePendingListingStore((state) => state.setPendingListing);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -330,7 +332,7 @@ export function BrokerSection({ userId }: { userId: number }) {
       structure: room.room_type ?? "",
       options: [],
     });
-    router.push("/home");
+    router.push(`/${locale}/home`);
   };
 
   if (loading) {

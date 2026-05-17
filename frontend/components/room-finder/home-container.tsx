@@ -37,6 +37,7 @@ import { useFavoriteToast } from "@/hooks/useFavoriteToast";
 import { Toast } from "@/components/common/Toast";
 import { SimilarListingsOverlay } from "@/components/common/SimilarListingsOverlay";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 const PAGE_SIZE = 20;
 const BOUNDS_PRECISION = 5;
@@ -195,6 +196,7 @@ function logSimilarRoomScores(items: Listing[], context: string) {
 }
 
 export function HomeContainer() {
+  const { locale, t } = useI18n();
   const router = useRouter();
   const savedMapBounds = useMapViewStore((state) => state.lastMapBounds);
   const setLastMapBounds = useMapViewStore((state) => state.setLastMapBounds);
@@ -416,7 +418,7 @@ export function HomeContainer() {
   );
 
   const handleFindSimilarBlocked = useCallback(() => {
-    showToast("지역을 검색하거나, 지도를 확대해주세요", "info");
+    showToast(t("home.searchAreaFirst"), "info");
   }, [showToast]);
 
   useEffect(() => {
@@ -1196,7 +1198,7 @@ export function HomeContainer() {
 
   const handleLoginRedirect = useCallback(() => {
     setIsLoginGuideOpen(false);
-    router.push("/login");
+    router.push(`/${locale}/login`);
   }, [router]);
 
   const handleRoomTypeChange = useCallback(
@@ -1265,13 +1267,13 @@ export function HomeContainer() {
                 id="login-guide-title"
                 className="text-xl font-bold tracking-normal text-stone-900"
               >
-                로그인이 필요해요
+                {t("home.loginRequiredTitle")}
               </h2>
               <p
                 id="login-guide-description"
                 className="mt-2 text-sm leading-6 text-stone-500"
               >
-                마음에 드는 매물을 찜하려면 먼저 로그인해 주세요.
+                {t("home.loginRequiredDescription")}
               </p>
             </div>
             <div className="flex flex-col gap-2 px-6 pb-6 pt-5">
@@ -1280,14 +1282,14 @@ export function HomeContainer() {
                 onClick={handleLoginRedirect}
                 className="inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-xl bg-stone-900 px-4 text-sm font-semibold text-white transition hover:bg-stone-800"
               >
-                로그인하러 가기
+                {t("home.goLogin")}
               </button>
               <button
                 type="button"
                 onClick={() => setIsLoginGuideOpen(false)}
                 className="inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-stone-600 transition hover:bg-stone-50"
               >
-                계속 둘러보기
+                {t("home.continueBrowsing")}
               </button>
             </div>
           </div>
@@ -1416,7 +1418,7 @@ export function HomeContainer() {
                   : "text-stone-500 hover:text-stone-800"
               }`}
             >
-              지도
+              {t("home.map")}
             </button>
             <button
               onClick={() => setMobileView("list")}
@@ -1426,7 +1428,7 @@ export function HomeContainer() {
                   : "text-stone-500 hover:text-stone-800"
               }`}
             >
-              매물목록
+              {t("home.listings")}
             </button>
           </div>
         </div>
@@ -1662,7 +1664,7 @@ export function HomeContainer() {
           !isPendingOpenRef.current && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/10">
               <div className="rounded-lg bg-white px-4 py-3 shadow-md">
-                현재 위치 기준 매물 불러오는 중...
+                {t("home.loadingCurrentLocation")}
               </div>
             </div>
           )}

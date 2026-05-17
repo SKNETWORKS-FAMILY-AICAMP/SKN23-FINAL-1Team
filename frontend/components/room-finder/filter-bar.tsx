@@ -20,6 +20,7 @@ import {
   fetchPlaceSuggestions,
   type PlaceSuggestion,
 } from "@/lib/api/places";
+import { useI18n } from "@/lib/i18n";
 
 export interface Filters {
   transactionType: string;
@@ -147,6 +148,7 @@ export function FilterBar({
   onSearchSubmit,
   roomType,
 }: FilterBarProps) {
+  const { locale, t } = useI18n();
   const [priceOpen, setPriceOpen] = useState(false);
   const [structureOpen, setStructureOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -168,6 +170,10 @@ export function FilterBar({
   );
 
   const formatDeposit = (value: number) => {
+    if (locale === "en") {
+      return `₩${(value * 10000).toLocaleString("en-US")}`;
+    }
+
     if (value >= 10000) {
       const eok = Math.floor(value / 10000);
       const rest = value % 10000;
@@ -285,51 +291,53 @@ export function FilterBar({
 
   const sizeLabel =
     filters.size === "all"
-      ? "방 크기"
+      ? t("filters.roomSize")
       : filters.sizeUnit === "m2"
         ? `~ ${filters.size}m²`
-        : `~ ${filters.size}평`;
+        : `~ ${filters.size}${t("filters.pyeong")}`;
 
   const optionItems = [
-    { label: "에어컨", value: "aircon" },
-    { label: "책상", value: "desk" },
-    { label: "냉장고", value: "fridge" },
-    { label: "책장", value: "bookshelf" },
-    { label: "세탁기", value: "washer" },
-    { label: "침대", value: "bed" },
-    { label: "가스레인지", value: "gas_stove" },
-    { label: "인덕션", value: "induction" },
-    { label: "신발장", value: "shoe_cabinet" },
-    { label: "전자레인지", value: "microwave" },
-    { label: "싱크대", value: "sink" },
-    { label: "옷장", value: "closet" },
+    { label: t("filters.aircon"), value: "aircon" },
+    { label: t("filters.desk"), value: "desk" },
+    { label: t("filters.fridge"), value: "fridge" },
+    { label: t("filters.bookshelf"), value: "bookshelf" },
+    { label: t("filters.washer"), value: "washer" },
+    { label: t("filters.bed"), value: "bed" },
+    { label: t("filters.gasStove"), value: "gas_stove" },
+    { label: t("filters.induction"), value: "induction" },
+    { label: t("filters.shoeCabinet"), value: "shoe_cabinet" },
+    { label: t("filters.microwave"), value: "microwave" },
+    { label: t("filters.sink"), value: "sink" },
+    { label: t("filters.closet"), value: "closet" },
   ];
 
   const structureItems = [
-    { label: "오픈형", value: "open" },
-    { label: "분리형", value: "separated" },
-    { label: "복층", value: "duplex" },
+    { label: t("filters.openType"), value: "open" },
+    { label: t("filters.separatedType"), value: "separated" },
+    { label: t("filters.duplex"), value: "duplex" },
   ];
 
   const floorItems = [
-    { label: "층수", value: "all" },
-    { label: "반지하", value: "semi-basement" },
-    { label: "1층", value: "1" },
-    { label: "2층", value: "2" },
-    { label: "3층", value: "3" },
-    { label: "4층 이상", value: "4plus" },
+    { label: t("filters.floor"), value: "all" },
+    { label: t("filters.semiBasement"), value: "semi-basement" },
+    { label: t("filters.firstFloor"), value: "1" },
+    { label: t("filters.secondFloor"), value: "2" },
+    { label: t("filters.thirdFloor"), value: "3" },
+    { label: t("filters.fourthPlus"), value: "4plus" },
   ];
 
   const structureLabel =
     !canFilterStructure || filters.structure.length === 0
-      ? "방 구조"
+      ? t("filters.roomStructure")
       : structureItems
           .filter((item) => filters.structure.includes(item.value))
           .map((item) => item.label)
           .join(", ");
 
   const optionsLabel =
-    filters.options.length === 0 ? "옵션" : `옵션 ${filters.options.length}개`;
+    filters.options.length === 0
+      ? t("filters.options")
+      : t("filters.optionsCount", { count: filters.options.length });
 
   const updateFilter = (
     key: keyof Filters,
@@ -390,28 +398,30 @@ export function FilterBar({
   const priceLabel = (() => {
     if (filters.transactionType === "jeonse") {
       return filters.deposit === "all"
-        ? "보증금"
-        : `전세 ~ ${formatDeposit(filters.deposit)}`;
+        ? t("filters.deposit")
+        : `${t("filters.jeonse")} ~ ${formatDeposit(filters.deposit)}`;
     }
 
     if (filters.transactionType === "monthly") {
       const depositText =
         filters.deposit === "all"
-          ? "보증금"
-          : `보증금 ~ ${formatDeposit(filters.deposit)}`;
+          ? t("filters.deposit")
+          : `${t("filters.deposit")} ~ ${formatDeposit(filters.deposit)}`;
       const rentText =
         filters.monthlyRent === "all"
-          ? "월세"
-          : `월세 ~ ${filters.monthlyRent}만원`;
+          ? t("filters.monthlyRent")
+          : `${t("filters.monthlyRent")} ~ ${filters.monthlyRent}${t("filters.tenThousandWon")}`;
       return `${depositText} / ${rentText}`;
     }
 
     const depositText =
       filters.deposit === "all"
-        ? "보증금"
+        ? t("filters.deposit")
         : `${formatDeposit(filters.deposit)}`;
     const rentText =
-      filters.monthlyRent === "all" ? "월세" : `${filters.monthlyRent}만원`;
+      filters.monthlyRent === "all"
+        ? t("filters.monthlyRent")
+        : `${filters.monthlyRent}${t("filters.tenThousandWon")}`;
     return `${depositText} / ${rentText}`;
   })();
 
@@ -451,9 +461,9 @@ export function FilterBar({
     "cursor-pointer rounded-xl px-3 py-2.5 text-sm font-medium tracking-tight text-stone-700 outline-none transition-colors focus:bg-stone-100 focus:text-stone-900 data-[highlighted]:bg-stone-100 data-[highlighted]:text-stone-900";
 
   const getPlaceTypeLabel = (type: PlaceSuggestion["type"]) => {
-    if (type === "subway_station") return "역";
-    if (type === "dong") return "동";
-    return "구";
+    if (type === "subway_station") return t("filters.station");
+    if (type === "dong") return t("filters.dong");
+    return t("filters.district");
   };
 
   const selectPlaceSuggestion = (place: PlaceSuggestion) => {
@@ -491,7 +501,7 @@ export function FilterBar({
           onKeyDown={handleSearchKeyDown}
           onFocus={() => setIsPlaceSuggestionsOpen(placeSuggestions.length > 0)}
           onBlur={() => window.setTimeout(() => setIsPlaceSuggestionsOpen(false), 120)}
-          placeholder="찾고자 하는 지역을 검색해 주세요."
+          placeholder={t("filters.searchPlaceholder")}
           className="w-full pl-10 pr-4 py-2.5 bg-stone-100 rounded-full border border-stone-200 text-neutral-dark placeholder:text-neutral-muted focus:outline-none focus:border-warm-brown text-sm"
         />
         {isPlaceSuggestionsOpen && (
@@ -531,19 +541,19 @@ export function FilterBar({
           onOpenChange={(open) => setTransactionOpen(open)}
         >
           <SelectTrigger className={selectTriggerClass(isTransactionSelected || transactionOpen)}>
-            <SelectValue placeholder="거래 방식" />
+            <SelectValue placeholder={t("filters.dealMethod")} />
           </SelectTrigger>
           <SelectContent
             className={`w-[160px] ${dropdownContentClass}`}
           >
             <SelectItem value="all" className={selectItemClass}>
-              전/월세
+              {t("filters.allDeals")}
             </SelectItem>
             <SelectItem value="monthly" className={selectItemClass}>
-              월세
+              {t("filters.monthly")}
             </SelectItem>
             <SelectItem value="jeonse" className={selectItemClass}>
-              전세
+              {t("filters.jeonse")}
             </SelectItem>
           </SelectContent>
         </Select>
@@ -564,7 +574,7 @@ export function FilterBar({
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-neutral-dark">
-                    보증금
+                    {t("filters.deposit")}
                   </span>
                   <div className="relative w-28">
                     <Input
@@ -576,13 +586,13 @@ export function FilterBar({
                           parseDepositInput(event.target.value, depositMax),
                         )
                       }
-                      placeholder="전체"
-                      aria-label="보증금 직접 입력"
+                      placeholder={t("common.all")}
+                      aria-label={t("filters.depositInput")}
                       className="h-8 pr-9 text-right text-sm text-neutral-muted"
                     />
                     {depositDraft !== 0 && (
                       <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-neutral-muted">
-                        만원
+                        {t("filters.tenThousandWon")}
                       </span>
                     )}
                   </div>
@@ -609,7 +619,7 @@ export function FilterBar({
                 <div className="flex justify-between gap-2 text-[11px] text-neutral-muted sm:text-xs">
                   {depositMarks.map((mark) => (
                     <span key={mark}>
-                      {mark === 0 ? "전체" : formatDeposit(mark)}
+                      {mark === 0 ? t("common.all") : formatDeposit(mark)}
                     </span>
                   ))}
                 </div>
@@ -619,12 +629,12 @@ export function FilterBar({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-neutral-dark">
-                      월세
+                      {t("filters.monthlyRent")}
                     </span>
                     <span className="text-sm text-neutral-muted">
                       {monthlyRentDraft === 0
-                        ? "전체"
-                        : `${monthlyRentDraft}만원`}
+                        ? t("common.all")
+                        : `${monthlyRentDraft}${t("filters.tenThousandWon")}`}
                     </span>
                   </div>
 
@@ -637,7 +647,7 @@ export function FilterBar({
                   />
 
                   <div className="flex justify-between gap-2 text-[11px] text-neutral-muted sm:text-xs">
-                    <span>전체</span>
+                    <span>{t("common.all")}</span>
                     <span>50</span>
                     <span>100</span>
                     <span>150</span>
@@ -655,14 +665,14 @@ export function FilterBar({
                   }}
                   className="cursor-pointer rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
                 >
-                  초기화
+                  {t("common.reset")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setPriceOpen(false)}
                   className="cursor-pointer rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
                 >
-                  적용
+                  {t("common.apply")}
                 </button>
               </div>
             </div>
@@ -685,10 +695,10 @@ export function FilterBar({
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-semibold text-neutral-dark">
-                    방 구조
+                    {t("filters.roomStructure")}
                   </span>
                   <span className="text-sm text-neutral-muted">
-                    중복선택 가능
+                    {t("filters.multipleSelect")}
                   </span>
                 </div>
 
@@ -719,14 +729,14 @@ export function FilterBar({
                     onClick={resetStructure}
                     className="cursor-pointer rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
                   >
-                    초기화
+                    {t("common.reset")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setStructureOpen(false)}
                     className="cursor-pointer rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
                   >
-                    적용
+                    {t("common.apply")}
                   </button>
                 </div>
               </div>
@@ -749,14 +759,14 @@ export function FilterBar({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-neutral-dark">
-                  최대 면적
+                  {t("filters.maxArea")}
                 </span>
                 <span className="text-sm text-neutral-muted">
                   {sizeDraft === 0
-                    ? "전체"
+                    ? t("common.all")
                     : filters.sizeUnit === "m2"
                       ? `${sizeDraft}m²`
-                      : `${sizeDraft}평`}
+                      : `${sizeDraft}${t("filters.pyeong")}`}
                 </span>
               </div>
 
@@ -785,7 +795,7 @@ export function FilterBar({
                       : "bg-warm-brown text-white"
                   }`}
                 >
-                  평
+                  {t("filters.pyeong")}
                 </button>
 
                 <button
@@ -838,7 +848,7 @@ export function FilterBar({
                 {sizeMarks.map((mark) => (
                   <span key={mark}>
                     {mark === 0
-                      ? "전체"
+                      ? t("common.all")
                       : `${mark}${mark === sizeMax ? "+" : ""}`}
                   </span>
                 ))}
@@ -850,14 +860,14 @@ export function FilterBar({
                   onClick={() => setSizeDraft(0)}
                   className="cursor-pointer rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
                 >
-                  초기화
+                  {t("common.reset")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setSizeOpen(false)}
                   className="cursor-pointer rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
                 >
-                  적용
+                  {t("common.apply")}
                 </button>
               </div>
             </div>
@@ -870,7 +880,7 @@ export function FilterBar({
           onOpenChange={(open) => setFloorOpen(open)}
         >
           <SelectTrigger className={selectTriggerClass(isFloorSelected || floorOpen)}>
-            <SelectValue placeholder="층수" />
+            <SelectValue placeholder={t("filters.floor")} />
           </SelectTrigger>
           <SelectContent
             className={`w-[160px] ${dropdownContentClass}`}
@@ -902,10 +912,10 @@ export function FilterBar({
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <span className="text-lg font-semibold text-neutral-dark">
-                  매물 옵션
+                  {t("filters.listingOptions")}
                 </span>
                 <span className="text-sm text-neutral-muted">
-                  중복선택 가능
+                  {t("filters.multipleSelect")}
                 </span>
               </div>
 
@@ -936,14 +946,14 @@ export function FilterBar({
                   onClick={resetOptions}
                   className="cursor-pointer rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
                 >
-                  초기화
+                  {t("common.reset")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setOptionsOpen(false)}
                   className="cursor-pointer rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
                 >
-                  적용
+                  {t("common.apply")}
                 </button>
               </div>
             </div>
@@ -954,8 +964,8 @@ export function FilterBar({
           type="button"
           onClick={resetAllFilters}
           disabled={!hasActiveFilters}
-          aria-label="전체 초기화"
-          title="전체 초기화"
+          aria-label={t("filters.resetAll")}
+          title={t("filters.resetAll")}
           className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-stone-200/80 bg-white/90 text-stone-500 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-stone-300 hover:bg-white hover:text-stone-900 disabled:cursor-default disabled:opacity-40 disabled:hover:border-stone-200/80 disabled:hover:text-stone-500"
         >
           <RotateCcw className="h-4 w-4" />

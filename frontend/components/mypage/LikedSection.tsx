@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/favorites";
 import { fetchRoomDetail } from "@/lib/api/rooms";
 import { usePendingListingStore } from "@/store/pendingListingStore";
+import { useI18n } from "@/lib/i18n";
 
 type RoomTab = "all" | "oneroom" | "tworoom";
 
@@ -53,6 +54,7 @@ interface LikedSectionProps {
 }
 
 export function LikedSection({ userId }: LikedSectionProps) {
+  const { locale, t } = useI18n();
   const router = useRouter();
   const setPendingListing = usePendingListingStore((state) => state.setPendingListing);
   const [activeTab, setActiveTab] = useState<RoomTab>("all");
@@ -136,7 +138,7 @@ export function LikedSection({ userId }: LikedSectionProps) {
       structure: property.structure,
       options: [],
     });
-    router.push("/home");
+    router.push(`/${locale}/home`);
   };
 
   const filteredLiked = likedProperties.filter((p) => {
@@ -147,7 +149,7 @@ export function LikedSection({ userId }: LikedSectionProps) {
   return (
     <div>
       <p className="mb-3 text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400 md:mb-4">
-        찜한 매물
+        {t("mypageSections.likedTitle")}
       </p>
       <div className="mb-3 inline-flex items-center gap-1 rounded-full border border-stone-200/80 bg-white/65 p-1 shadow-[0_12px_32px_rgba(15,23,42,0.06)] backdrop-blur-md md:mb-4 md:gap-1.5 md:p-1.5">
         {(["all", "oneroom", "tworoom"] as const).map((tab) => (
@@ -161,17 +163,21 @@ export function LikedSection({ userId }: LikedSectionProps) {
                 : "text-stone-500 hover:text-stone-800",
             )}
           >
-            {tab === "all" ? "전체" : tab === "oneroom" ? "원룸" : "투룸"}
+            {tab === "all"
+              ? t("mypageSections.all")
+              : tab === "oneroom"
+                ? t("mypageSections.oneRoom")
+                : t("mypageSections.twoRoom")}
           </button>
         ))}
       </div>
       {isLoading ? (
         <div className="py-10 text-center text-sm font-medium text-stone-400">
-          불러오는 중...
+          {t("mypageSections.loading")}
         </div>
       ) : filteredLiked.length === 0 ? (
         <div className="rounded-[20px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500">
-          찜한 매물이 없습니다.
+          {t("mypageSections.emptyLiked")}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-3">

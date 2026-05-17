@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useRegisterStore } from "@/store/registerStore";
 import { ChevronDown, ChevronUp, Check } from "lucide-react";
 import { useState } from "react";
+import { useI18n } from "@/lib/i18n";
 
 declare global {
   interface Window { daum: any; }
@@ -64,6 +65,7 @@ const ErrorMsg = ({ msg }: { msg?: string }) =>
   </p> : null;
 
 export default function RegisterPage() {
+  const { locale } = useI18n();
   const router = useRouter();
   const { user, isLoggedIn } = useAuthStore();
   const setRegisterForm = useRegisterStore((state) => state.setForm);
@@ -163,7 +165,7 @@ export default function RegisterPage() {
   };
 
   const handleSubmit = () => {
-    if (!isLoggedIn) { router.push("/login"); return; }
+    if (!isLoggedIn) { router.push(`/${locale}/login`); return; }
 
     const allErrors: Record<string, string> = {};
     Object.assign(allErrors, validateSection("basic"), validateSection("transaction"));
@@ -229,7 +231,7 @@ export default function RegisterPage() {
       dist_mart: form.dist_mart ? parseInt(form.dist_mart) : null,
       dist_laundry: form.dist_laundry ? parseInt(form.dist_laundry) : null,
     });
-    router.push("/register-photo");
+    router.push(`/${locale}/register-photo`);
   };
 
   const renderSectionContent = (sectionId: SectionId) => {
