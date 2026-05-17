@@ -41,14 +41,28 @@ def save_or_update_gallery_embedding(
     user_id: int,
     image_url: str,
     embedding: list[float],
+    gallery_image_id: int | None = None,
 ):
     serialized_embedding = _serialize_embedding(embedding)
-    gallery_item = (
-        db.query(UserItemImage)
-        .filter(UserItemImage.user_id == user_id, UserItemImage.image_url == image_url)
-        .order_by(UserItemImage.created_at.desc(), UserItemImage.id.desc())
-        .first()
-    )
+    gallery_item = None
+
+    if gallery_image_id is not None:
+        gallery_item = (
+            db.query(UserItemImage)
+            .filter(
+                UserItemImage.id == gallery_image_id,
+                UserItemImage.user_id == user_id,
+            )
+            .first()
+        )
+
+    if gallery_item is None:
+        gallery_item = (
+            db.query(UserItemImage)
+            .filter(UserItemImage.user_id == user_id, UserItemImage.image_url == image_url)
+            .order_by(UserItemImage.created_at.desc(), UserItemImage.id.desc())
+            .first()
+        )
 
     filename = _get_image_filename(image_url)
     if gallery_item is None and filename is not None:

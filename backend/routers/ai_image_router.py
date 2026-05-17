@@ -113,6 +113,7 @@ class GenerateImageJobStatusResponse(BaseModel):
 class FindSimilarRoomsRequest(RoomListRequest):
     image_url: str
     user_id: int | None = None
+    gallery_image_id: int | None = None
     exclude_item_id: int | None = None
     source_image_id: int | None = None
 
@@ -492,6 +493,7 @@ async def find_similar_rooms_endpoint(
                 user_id=body.user_id,
                 image_url=body.image_url,
                 embedding=embedding,
+                gallery_image_id=body.gallery_image_id,
             )
 
         result = get_rooms_by_similarity(db, req=body, embedding=embedding)

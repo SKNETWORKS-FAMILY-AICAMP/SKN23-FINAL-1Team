@@ -76,8 +76,12 @@ export function GallerySection({ userId }: GallerySectionProps) {
     }
   };
 
-  const handleFindSimilar = (imageUrl: string) => {
-    router.push(`/${locale}/home?similarImageUrl=${encodeURIComponent(imageUrl)}`);
+  const handleFindSimilar = (imageUrl: string, imageId: number) => {
+    const params = new URLSearchParams({
+      similarImageUrl: imageUrl,
+      galleryImageId: String(imageId),
+    });
+    router.push(`/${locale}/home?${params.toString()}`);
   };
 
   if (isLoading) {
@@ -140,7 +144,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
 
               <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100 pointer-events-none">
                 <button
-                  onClick={() => handleFindSimilar(item.image_url)}
+                  onClick={() => handleFindSimilar(item.image_url, item.id)}
                   className="rounded-full bg-[#5C8A62] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#4a7050] pointer-events-auto"
                 >
                   {t("mypageSections.findSimilar")}
@@ -218,7 +222,7 @@ export function GallerySection({ userId }: GallerySectionProps) {
               </p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <button
-                  onClick={() => handleFindSimilar(selectedImage.image_url)}
+                  onClick={() => handleFindSimilar(selectedImage.image_url, selectedImage.id)}
                   className="flex-1 rounded-xl bg-[#5C8A62] py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#4a7050]"
                 >
                   {t("mypageSections.findSimilarWithImage")}
