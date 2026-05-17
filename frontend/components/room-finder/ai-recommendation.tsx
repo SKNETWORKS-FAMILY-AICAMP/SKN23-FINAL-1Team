@@ -2,6 +2,7 @@
 
 import { type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Loader2, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HouseCatchGame } from "@/components/room-finder/HouseCatchGame";
@@ -58,6 +59,7 @@ interface PromptInputWithUploadProps {
   onFileClick: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  disabled?: boolean;
 }
 
 const PromptInputWithUpload = ({
@@ -73,6 +75,7 @@ const PromptInputWithUpload = ({
   onFileClick,
   fileInputRef,
   onFileChange,
+  disabled = false,
 }: PromptInputWithUploadProps) => (
   <div className="flex w-full flex-col gap-1.5">
     {attachedFile && (
@@ -108,7 +111,8 @@ const PromptInputWithUpload = ({
     >
       <button
         type="button"
-        onClick={onFileClick}
+        onClick={disabled ? undefined : onFileClick}
+        disabled={disabled}
         className="flex h-full flex-shrink-0 items-center justify-center border-r border-[#d6cfc8] bg-white px-3 transition-colors hover:bg-stone-50"
         style={{ minHeight: inputSize === "md" ? "42px" : "36px" }}
         title="이미지 첨부 (PNG, JPEG)"
@@ -126,9 +130,10 @@ const PromptInputWithUpload = ({
         value={value}
         onChange={onChange}
         onKeyDown={onKeyDown}
+        disabled={disabled}
         placeholder={isDragging ? "이미지를 여기에 놓으세요" : placeholder}
         className={cn(
-          "min-w-0 flex-1 bg-[#faf7f4] text-stone-800 placeholder:text-stone-400 transition-colors focus:bg-white focus:outline-none",
+          "min-w-0 flex-1 bg-[#faf7f4] text-stone-800 placeholder:text-stone-400 transition-colors focus:bg-white focus:outline-none disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400",
           inputSize === "md" ? "px-3 py-2.5 text-sm" : "px-3 py-2 text-xs",
         )}
       />
@@ -142,6 +147,7 @@ const PromptInputWithUpload = ({
       accept="image/png,image/jpeg"
       className="hidden"
       onChange={onFileChange}
+      disabled={disabled}
     />
   </div>
 );
@@ -194,7 +200,9 @@ export function AIRecommendation({
   canFindSimilarRooms = true,
   onFindSimilarBlocked,
 }: AIRecommendationProps) {
+  const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const updateUser = useAuthStore((state) => state.updateUser);
   const hasHydrated = useAIImageSessionStore((state) => state.hasHydrated);
   const screen = useAIImageSessionStore((state) => state.screen);
@@ -231,6 +239,7 @@ export function AIRecommendation({
     () => generatedImages.find((image) => image.id === selectedImageId) ?? null,
     [generatedImages, selectedImageId],
   );
+  const isAIInputLocked = !isLoggedIn;
   const promptHistory = generatedImages[0]?.promptHistory ?? [];
   const promptTimestamps = generatedImages[0]?.promptTimestamps ?? [];
 
@@ -601,6 +610,11 @@ export function AIRecommendation({
   ]);
 
   const handleGenerate = async (overridePrompt?: string) => {
+    if (!isLoggedIn) {
+      setMessage("로그인 후 AI 이미지를 생성할 수 있습니다.");
+      return;
+    }
+
     const activePrompt = (overridePrompt ?? prompt).trim();
     if (!activePrompt || isGenerating) return;
 
@@ -791,6 +805,10 @@ export function AIRecommendation({
     removeFile();
   };
 
+  const handleLoginRedirect = () => {
+    router.push("/login");
+  };
+
   const renderImageGroup = (group: AIImageGroup) => {
     const activeGroupId = imageGroups[imageGroups.length - 1]?.id ?? group.id;
     const isActiveGroup = group.id === activeGroupId;
@@ -897,7 +915,10 @@ export function AIRecommendation({
       <div className="border-t border-border-warm bg-linen p-3 md:p-4">
         <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
           <span className="shrink-0 text-xs text-neutral-muted md:text-sm">
-            {message || "원하는 방 조건을 입력하면 4개의 이미지를 생성해드려요."}
+            {message ||
+              (isAIInputLocked
+                ? "로그인하면 AI 추천 이미지를 생성할 수 있습니다."
+                : "원하는 방 조건을 입력하면 4개의 이미지를 생성해드려요.")}
           </span>
           <div className="flex w-full items-start gap-2 sm:flex-1">
             <PromptInputWithUpload
@@ -906,15 +927,18 @@ export function AIRecommendation({
               onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
               placeholder="다시 생성하려면 프롬프트를 입력하세요..."
               inputSize="sm"
+              disabled={isAIInputLocked}
               {...sharedFileProps}
             />
             <button
-              onClick={() => handleGenerate()}
-              disabled={isGenerating || !prompt.trim()}
+              onClick={isAIInputLocked ? handleLoginRedirect : () => handleGenerate()}
+              disabled={!isAIInputLocked && (isGenerating || !prompt.trim())}
               className="rounded-lg border border-border-warm bg-linen px-3 py-2 text-xs font-medium text-neutral-dark disabled:cursor-not-allowed disabled:opacity-50 md:px-4 md:text-sm"
             >
               {isGenerating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isAIInputLocked ? (
+                "로그인"
               ) : (
                 "입력"
               )}
@@ -937,9 +961,9 @@ export function AIRecommendation({
       {screen === "init" && (
         <div
           className="flex flex-1 flex-col items-center justify-start gap-4 overflow-y-auto px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6 sm:justify-center sm:gap-5 sm:py-8"
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
+          onDragOver={isAIInputLocked ? undefined : handleDragOver}
+          onDragLeave={isAIInputLocked ? undefined : handleDragLeave}
+          onDrop={isAIInputLocked ? undefined : handleDrop}
         >
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#e8e0d5] bg-[#f5f0eb]">
             <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
@@ -987,35 +1011,40 @@ export function AIRecommendation({
               onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
               placeholder="예) 복층 구조에 채광 좋은 원룸..."
               inputSize="md"
+              disabled={isAIInputLocked}
               {...sharedFileProps}
             />
             <button
-              onClick={() => handleGenerate()}
-              disabled={isGenerating || !prompt.trim()}
+              onClick={isAIInputLocked ? handleLoginRedirect : () => handleGenerate()}
+              disabled={!isAIInputLocked && (isGenerating || !prompt.trim())}
               className="w-full rounded-xl bg-stone-700 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isGenerating ? (
                 <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+              ) : isAIInputLocked ? (
+                "로그인하고 생성하기"
               ) : (
                 "이미지 생성하기!"
               )}
             </button>
           </div>
 
-          <div className="grid w-full grid-cols-2 gap-2">
-            {QUICK_PROMPTS.map((quickPrompt) => (
-              <button
-                key={quickPrompt}
-                onClick={() => {
-                  setPrompt(quickPrompt);
-                  handleGenerate(quickPrompt);
-                }}
-                className="overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-[#e8e0d5] bg-[#faf7f4] px-3 py-2 text-xs text-stone-500 transition-all hover:border-[#a8896c] hover:bg-[#f5f0eb] hover:text-[#a8896c]"
-              >
-                {quickPrompt}
-              </button>
-            ))}
-          </div>
+          {!isAIInputLocked && (
+            <div className="grid w-full grid-cols-2 gap-2">
+              {QUICK_PROMPTS.map((quickPrompt) => (
+                <button
+                  key={quickPrompt}
+                  onClick={() => {
+                    setPrompt(quickPrompt);
+                    handleGenerate(quickPrompt);
+                  }}
+                  className="overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-[#e8e0d5] bg-[#faf7f4] px-3 py-2 text-xs text-stone-500 transition-all hover:border-[#a8896c] hover:bg-[#f5f0eb] hover:text-[#a8896c]"
+                >
+                  {quickPrompt}
+                </button>
+              ))}
+            </div>
+          )}
 
           {message && <p className="text-center text-xs text-red-500">{message}</p>}
         </div>
