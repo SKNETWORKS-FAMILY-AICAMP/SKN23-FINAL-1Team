@@ -1683,9 +1683,16 @@ export function HomeContainer() {
 
         {(isInitialLoading && isLoading && listings.length === 0 && !selectedListing) &&
           !isPendingOpenRef.current && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/10">
-              <div className="rounded-lg bg-white px-4 py-3 shadow-md">
-                {t("home.loadingCurrentLocation")}
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/10 px-4 backdrop-blur-[1px]">
+              <div className="w-full max-w-[640px] overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
+                <Image
+                  src="/loading-room-finder.png"
+                  alt={t("home.loadingCurrentLocation")}
+                  width={1024}
+                  height={576}
+                  priority
+                  className="block aspect-video w-full object-cover"
+                />
               </div>
             </div>
           )}
