@@ -105,11 +105,11 @@ const DetailRow = ({
 }) => {
   if (value === undefined || value === null || value === "") return null;
   return (
-    <div className="flex flex-col gap-1 border-b border-stone-200/80 py-4 last:border-b-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+    <div className="flex items-start justify-between gap-4 border-b border-stone-200/80 py-4 last:border-b-0">
       <span className="shrink-0 text-[13px] font-medium tracking-tight text-stone-500">
         {label}
       </span>
-      <span className="break-words text-sm font-semibold leading-6 text-stone-800 sm:max-w-[65%] sm:text-right">
+      <span className="max-w-[65%] break-words text-right text-sm font-semibold leading-6 text-stone-800">
         {value}
       </span>
     </div>
@@ -186,7 +186,7 @@ const MarketPriceSection = ({
 
       {shouldShowRentForecast && (
         <>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-3 gap-2">
             <div className="rounded-2xl border border-stone-100 bg-stone-50 p-3">
               <p className="text-[11px] font-semibold text-stone-500">
                 현재 ㎡당 시세
@@ -621,9 +621,9 @@ export function ListingDetailPanel({
               상세 정보를 불러오는 중...
             </div>
           ) : (
-            <div className="space-y-5 px-4 py-5 sm:space-y-7 sm:px-5 sm:py-6">
-              <section className="rounded-2xl border border-stone-200/80 bg-white/90 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)] sm:rounded-[28px] sm:p-5">
-                <h2 className="text-xl font-bold leading-7 tracking-tight text-stone-900 sm:text-[24px] sm:leading-8">
+            <div className="space-y-7 px-5 py-6">
+              <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+                <h2 className="text-[24px] font-bold leading-8 tracking-tight text-stone-900">
                   {currentItem?.title || listing.title || "제목 없는 매물"}
                 </h2>
                 <div className="mt-3 flex items-start gap-2.5 text-sm text-stone-500">
@@ -635,7 +635,7 @@ export function ListingDetailPanel({
                   </span>
                 </div>
                 <div className="mt-5 overflow-hidden rounded-[24px] border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_24px_rgba(245,158,11,0.08)]">
-                  <p className="mt-2 text-2xl font-extrabold tracking-tight text-stone-900 sm:text-[30px]">
+                  <p className="mt-2 text-[30px] font-extrabold tracking-tight text-stone-900">
                     {formatPrice(currentItem?.deposit, currentItem?.rent)}
                   </p>
                   {currentItem?.manage_cost !== undefined &&
@@ -647,7 +647,7 @@ export function ListingDetailPanel({
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-stone-200/80 bg-white/90 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)] sm:rounded-[28px] sm:p-5">
+              <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
                 <div className="mb-4 flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
                     <Building2 className="h-4 w-4" />
@@ -692,25 +692,12 @@ export function ListingDetailPanel({
                     }
                   />
                   <DetailRow label="욕실 수" value={features?.bathroom_count} />
-                </div>
-              </section>
-
-              <section className="rounded-2xl border border-stone-200/80 bg-white/90 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)] sm:rounded-[28px] sm:p-5">
-                <div className="mb-4 flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
-                    <Ruler className="h-4 w-4" />
-                  </div>
-                  <h3 className="text-base font-bold tracking-tight text-stone-900">
-                    면적/위치
-                  </h3>
-                </div>
-                <div className="rounded-2xl border border-stone-100 bg-white px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                   {areaText && (
-                    <div className="flex flex-col gap-3 border-b border-stone-200/80 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                    <div className="flex items-center justify-between gap-4 border-b border-stone-200/80 py-4 last:border-b-0">
                       <span className="shrink-0 text-[13px] font-medium tracking-tight text-stone-500">
                         면적
                       </span>
-                      <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-3">
                         <div className="flex rounded-lg border border-stone-200 overflow-hidden text-xs font-semibold">
                           <button
                             type="button"
@@ -741,6 +728,20 @@ export function ListingDetailPanel({
                       </div>
                     </div>
                   )}
+                </div>
+              </section>
+
+              <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
+                    <Ruler className="h-4 w-4" />
+                  </div>
+                  <h3 className="text-base font-bold tracking-tight text-stone-900">
+                    편의시설 거리
+                  </h3>
+                </div>
+                <div className="rounded-2xl border border-stone-100 bg-white px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  {/* 면적은 기본 정보 섹션으로 이동 */}
                   <DetailRow
                     label="지하철 거리"
                     value={
@@ -780,7 +781,7 @@ export function ListingDetailPanel({
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-stone-200/80 bg-white/90 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)] sm:rounded-[28px] sm:p-5">
+              <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
                 <h3 className="mb-4 text-base font-bold tracking-tight text-stone-900">
                   옵션
                 </h3>
@@ -819,7 +820,7 @@ export function ListingDetailPanel({
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-stone-200/80 bg-white/90 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)] sm:rounded-[28px] sm:p-5">
+              <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
                 <h3 className="mb-4 text-base font-bold tracking-tight text-stone-900">
                   생활권
                 </h3>
@@ -859,7 +860,7 @@ export function ListingDetailPanel({
 
               {/* 중개사 정보 */}
               {detail?.broker && (
-                <section className="rounded-2xl border border-stone-200/80 bg-white/90 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)] sm:rounded-[28px] sm:p-5">
+                <section className="rounded-[28px] border border-stone-200/80 bg-white/90 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
                   <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-stone-100 text-stone-700">
@@ -879,7 +880,7 @@ export function ListingDetailPanel({
                       </a>
                     )}
                   </div>
-                  <div className="flex flex-col gap-3 sm:flex-row">
+                  <div className="flex gap-3">
                     <div className="flex flex-[4] items-center justify-center">
                       <div className="h-[90px] w-[90px] overflow-hidden rounded-full border border-stone-200 bg-stone-100">
                         {detail.broker.photo_url ? (
