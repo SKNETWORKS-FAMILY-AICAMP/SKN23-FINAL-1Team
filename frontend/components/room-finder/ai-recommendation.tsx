@@ -3,7 +3,7 @@
 import { type DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Loader2, Maximize2 } from "lucide-react";
+import { Loader2, Maximize2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HouseCatchGame } from "@/components/room-finder/HouseCatchGame";
 import type { Listing } from "./map-view";
@@ -970,11 +970,33 @@ export function AIRecommendation({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden relative">
-      {showGame && (
+      {showGame && isGenerating && (
         <HouseCatchGame
-          isGenerating={isGenerating || isEditing}
+          isGenerating={isGenerating}
           onClose={() => setShowGame(false)}
         />
+      )}
+      {showGame && isEditing && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/10 px-4 backdrop-blur-[1px]">
+          <div className="relative w-full max-w-[640px] overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
+            <button
+              type="button"
+              onClick={() => setShowGame(false)}
+              className="absolute right-3 top-3 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/90 text-stone-700 shadow-md transition hover:bg-white hover:text-stone-950"
+              aria-label="이미지 수정 로딩창 닫기"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <Image
+              src="/loading-room-finder.png"
+              alt="이미지를 수정하는 중입니다."
+              width={1024}
+              height={576}
+              priority
+              className="block aspect-video w-full object-cover"
+            />
+          </div>
+        </div>
       )}
       <div style={{ visibility: showGame ? "hidden" : "visible", display: "contents" }}>
       {screen === "init" && (
