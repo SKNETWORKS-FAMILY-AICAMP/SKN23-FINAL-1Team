@@ -45,7 +45,7 @@ const QUICK_PROMPTS = [
 
 const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg"];
 const IMAGE_JOB_POLL_INTERVAL_MS = 2000;
-const IMAGE_JOB_MAX_ATTEMPTS = 120;
+const IMAGE_JOB_MAX_ATTEMPTS = 900;
 
 interface PromptInputWithUploadProps {
   value: string;
