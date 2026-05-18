@@ -29,12 +29,12 @@ export function FavoriteButton({
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        onClick();
+        if (!disabled) onClick();
       }}
-      disabled={disabled}
       aria-label={isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
       className={cn(
-        "inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/70 bg-white/90 shadow-md backdrop-blur transition hover:scale-105 disabled:cursor-pointer disabled:opacity-50",
+        "inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/70 bg-white/90 shadow-md backdrop-blur transition hover:scale-105",
+        disabled && "opacity-50",
         className,
       )}
     >
