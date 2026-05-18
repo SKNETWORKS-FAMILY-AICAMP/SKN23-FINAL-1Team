@@ -595,6 +595,7 @@ export function AIRecommendation({
         if (!isActive) return;
         setIsGenerating(false);
         setIsEditing(false);
+        setShowGame(false);
         resumedJobIdRef.current = null;
       }
     };
@@ -649,6 +650,7 @@ export function AIRecommendation({
       );
     } finally {
       setIsGenerating(false);
+      setShowGame(false);
       resumedJobIdRef.current = null;
     }
   };
