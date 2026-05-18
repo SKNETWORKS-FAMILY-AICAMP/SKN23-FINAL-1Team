@@ -562,6 +562,7 @@ export function HomeContainer() {
 
   useEffect(() => {
     if (prevRequestKeyRef.current === requestKey) return;
+    const isFirstRequest = prevRequestKeyRef.current === "";
     const isSortOnlyChange = prevFilterKeyRef.current === filterKey;
 
     prevRequestKeyRef.current = requestKey;
@@ -596,7 +597,7 @@ export function HomeContainer() {
     setOffset(0);
     setHasMore(true);
     setHasRequestFailed(false);
-    setIsInitialLoading(true);
+    setIsInitialLoading(isFirstRequest);
   }, [filterKey, requestKey, similarImageUrl]);
 
   useEffect(() => {
