@@ -12,7 +12,7 @@ import re
 import json
 
 import requests
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from openai import BadRequestError
 from pydantic import BaseModel
@@ -36,6 +36,7 @@ from services.ai_image_job_service import (
     update_edit_job,
     update_generate_job,
 )
+from services.ai_image_queue_service import enqueue_image_job
 from services.embedding_service import EmbeddingService
 from services.gallery_service import save_or_update_gallery_embedding
 from services.room_service import get_rooms_by_similarity
@@ -266,11 +267,18 @@ def _run_generate_image_job(job_id: str, body: GenerateImageRequest):
 @router.post("/generate-image-jobs", response_model=GenerateImageJobCreateResponse)
 async def create_generate_image_job(
     body: GenerateImageRequest,
-    background_tasks: BackgroundTasks,
 ):
     print(f"[generate-image-job] user_prompt={body.user_prompt}")
     job = create_generate_job()
-    background_tasks.add_task(_run_generate_image_job, job["job_id"], body)
+    queue_size = enqueue_image_job(
+        job["job_id"],
+        "generate",
+        lambda: _run_generate_image_job(job["job_id"], body),
+    )
+    print(
+        f"[generate-image-job] queued job_id={job['job_id']}, queue_size={queue_size}",
+        flush=True,
+    )
 
     return {
         "job_id": job["job_id"],
@@ -395,7 +403,6 @@ def _run_edit_image_job(job_id: str, body: EditImageRequest):
 @router.post("/edit-image-jobs", response_model=EditImageJobCreateResponse)
 async def create_edit_image_job(
     body: EditImageRequest,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     print(
@@ -413,7 +420,15 @@ async def create_edit_image_job(
         raise HTTPException(status_code=400, detail="이미지 수정은 최대 2번까지 가능합니다.")
 
     job = create_edit_job(body.user_id)
-    background_tasks.add_task(_run_edit_image_job, job["job_id"], body)
+    queue_size = enqueue_image_job(
+        job["job_id"],
+        "edit",
+        lambda: _run_edit_image_job(job["job_id"], body),
+    )
+    print(
+        f"[edit-image-job] queued job_id={job['job_id']}, queue_size={queue_size}",
+        flush=True,
+    )
 
     return {
         "job_id": job["job_id"],
