@@ -10,13 +10,14 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from predict_ensemble import EnsemblePredictor
+from predict_xgbboost import XGBoostPredictor
 from utils import calculate_actual_converted_rent
 from db_connection import db_connection
 
 def update_prices():
-    print("앙상블 모델 로딩 중...")
-    ensemble = EnsemblePredictor()
+    print("XGBoost 모델 로딩 중...")
+    xgb_off = XGBoostPredictor("ml_research/xgboost/xgb_officetel.json")
+    xgb_one = XGBoostPredictor("ml_research/xgboost/xgb_oneroom.json")
     
     print("DB 연결 중...")
     engine = db_connection()
@@ -60,8 +61,7 @@ def update_prices():
     FROM items i
     INNER JOIN item_features t ON i.item_id = t.item_id
     LEFT JOIN room_agg r ON i.item_id = r.item_id
-    LEFT JOIN bath_agg b ON i.item_id = b.item_id
-    where i.recommendation_score is null;
+    LEFT JOIN bath_agg b ON i.item_id = b.item_id;
     """
         raw_df = pd.read_sql(query, engine)
         
@@ -77,18 +77,18 @@ def update_prices():
         # 3. 실제 환산 월세 계산
         df['actual_converted_rent'] = calculate_actual_converted_rent(df)
 
-        # 4. 앙상블 가격 예측
+        # 4. XGBoost 가격 예측
         officetel_mask = df['service_type'] == '오피스텔'
         oneroom_mask = ~df['service_type'].isin(['오피스텔', '쓰리룸'])
         df['predicted_price'] = np.nan
         
         if officetel_mask.any():
             print(f"오피스텔 {officetel_mask.sum()}개 예측 중...")
-            df.loc[officetel_mask, 'predicted_price'] = ensemble.predict(df[officetel_mask], model_type='officetel')
+            df.loc[officetel_mask, 'predicted_price'] = xgb_off.predict(df[officetel_mask])
             
         if oneroom_mask.any():
             print(f"원룸/투룸군 {oneroom_mask.sum()}개 예측 중...")
-            df.loc[oneroom_mask, 'predicted_price'] = ensemble.predict(df[oneroom_mask], model_type='oneroom')
+            df.loc[oneroom_mask, 'predicted_price'] = xgb_one.predict(df[oneroom_mask])
 
         # 5. 추천도(가성비 지수) 계산
         df['recommendation_score'] = (df['predicted_price'] / (df['actual_converted_rent'] + 1e-9)) * 100

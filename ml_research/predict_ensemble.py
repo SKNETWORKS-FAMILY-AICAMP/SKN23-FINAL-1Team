@@ -5,6 +5,7 @@ from predict_catboost import CatBoostPredictor
 from predict_lightgbm import LightGBMPredictor
 from predict_randomforest import RandomForestPredictor
 from predict_xgbboost import XGBoostPredictor
+from sklearn.metrics import r2_score, mean_squared_error
 
 class EnsemblePredictor:
     def __init__(self):
@@ -63,15 +64,63 @@ class EnsemblePredictor:
 
 if __name__ == "__main__":
     ensemble = EnsemblePredictor()
-    sample_data = pd.DataFrame([{
-        "room_type": "원룸", "floor": "3", "all_floors": 5, "area_m2": 20.5,
-        "bathroom_count": 1, "room_direction": "S", "address": "서울시 강남구 역삼동",
-        "deposit": 1000, "rent": 60, "approve_date": "2020-01-01",
-        "room_quality_score": 8, "bath_clean_score": 8
-    }])
     
-    result = ensemble.predict(sample_data, model_type='officetel')
-    if result is not None and len(result) > 0:
-        print(f"앙상블 예측 결과: {result[0]:.2f} 만원")
-    else:
-        print("로드된 모델이 없거나 예측에 실패했어.")
+    # 평가용 데이터 경로
+    data_paths = {
+        'officetel': "/home/heartsping/SKN23-FINAL-1team/ml_research/processed_data/officetel_processed_items_data_2026-04-22.csv",
+        'oneroom': "/home/heartsping/SKN23-FINAL-1team/ml_research/processed_data/oneroom_processed_items_data_2026-04-22.csv"
+    }
+
+    for model_type, path in data_paths.items():
+        if os.path.exists(path):
+            print(f"\n--- {model_type} 성능 평가 시작 ---")
+            try:
+                df = pd.read_csv(path)
+                
+                # 타겟 변수 분리
+                if 'converted_monthly_rent' not in df.columns:
+                    print(f"Error: {path} 에 'converted_monthly_rent' 컬럼이 없어!")
+                    continue
+                
+                # 이상치 필터링 (현실적인 범위: 1000만원 이하)
+                mask = df['converted_monthly_rent'] <= 1000
+                df_filtered = df[mask].copy()
+                if len(df_filtered) < len(df):
+                    print(f"이상치 필터링됨: {len(df) - len(df_filtered)} 건 제거됨")
+                
+                y_true = df_filtered['converted_monthly_rent']
+                
+                # 예측 (앙상블)
+                y_pred = ensemble.predict(df_filtered, model_type=model_type)
+                
+                if y_pred is not None and len(y_pred) == len(y_true):
+                    # 성능 지표 계산
+                    r2 = r2_score(y_true, y_pred)
+                    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+                    
+                    print(f"데이터 크기: {len(df)} 건")
+                    print(f"R2 Score: {r2:.4f}")
+                    print(f"RMSE: {rmse:.4f}")
+
+                    # 이상치/결측치 체크
+                    print(f"\n[데이터 품질 체크]")
+                    print(f"True - NaN: {np.isnan(y_true).sum()}, Inf: {np.isinf(y_true).sum()}")
+                    print(f"Pred - NaN: {np.isnan(y_pred).sum()}, Inf: {np.isinf(y_pred).sum()}")
+                    print(f"True range: [{y_true.min():.2f}, {y_true.max():.2f}]")
+                    print(f"Pred range: [{y_pred.min():.2f}, {y_pred.max():.2f}]")
+                    
+                    # 샘플 출력
+                    print("\n[상위 10개 예측 결과 비교]")
+                    comparison = pd.DataFrame({
+                        'True': y_true[:10].values,
+                        'Pred': y_pred[:10]
+                    })
+                    print(comparison)
+                else:
+                    print(f"{model_type} 모델로 예측할 수 없어 (로드된 모델 부족 또는 데이터 크기 불일치).")
+            except Exception as e:
+                import traceback
+                print(f"{model_type} 평가 중 에러 발생: {e}")
+                traceback.print_exc()
+        else:
+            print(f"파일을 찾을 수 없어: {path}")

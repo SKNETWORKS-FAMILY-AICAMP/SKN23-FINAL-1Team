@@ -55,15 +55,18 @@ def preprocess_for_inference(df, drop_invalid=False):
     
     # 6. 층수 처리
     if 'floor' in df.columns and 'all_floors' in df.columns:
-        df["is_semi_basement"] = df["floor"].astype(str).str.contains("반지하", na = False)
-        df["is_rooftop"] = df["floor"].astype(str).str.contains("옥탑방", na = False)
-        df['is_first_floor'] = (df['floor'].astype(str).str.strip() == '1').astype(int)
+        # DB에서 가져온 경우 StringDtype일 수 있으므로 안전하게 처리
+        df['floor'] = df['floor'].astype(str).str.strip()
+        df['all_floors'] = pd.to_numeric(df['all_floors'], errors='coerce').fillna(1).astype(int)
+
+        df["is_semi_basement"] = df["floor"].str.contains("반지하", na=False)
+        df["is_rooftop"] = df["floor"].str.contains("옥탑방", na=False)
+        df['is_first_floor'] = (df['floor'] == '1').astype(int)
         
-        df["all_floors"] = pd.to_numeric(df["all_floors"], errors = "coerce").fillna(1).astype(int)
-        
-        f_str = df["floor"].astype(str)
-        df.loc[f_str.str.contains('옥탑방', na=False), 'floor'] = df['all_floors'].astype(str)
-        df.loc[f_str.str.contains('반지하', na=False), 'floor'] = "-1"
+        # 값을 변경하기 전에 Object 타입으로 변환하여 문자열/숫자 혼용 허용 후 나중에 to_numeric 처리
+        df['floor'] = df['floor'].astype(object)
+        df.loc[df["is_rooftop"], 'floor'] = df.loc[df["is_rooftop"], 'all_floors']
+        df.loc[df["is_semi_basement"], 'floor'] = -1
         
         df['floor'] = pd.to_numeric(df['floor'], errors='coerce').fillna(1).astype(int)
         df["relative_floor"] = df["floor"] / df["all_floors"]
