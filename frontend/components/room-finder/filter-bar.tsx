@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -15,7 +15,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, RotateCcw } from "lucide-react";
+import {
+  fetchPlaceSuggestions,
+  type PlaceSuggestion,
+} from "@/lib/api/places";
+import { useI18n } from "@/lib/i18n";
 
 export interface Filters {
   transactionType: string;
@@ -33,6 +38,7 @@ interface FilterBarProps {
   onFiltersChange: (filters: Filters) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  onSearchSubmit: (query: string) => void;
   roomType: "oneroom" | "tworoom";
 }
 
@@ -98,19 +104,60 @@ function parseDepositInput(value: string, max: number) {
   return clampDeposit(Number(numericValue), max);
 }
 
+function valueToSliderPosition(value: number, marks: number[]) {
+  if (value <= marks[0]) return 0;
+
+  const lastIndex = marks.length - 1;
+  if (value >= marks[lastIndex]) return lastIndex;
+
+  for (let index = 0; index < lastIndex; index += 1) {
+    const start = marks[index];
+    const end = marks[index + 1];
+
+    if (value <= end) {
+      return index + (value - start) / (end - start);
+    }
+  }
+
+  return lastIndex;
+}
+
+function sliderPositionToValue(position: number, marks: number[]) {
+  const lastIndex = marks.length - 1;
+  const clampedPosition = Math.min(Math.max(position, 0), lastIndex);
+  const startIndex = Math.floor(clampedPosition);
+  const endIndex = Math.min(startIndex + 1, lastIndex);
+
+  if (startIndex === endIndex) return marks[startIndex];
+
+  const progress = clampedPosition - startIndex;
+  return marks[startIndex] + (marks[endIndex] - marks[startIndex]) * progress;
+}
+
+function roundToStep(value: number, step: number) {
+  const precision = String(step).split(".")[1]?.length ?? 0;
+
+  return Number((Math.round(value / step) * step).toFixed(precision));
+}
+
 export function FilterBar({
   filters,
   onFiltersChange,
   searchQuery,
   onSearchChange,
+  onSearchSubmit,
   roomType,
 }: FilterBarProps) {
+  const { locale, t } = useI18n();
   const [priceOpen, setPriceOpen] = useState(false);
   const [structureOpen, setStructureOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [transactionOpen, setTransactionOpen] = useState(false);
   const [floorOpen, setFloorOpen] = useState(false);
   const [sizeOpen, setSizeOpen] = useState(false);
+  const [placeSuggestions, setPlaceSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [isPlaceSuggestionsOpen, setIsPlaceSuggestionsOpen] = useState(false);
+  const skipNextSuggestionFetchRef = useRef(false);
 
   const [depositDraft, setDepositDraft] = useState<number>(
     filters.deposit === "all" ? 0 : filters.deposit,
@@ -123,6 +170,10 @@ export function FilterBar({
   );
 
   const formatDeposit = (value: number) => {
+    if (locale === "en") {
+      return `₩${(value * 10000).toLocaleString("en-US")}`;
+    }
+
     if (value >= 10000) {
       const eok = Math.floor(value / 10000);
       const rest = value % 10000;
@@ -135,6 +186,7 @@ export function FilterBar({
 
   const depositMax = getMaxDeposit(roomType);
   const depositMarks = getDepositMarks(roomType);
+  const depositSliderMax = depositMarks.length - 1;
   const canFilterStructure = roomType === "oneroom";
 
   useEffect(() => {
@@ -150,6 +202,44 @@ export function FilterBar({
   useEffect(() => {
     setSizeDraft(filters.size === "all" ? 0 : Number(filters.size));
   }, [filters.size, filters.sizeUnit]);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+
+    if (skipNextSuggestionFetchRef.current) {
+      skipNextSuggestionFetchRef.current = false;
+      setPlaceSuggestions([]);
+      setIsPlaceSuggestionsOpen(false);
+      return;
+    }
+
+    if (!query) {
+      const resetTimer = window.setTimeout(() => {
+        setPlaceSuggestions([]);
+        setIsPlaceSuggestionsOpen(false);
+      }, 0);
+
+      return () => clearTimeout(resetTimer);
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const suggestions = await fetchPlaceSuggestions(query, controller.signal);
+        setPlaceSuggestions(suggestions);
+        setIsPlaceSuggestionsOpen(suggestions.length > 0);
+      } catch {
+        if (controller.signal.aborted) return;
+        setPlaceSuggestions([]);
+        setIsPlaceSuggestionsOpen(false);
+      }
+    }, 150);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
 
   useEffect(() => {
     const currentDeposit = filters.deposit === "all" ? 0 : filters.deposit;
@@ -196,55 +286,58 @@ export function FilterBar({
 
   const sizeMax = getMaxSize(roomType, filters.sizeUnit);
   const sizeMarks = getSizeMarks(roomType, filters.sizeUnit);
+  const sizeSliderMax = sizeMarks.length - 1;
   const sizeStep = filters.sizeUnit === "m2" ? 1 : 0.5;
 
   const sizeLabel =
     filters.size === "all"
-      ? "방 크기"
+      ? t("filters.roomSize")
       : filters.sizeUnit === "m2"
         ? `~ ${filters.size}m²`
-        : `~ ${filters.size}평`;
+        : `~ ${filters.size}${t("filters.pyeong")}`;
 
   const optionItems = [
-    { label: "에어컨", value: "aircon" },
-    { label: "책상", value: "desk" },
-    { label: "냉장고", value: "fridge" },
-    { label: "책장", value: "bookshelf" },
-    { label: "세탁기", value: "washer" },
-    { label: "침대", value: "bed" },
-    { label: "가스레인지", value: "gas_stove" },
-    { label: "인덕션", value: "induction" },
-    { label: "신발장", value: "shoe_cabinet" },
-    { label: "전자레인지", value: "microwave" },
-    { label: "싱크대", value: "sink" },
-    { label: "옷장", value: "closet" },
+    { label: t("filters.aircon"), value: "aircon" },
+    { label: t("filters.desk"), value: "desk" },
+    { label: t("filters.fridge"), value: "fridge" },
+    { label: t("filters.bookshelf"), value: "bookshelf" },
+    { label: t("filters.washer"), value: "washer" },
+    { label: t("filters.bed"), value: "bed" },
+    { label: t("filters.gasStove"), value: "gas_stove" },
+    { label: t("filters.induction"), value: "induction" },
+    { label: t("filters.shoeCabinet"), value: "shoe_cabinet" },
+    { label: t("filters.microwave"), value: "microwave" },
+    { label: t("filters.sink"), value: "sink" },
+    { label: t("filters.closet"), value: "closet" },
   ];
 
   const structureItems = [
-    { label: "오픈형", value: "open" },
-    { label: "분리형", value: "separated" },
-    { label: "복층", value: "duplex" },
+    { label: t("filters.openType"), value: "open" },
+    { label: t("filters.separatedType"), value: "separated" },
+    { label: t("filters.duplex"), value: "duplex" },
   ];
 
   const floorItems = [
-    { label: "층수", value: "all" },
-    { label: "반지하", value: "semi-basement" },
-    { label: "1층", value: "1" },
-    { label: "2층", value: "2" },
-    { label: "3층", value: "3" },
-    { label: "4층 이상", value: "4plus" },
+    { label: t("filters.floor"), value: "all" },
+    { label: t("filters.semiBasement"), value: "semi-basement" },
+    { label: t("filters.firstFloor"), value: "1" },
+    { label: t("filters.secondFloor"), value: "2" },
+    { label: t("filters.thirdFloor"), value: "3" },
+    { label: t("filters.fourthPlus"), value: "4plus" },
   ];
 
   const structureLabel =
     !canFilterStructure || filters.structure.length === 0
-      ? "방 구조"
+      ? t("filters.roomStructure")
       : structureItems
           .filter((item) => filters.structure.includes(item.value))
           .map((item) => item.label)
           .join(", ");
 
   const optionsLabel =
-    filters.options.length === 0 ? "옵션" : `옵션 ${filters.options.length}개`;
+    filters.options.length === 0
+      ? t("filters.options")
+      : t("filters.optionsCount", { count: filters.options.length });
 
   const updateFilter = (
     key: keyof Filters,
@@ -286,31 +379,49 @@ export function FilterBar({
     onFiltersChange({ ...filters, structure: [] });
   };
 
+  const resetAllFilters = () => {
+    setDepositDraft(0);
+    setMonthlyRentDraft(0);
+    setSizeDraft(0);
+    onFiltersChange({
+      transactionType: "all",
+      deposit: "all",
+      monthlyRent: "all",
+      structure: [],
+      size: "all",
+      sizeUnit: "m2",
+      floor: "all",
+      options: [],
+    });
+  };
+
   const priceLabel = (() => {
     if (filters.transactionType === "jeonse") {
       return filters.deposit === "all"
-        ? "보증금"
-        : `전세 ~ ${formatDeposit(filters.deposit)}`;
+        ? t("filters.deposit")
+        : `${t("filters.jeonse")} ~ ${formatDeposit(filters.deposit)}`;
     }
 
     if (filters.transactionType === "monthly") {
       const depositText =
         filters.deposit === "all"
-          ? "보증금"
-          : `보증금 ~ ${formatDeposit(filters.deposit)}`;
+          ? t("filters.deposit")
+          : `${t("filters.deposit")} ~ ${formatDeposit(filters.deposit)}`;
       const rentText =
         filters.monthlyRent === "all"
-          ? "월세"
-          : `월세 ~ ${filters.monthlyRent}만원`;
+          ? t("filters.monthlyRent")
+          : `${t("filters.monthlyRent")} ~ ${filters.monthlyRent}${t("filters.tenThousandWon")}`;
       return `${depositText} / ${rentText}`;
     }
 
     const depositText =
       filters.deposit === "all"
-        ? "보증금"
+        ? t("filters.deposit")
         : `${formatDeposit(filters.deposit)}`;
     const rentText =
-      filters.monthlyRent === "all" ? "월세" : `${filters.monthlyRent}만원`;
+      filters.monthlyRent === "all"
+        ? t("filters.monthlyRent")
+        : `${filters.monthlyRent}${t("filters.tenThousandWon")}`;
     return `${depositText} / ${rentText}`;
   })();
 
@@ -320,18 +431,28 @@ export function FilterBar({
   const isSizeSelected = filters.size !== "all";
   const isFloorSelected = filters.floor !== "all";
   const isOptionsSelected = filters.options.length > 0;
+  const hasActiveFilters =
+    isTransactionSelected ||
+    isPriceSelected ||
+    isStructureSelected ||
+    isSizeSelected ||
+    isFloorSelected ||
+    isOptionsSelected;
+  const filterGridColumnsClass = canFilterStructure
+    ? "md:grid-cols-[repeat(6,minmax(0,1fr))_auto]"
+    : "md:grid-cols-[repeat(5,minmax(0,1fr))_auto]";
 
-  const selectedStyle = "border-warm-brown bg-warm-brown !text-white hover:opacity-90 rounded-full";
-  const defaultStyle = "border-stone-200/80 bg-white/90 text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] hover:border-stone-300 hover:bg-white rounded-full";
+  const selectedStyle = "border-warm-brown bg-warm-brown !text-white hover:opacity-90 rounded-xl";
+  const defaultStyle = "border-stone-200/80 bg-white/90 text-stone-800 shadow-[0_6px_18px_rgba(15,23,42,0.04)] hover:border-stone-300 hover:bg-white rounded-xl";
 
   const selectTriggerClass = (isSelected: boolean) =>
-    `w-[160px] md:w-full py-5 rounded-full border text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
+    `w-[140px] sm:w-[160px] md:w-full py-5 rounded-xl border text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
 
   const popoverTriggerClass = (isSelected: boolean) =>
-    `cursor-pointer w-[160px] md:w-full flex items-center justify-between rounded-full border px-4 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
+    `cursor-pointer w-[140px] sm:w-[160px] md:w-full flex items-center justify-between rounded-xl border px-4 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 ${isSelected ? selectedStyle : defaultStyle}`;
 
   const popoverContentClass =
-    "border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,246,241,0.96)_100%)] p-5 shadow-[0_18px_40px_rgba(15,23,42,0.12)]";
+    "max-w-[calc(100vw-2rem)] border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,246,241,0.96)_100%)] p-5 shadow-[0_18px_40px_rgba(15,23,42,0.12)]";
 
   const dropdownContentClass =
     "border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,246,241,0.96)_100%)] p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] rounded-2xl";
@@ -339,8 +460,36 @@ export function FilterBar({
   const selectItemClass =
     "cursor-pointer rounded-xl px-3 py-2.5 text-sm font-medium tracking-tight text-stone-700 outline-none transition-colors focus:bg-stone-100 focus:text-stone-900 data-[highlighted]:bg-stone-100 data-[highlighted]:text-stone-900";
 
+  const getPlaceTypeLabel = (type: PlaceSuggestion["type"]) => {
+    if (type === "subway_station") return t("filters.station");
+    if (type === "dong") return t("filters.dong");
+    return t("filters.district");
+  };
+
+  const selectPlaceSuggestion = (place: PlaceSuggestion) => {
+    skipNextSuggestionFetchRef.current = true;
+    setPlaceSuggestions([]);
+    setIsPlaceSuggestionsOpen(false);
+    onSearchChange(place.name);
+    onSearchSubmit(place.display_name || place.name);
+  };
+
+  const handleSearchKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+
+    const firstSuggestion = placeSuggestions[0];
+    if (firstSuggestion) {
+      selectPlaceSuggestion(firstSuggestion);
+      return;
+    }
+  };
+
   return (
-    <div className="border-b border-stone-200/80 bg-white/70 px-4 py-4 backdrop-blur-md md:px-6">
+    <div className="relative z-50 overflow-visible border-b border-stone-200/80 bg-white/70 px-4 py-4 backdrop-blur-md md:px-6">
       <div className="relative mb-3">
         <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-muted pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -349,14 +498,42 @@ export function FilterBar({
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="찾고자 하는 지역을 검색해 주세요."
+          onKeyDown={handleSearchKeyDown}
+          onFocus={() => setIsPlaceSuggestionsOpen(placeSuggestions.length > 0)}
+          onBlur={() => window.setTimeout(() => setIsPlaceSuggestionsOpen(false), 120)}
+          placeholder={t("filters.searchPlaceholder")}
           className="w-full pl-10 pr-4 py-2.5 bg-stone-100 rounded-full border border-stone-200 text-neutral-dark placeholder:text-neutral-muted focus:outline-none focus:border-warm-brown text-sm"
         />
+        {isPlaceSuggestionsOpen && (
+          <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-[60] overflow-hidden rounded-xl border border-stone-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.14)]">
+            {placeSuggestions.map((place) => (
+              <button
+                key={place.id}
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  selectPlaceSuggestion(place);
+                }}
+                className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-stone-900">
+                    {place.name}
+                  </span>
+                  <span className="block truncate text-xs text-stone-500">
+                    {place.display_name}
+                  </span>
+                </span>
+                <span className="shrink-0 rounded-full border border-stone-200 px-2 py-1 text-[11px] font-medium text-stone-500">
+                  {getPlaceTypeLabel(place.type)}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div
-        className={`flex gap-2 overflow-x-auto pb-2 md:grid md:gap-4 md:pb-0 ${
-          canFilterStructure ? "md:grid-cols-6" : "md:grid-cols-5"
-        } scrollbar-hide`}
+        className={`flex gap-2 overflow-x-auto pb-2 md:grid md:gap-4 md:pb-0 ${filterGridColumnsClass} scrollbar-hide`}
       >
         <Select
           value={filters.transactionType}
@@ -364,19 +541,19 @@ export function FilterBar({
           onOpenChange={(open) => setTransactionOpen(open)}
         >
           <SelectTrigger className={selectTriggerClass(isTransactionSelected || transactionOpen)}>
-            <SelectValue placeholder="거래 방식" />
+            <SelectValue placeholder={t("filters.dealMethod")} />
           </SelectTrigger>
           <SelectContent
             className={`w-[160px] ${dropdownContentClass}`}
           >
             <SelectItem value="all" className={selectItemClass}>
-              전/월세
+              {t("filters.allDeals")}
             </SelectItem>
             <SelectItem value="monthly" className={selectItemClass}>
-              월세
+              {t("filters.monthly")}
             </SelectItem>
             <SelectItem value="jeonse" className={selectItemClass}>
-              전세
+              {t("filters.jeonse")}
             </SelectItem>
           </SelectContent>
         </Select>
@@ -391,13 +568,13 @@ export function FilterBar({
 
           <PopoverContent
             align="start"
-            className={`w-[300px] md:w-[360px] lg:w-[420px] ${popoverContentClass}`}
+            className={`w-[calc(100vw-2rem)] md:w-[360px] lg:w-[420px] ${popoverContentClass}`}
           >
             <div className="space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-neutral-dark">
-                    보증금
+                    {t("filters.deposit")}
                   </span>
                   <div className="relative w-28">
                     <Input
@@ -409,32 +586,40 @@ export function FilterBar({
                           parseDepositInput(event.target.value, depositMax),
                         )
                       }
-                      placeholder="전체"
-                      aria-label="보증금 직접 입력"
+                      placeholder={t("common.all")}
+                      aria-label={t("filters.depositInput")}
                       className="h-8 pr-9 text-right text-sm text-neutral-muted"
                     />
                     {depositDraft !== 0 && (
                       <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-neutral-muted">
-                        만원
+                        {t("filters.tenThousandWon")}
                       </span>
                     )}
                   </div>
                 </div>
 
                 <Slider
-                  value={[depositDraft]}
+                  value={[valueToSliderPosition(depositDraft, depositMarks)]}
                   min={0}
-                  max={depositMax}
-                  step={100}
+                  max={depositSliderMax}
+                  step={0.01}
                   onValueChange={(value) =>
-                    setDepositDraft(clampDeposit(value[0], depositMax))
+                    setDepositDraft(
+                      clampDeposit(
+                        roundToStep(
+                          sliderPositionToValue(value[0], depositMarks),
+                          100,
+                        ),
+                        depositMax,
+                      ),
+                    )
                   }
                 />
 
-                <div className="flex justify-between text-xs text-neutral-muted">
+                <div className="flex justify-between gap-2 text-[11px] text-neutral-muted sm:text-xs">
                   {depositMarks.map((mark) => (
                     <span key={mark}>
-                      {mark === 0 ? "전체" : formatDeposit(mark)}
+                      {mark === 0 ? t("common.all") : formatDeposit(mark)}
                     </span>
                   ))}
                 </div>
@@ -444,12 +629,12 @@ export function FilterBar({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-neutral-dark">
-                      월세
+                      {t("filters.monthlyRent")}
                     </span>
                     <span className="text-sm text-neutral-muted">
                       {monthlyRentDraft === 0
-                        ? "전체"
-                        : `${monthlyRentDraft}만원`}
+                        ? t("common.all")
+                        : `${monthlyRentDraft}${t("filters.tenThousandWon")}`}
                     </span>
                   </div>
 
@@ -461,8 +646,8 @@ export function FilterBar({
                     onValueChange={(value) => setMonthlyRentDraft(value[0])}
                   />
 
-                  <div className="flex justify-between text-xs text-neutral-muted">
-                    <span>전체</span>
+                  <div className="flex justify-between gap-2 text-[11px] text-neutral-muted sm:text-xs">
+                    <span>{t("common.all")}</span>
                     <span>50</span>
                     <span>100</span>
                     <span>150</span>
@@ -480,14 +665,14 @@ export function FilterBar({
                   }}
                   className="cursor-pointer rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
                 >
-                  초기화
+                  {t("common.reset")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setPriceOpen(false)}
                   className="cursor-pointer rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
                 >
-                  적용
+                  {t("common.apply")}
                 </button>
               </div>
             </div>
@@ -505,15 +690,15 @@ export function FilterBar({
 
             <PopoverContent
               align="start"
-              className={`w-[240px] md:w-[320px] lg:w-[380px] ${popoverContentClass}`}
+              className={`w-[calc(100vw-2rem)] md:w-[320px] lg:w-[380px] ${popoverContentClass}`}
             >
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-semibold text-neutral-dark">
-                    방 구조
+                    {t("filters.roomStructure")}
                   </span>
                   <span className="text-sm text-neutral-muted">
-                    중복선택 가능
+                    {t("filters.multipleSelect")}
                   </span>
                 </div>
 
@@ -544,14 +729,14 @@ export function FilterBar({
                     onClick={resetStructure}
                     className="cursor-pointer rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
                   >
-                    초기화
+                    {t("common.reset")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setStructureOpen(false)}
                     className="cursor-pointer rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
                   >
-                    적용
+                    {t("common.apply")}
                   </button>
                 </div>
               </div>
@@ -569,19 +754,19 @@ export function FilterBar({
 
           <PopoverContent
             align="start"
-            className={`w-[300px] md:w-[360px] lg:w-[420px] ${popoverContentClass}`}
+            className={`w-[calc(100vw-2rem)] md:w-[360px] lg:w-[420px] ${popoverContentClass}`}
           >
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-neutral-dark">
-                  최대 면적
+                  {t("filters.maxArea")}
                 </span>
                 <span className="text-sm text-neutral-muted">
                   {sizeDraft === 0
-                    ? "전체"
+                    ? t("common.all")
                     : filters.sizeUnit === "m2"
                       ? `${sizeDraft}m²`
-                      : `${sizeDraft}평`}
+                      : `${sizeDraft}${t("filters.pyeong")}`}
                 </span>
               </div>
 
@@ -610,7 +795,7 @@ export function FilterBar({
                       : "bg-warm-brown text-white"
                   }`}
                 >
-                  평
+                  {t("filters.pyeong")}
                 </button>
 
                 <button
@@ -642,20 +827,28 @@ export function FilterBar({
               </div>
 
               <Slider
-                value={[sizeDraft]}
+                value={[valueToSliderPosition(sizeDraft, sizeMarks)]}
                 min={0}
-                max={sizeMax}
-                step={sizeStep}
+                max={sizeSliderMax}
+                step={0.01}
                 onValueChange={(value) =>
-                  setSizeDraft(clampSize(value[0], sizeMax))
+                  setSizeDraft(
+                    clampSize(
+                      roundToStep(
+                        sliderPositionToValue(value[0], sizeMarks),
+                        sizeStep,
+                      ),
+                      sizeMax,
+                    ),
+                  )
                 }
               />
 
-              <div className="flex justify-between text-xs text-neutral-muted">
+              <div className="flex justify-between gap-2 text-[11px] text-neutral-muted sm:text-xs">
                 {sizeMarks.map((mark) => (
                   <span key={mark}>
                     {mark === 0
-                      ? "전체"
+                      ? t("common.all")
                       : `${mark}${mark === sizeMax ? "+" : ""}`}
                   </span>
                 ))}
@@ -667,14 +860,14 @@ export function FilterBar({
                   onClick={() => setSizeDraft(0)}
                   className="cursor-pointer rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
                 >
-                  초기화
+                  {t("common.reset")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setSizeOpen(false)}
                   className="cursor-pointer rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
                 >
-                  적용
+                  {t("common.apply")}
                 </button>
               </div>
             </div>
@@ -687,7 +880,7 @@ export function FilterBar({
           onOpenChange={(open) => setFloorOpen(open)}
         >
           <SelectTrigger className={selectTriggerClass(isFloorSelected || floorOpen)}>
-            <SelectValue placeholder="층수" />
+            <SelectValue placeholder={t("filters.floor")} />
           </SelectTrigger>
           <SelectContent
             className={`w-[160px] ${dropdownContentClass}`}
@@ -714,15 +907,15 @@ export function FilterBar({
 
           <PopoverContent
             align="start"
-            className={`w-[240px] md:w-[320px] lg:w-[380px] ${popoverContentClass}`}
+            className={`w-[calc(100vw-2rem)] md:w-[320px] lg:w-[380px] ${popoverContentClass}`}
           >
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <span className="text-lg font-semibold text-neutral-dark">
-                  매물 옵션
+                  {t("filters.listingOptions")}
                 </span>
                 <span className="text-sm text-neutral-muted">
-                  중복선택 가능
+                  {t("filters.multipleSelect")}
                 </span>
               </div>
 
@@ -753,19 +946,30 @@ export function FilterBar({
                   onClick={resetOptions}
                   className="cursor-pointer rounded-md border border-border-warm px-3 py-1.5 text-sm text-neutral-dark"
                 >
-                  초기화
+                  {t("common.reset")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setOptionsOpen(false)}
                   className="cursor-pointer rounded-md bg-warm-brown px-3 py-1.5 text-sm text-white"
                 >
-                  적용
+                  {t("common.apply")}
                 </button>
               </div>
             </div>
           </PopoverContent>
         </Popover>
+
+        <button
+          type="button"
+          onClick={resetAllFilters}
+          disabled={!hasActiveFilters}
+          aria-label={t("filters.resetAll")}
+          title={t("filters.resetAll")}
+          className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-stone-200/80 bg-white/90 text-stone-500 shadow-[0_6px_18px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-stone-300 hover:bg-white hover:text-stone-900 disabled:cursor-default disabled:opacity-40 disabled:hover:border-stone-200/80 disabled:hover:text-stone-500"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </button>
       </div>
 
 

@@ -3,6 +3,8 @@ import Script from "next/script";
 import "./globals.css";
 import NextAuthProvider from "@/components/common/NextAuthProvider";
 import AuthSessionSync from "@/components/common/AuthSessionSync";
+import { Toaster } from "@/components/ui/toaster";
+import { I18nProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "방찾기 - AI 기반 원룸/투룸 매물 검색",
@@ -41,10 +43,13 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className="bg-neutral-100 text-black antialiased select-none">
-        <NextAuthProvider>
-          <AuthSessionSync />
-          {children}
-        </NextAuthProvider>
+        <I18nProvider>
+          <NextAuthProvider>
+            <AuthSessionSync />
+            {children}
+          </NextAuthProvider>
+        </I18nProvider>
+        <Toaster />
       </body>
 
       <Script

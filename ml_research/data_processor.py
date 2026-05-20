@@ -130,8 +130,6 @@ def onehot_encoding(df):
     return df
 
 def remove_outlier(df):
-    df = pd.concat([df_office, df_oneroom], axis=0, ignore_index=True)
-
     df = df.dropna(subset=['converted_monthly_rent'])
     df.fillna(df.median(numeric_only=True), inplace=True)
 

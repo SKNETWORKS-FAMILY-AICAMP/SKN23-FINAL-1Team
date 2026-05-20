@@ -1,45 +1,55 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOnboardingStore } from "@/store/onboardingStore";
 
-interface Step {
+interface Slide {
+  tag: string;
   title: string;
   description: string;
-  position: "top" | "bottom" | "center";
-  highlight?: "search" | "filter" | "map" | "panel";
+  image: string;
+  objectPosition?: string;
+  isVideo?: boolean;
 }
 
-const steps: Step[] = [
+const slides: Slide[] = [
   {
-    title: "지역 검색",
-    description:
-      "찾고 싶은 지역을 검색해보세요. 역이나 동네 이름을 입력하면 해당 위치로 이동해요.",
-    position: "bottom",
-    highlight: "search",
+    tag: "지역 검색",
+    title: "원하는 지역을 검색해보세요",
+    description: "역이나 동네 이름을 입력하면 해당 위치로 이동해요. 화면 상단 검색창을 이용해보세요.",
+    image: "/onboarding-search.png",
+    objectPosition: "top",
   },
   {
-    title: "필터 설정",
-    description:
-      "전세, 보증금, 월세, 구조 같은 조건으로 매물을 더 쉽게 좁혀볼 수 있어요.",
-    position: "bottom",
-    highlight: "filter",
+    tag: "필터 설정",
+    title: "조건에 맞는 매물만 골라보세요",
+    description: "전세/월세, 보증금, 방 구조, 층수 등 다양한 조건으로 원하는 매물을 좁혀보세요.",
+    image: "/onboarding-filter.png",
+    objectPosition: "top",
   },
   {
-    title: "지도에서 탐색",
-    description:
-      "지도 위 마커를 누르면 해당 위치의 매물을 확인할 수 있어요. 숫자가 크면 근처 매물이 많다는 뜻이에요.",
-    position: "center",
-    highlight: "map",
+    tag: "지도 탐색",
+    title: "지도에서 매물을 탐색하세요",
+    description: "지도 위 숫자를 클릭하면 해당 위치의 매물을 확인할 수 있어요. 숫자가 클수록 근처 매물이 많아요.",
+    image: "/onboarding-map.png",
+    objectPosition: "center",
   },
   {
-    title: "AI 이미지 검색",
-    description:
-      "AI 추천 영역에 원하는 방 분위기를 텍스트로 입력하면 비슷한 매물을 찾아드려요.",
-    position: "center",
-    highlight: "panel",
+    tag: "AI 이미지 검색",
+    title: "원하는 방을 그림으로 찾아요",
+    description: "AI추천 탭에서 원하는 방 분위기를 텍스트로 설명하면 AI가 이미지를 생성하고, 비슷한 실제 매물을 찾아드려요.",
+    image: "/onboarding-ai.mp4",
+    isVideo: true,
+  },
+  {
+    tag: "시작하기",
+    title: "금방에서 내 집을 찾아보세요!",
+    description: "이제 금방의 모든 기능을 사용할 준비가 됐어요. 원하는 매물을 찾아보세요!",
+    image: "/onboarding-main.png",
+    objectPosition: "center",
   },
 ];
 
@@ -57,7 +67,6 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   useEffect(() => {
     const key = userId ? `hasSeenGuide_${userId}` : "hasSeenGuide_guest";
     const seen = localStorage.getItem(key);
-
     if (!seen) {
       const timer = setTimeout(() => setVisible(true), 1500);
       return () => clearTimeout(timer);
@@ -66,7 +75,6 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
 
   useEffect(() => {
     if (!isOpen) return;
-
     setCurrentStep(0);
     setVisible(true);
     closeGuide();
@@ -79,11 +87,10 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
   };
 
   const handleNext = () => {
-    if (currentStep < steps.length - 1) {
+    if (currentStep < slides.length - 1) {
       setCurrentStep((prev) => prev + 1);
       return;
     }
-
     handleClose();
   };
 
@@ -95,85 +102,91 @@ export function OnboardingGuide({ userId }: OnboardingGuideProps) {
 
   if (!visible) return null;
 
-  const step = steps[currentStep];
-
-  const highlightClass = {
-    search: "top-[49px] left-0 right-0 h-[62px]",
-    filter: "top-[96px] left-0 right-0 h-[81px]",
-    map: "top-[177px] left-0 right-[450px] bottom-0",
-    panel: "top-[177px] right-0 w-[450px] bottom-0",
-  };
-
-  const tooltipPosition = {
-    top: "bottom-8",
-    bottom: "top-[180px]",
-    center: "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
-  };
+  const slide = slides[currentStep];
 
   return (
-    <div className="fixed inset-0 z-[100] hidden lg:block">
-      {step.highlight && (
-        <div
-          className={cn(
-            "absolute rounded-lg border-2 border-warm-brown",
-            highlightClass[step.highlight],
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+      <div className="w-[600px] max-w-[90vw] overflow-hidden rounded-2xl bg-white shadow-2xl">
+        {/* 이미지/비디오 영역 */}
+        <div className="relative h-[320px] w-full overflow-hidden bg-stone-50">
+          {slide.isVideo ? (
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="h-full w-full object-contain"
+            >
+              <source src={slide.image} type="video/mp4" />
+            </video>
+          ) : (
+            <Image
+              src={slide.image}
+              alt={slide.title}
+              fill
+              unoptimized
+              className="object-contain transition-all duration-300"
+              style={{ objectPosition: slide.objectPosition ?? "center" }}
+            />
           )}
-          style={{ boxShadow: "0 0 0 9999px rgba(0,0,0,0.5)" }}
-        />
-      )}
 
-      <div
-        className={cn(
-          "absolute w-[320px] rounded-2xl bg-white p-5 shadow-2xl",
-          step.position === "center"
-            ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-            : "left-1/2 -translate-x-1/2 " + tooltipPosition[step.position],
-        )}
-      >
-        <div className="mb-3 flex items-start justify-between">
-          <h3 className="text-base font-bold text-stone-900">{step.title}</h3>
+          {/* 닫기 버튼 */}
           <button
             onClick={handleClose}
-            className="cursor-pointer text-stone-400 hover:text-stone-600"
+            className="absolute right-3 top-3 z-10 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60"
           >
             <X className="h-4 w-4" />
           </button>
+
+          {/* 도트 인디케이터 */}
+          <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+            {slides.map((_, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  "h-1 rounded-full transition-all duration-300",
+                  idx === currentStep ? "w-5 bg-warm-brown" : "w-2 bg-stone-300"
+                )}
+              />
+            ))}
+          </div>
         </div>
 
-        <p className="mb-4 text-sm leading-relaxed text-stone-600">
-          {step.description}
-        </p>
+        {/* 텍스트 영역 */}
+        <div className="p-6">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-warm-brown">
+            {slide.tag}
+          </p>
+          <h2 className="mb-2 text-[17px] font-bold leading-snug text-stone-900">
+            {slide.title}
+          </h2>
+          <p className="mb-6 text-sm leading-relaxed text-stone-500">
+            {slide.description}
+          </p>
 
-        <div className="mb-4 flex justify-center gap-1.5">
-          {steps.map((_, idx) => (
-            <div
-              key={idx}
-              className={cn(
-                "h-1.5 rounded-full transition-all duration-200",
-                idx === currentStep ? "w-4 bg-warm-brown" : "w-1.5 bg-stone-200",
-              )}
-            />
-          ))}
-        </div>
-
-        <div className="flex gap-2">
-          {currentStep > 0 ? (
+          <div className="flex gap-2">
+            {currentStep > 0 ? (
+              <button
+                onClick={handlePrev}
+                className="flex-1 cursor-pointer rounded-xl border border-stone-200 py-2.5 text-sm font-semibold text-stone-500 hover:bg-stone-50"
+              >
+                이전
+              </button>
+            ) : (
+              <button
+                onClick={handleClose}
+                className="flex-1 cursor-pointer rounded-xl border border-stone-200 py-2.5 text-sm font-semibold text-stone-400 hover:bg-stone-50"
+              >
+                건너뛰기
+              </button>
+            )}
             <button
-              onClick={handlePrev}
-              className="cursor-pointer flex-1 rounded-xl border border-stone-200 py-2.5 text-sm font-semibold text-stone-500 hover:bg-stone-50"
+              onClick={handleNext}
+              className="flex-1 cursor-pointer rounded-xl bg-warm-brown py-2.5 text-sm font-semibold text-white hover:opacity-90"
             >
-              이전
+              {currentStep === slides.length - 1 ? "시작하기!" : "다음 →"}
             </button>
-          ) : (
-            <div className="flex-1" />
-          )}
-
-          <button
-            onClick={handleNext}
-            className="cursor-pointer flex-1 rounded-xl bg-warm-brown py-2.5 text-sm font-semibold text-white hover:opacity-90"
-          >
-            {currentStep === steps.length - 1 ? "시작하기" : "다음"}
-          </button>
+          </div>
         </div>
       </div>
     </div>

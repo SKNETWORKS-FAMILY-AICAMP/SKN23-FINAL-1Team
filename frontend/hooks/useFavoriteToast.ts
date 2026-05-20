@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 
-export type FavoriteToastType = "add" | "remove";
+export type FavoriteToastType = "add" | "remove" | "success" | "error" | "info";
 
 export interface FavoriteToastState {
   message: string;

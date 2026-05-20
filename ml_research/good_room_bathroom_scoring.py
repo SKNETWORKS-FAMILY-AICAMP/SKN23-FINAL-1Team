@@ -17,14 +17,14 @@ def calculate_normalized_score():
             UPDATE item_image_embeddings
             SET normalized_room_score =
                 GREATEST(good_room_score, 0) / (GREATEST(good_room_score, 0) + GREATEST(bad_room_score, 0) + 1e-9)
-            WHERE is_room = TRUE;
+            WHERE is_room = TRUE AND normalized_room_score IS NULL;
         """
    
         bath_sql = """
             UPDATE item_image_embeddings
             SET normalized_bathroom_score =
                 GREATEST(clean_bathroom_score, 0) / (GREATEST(clean_bathroom_score, 0) + GREATEST(dirty_bathroom_score, 0) + 1e-9)
-            WHERE is_bathroom = TRUE;
+            WHERE is_bathroom = TRUE AND normalized_bathroom_score IS NULL;
         """
 
         print("🏠 방 데이터 정규화 중...")
@@ -49,28 +49,28 @@ def good_room_bathroom_scoring():
          "update_query" : """
             UPDATE item_image_embeddings
             SET good_room_score = -(embedding <#> %s::vector)
-            WHERE is_room = TRUE;
+            WHERE is_room = TRUE AND good_room_score IS NULL;
         """},
 
         {"query" : "a messy, dark, cluttered, and poorly maintained room, old furniture, dirty floor",
          "update_query" : """
             UPDATE item_image_embeddings
             SET bad_room_score = -(embedding <#> %s::vector)
-            WHERE is_room = TRUE;
+            WHERE is_room = TRUE AND bad_room_score IS NULL;
         """},
 
         {"query" : "a sparkling clean and hygienic bathroom, polished white tiles, shiny faucet, modern and renovated bathroom interior",
          "update_query" : """
             UPDATE item_image_embeddings
             SET clean_bathroom_score = -(embedding <#> %s::vector)
-            WHERE is_bathroom = TRUE;
+            WHERE is_bathroom = TRUE AND clean_bathroom_score IS NULL;
         """},
 
         {"query" : "a dirty and moldy bathroom, yellowish tiles, rusty faucet, outdated and unhygienic bathroom interior",
          "update_query" : """
             UPDATE item_image_embeddings
             SET dirty_bathroom_score = -(embedding <#> %s::vector)
-            WHERE is_bathroom = TRUE;
+            WHERE is_bathroom = TRUE AND dirty_bathroom_score IS NULL;
         """},
     ]
 
