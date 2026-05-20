@@ -12,6 +12,9 @@ def parse_s3_uri(s3_uri: str) -> tuple[str, str]:
     if not s3_uri.startswith("s3://"):
         raise ValueError(f"올바른 s3 uri 형식이 아닙니다: {s3_uri}")
 
+    # ?w=1200 같은 쿼리스트링 제거
+    s3_uri = s3_uri.split("?")[0]
+
     without_scheme = s3_uri.replace("s3://", "", 1)
     bucket, key = without_scheme.split("/", 1)
     return bucket, key

@@ -4,8 +4,10 @@ import { ImageIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRecentStore } from "@/store/recentStore";
 import { usePendingListingStore } from "@/store/pendingListingStore";
+import { useI18n } from "@/lib/i18n";
 
 export function RecentSection() {
+  const { locale, t } = useI18n();
   const router = useRouter();
   const recentListings = useRecentStore((state) => state.recentListings);
   const setPendingListing = usePendingListingStore((state) => state.setPendingListing);
@@ -13,14 +15,14 @@ export function RecentSection() {
   return (
     <div>
       <p className="mb-3 text-[13px] font-semibold uppercase tracking-[0.18em] text-stone-400 md:mb-4">
-        {"\uCD5C\uADFC \uBCF8 \uB9E4\uBB3C"}
+        {t("mypageSections.recentTitle")}
       </p>
       {recentListings.length === 0 ? (
         <div className="rounded-[20px] border border-dashed border-stone-200 bg-white/80 px-4 py-10 text-center text-sm font-medium text-stone-500">
-          {"\uCD5C\uADFC \uBCF8 \uB9E4\uBB3C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4."}
+          {t("mypageSections.emptyRecent")}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-3">
           {recentListings.map((listing) => (
             <div
               key={listing.id}
@@ -42,7 +44,7 @@ export function RecentSection() {
                   structure: listing.structure,
                   options: [],
                 });
-                router.push("/home");
+                router.push(`/${locale}/home`);
               }}
             >
               <div className="relative h-36 w-full bg-stone-100 md:h-48">

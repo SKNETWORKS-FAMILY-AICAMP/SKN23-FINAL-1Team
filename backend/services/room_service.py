@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, cast, column, distinct, func, not_, or_, select, table, text
+from sqlalchemy import Integer, cast, case, column, distinct, func, not_, or_, select, table, text
 from sqlalchemy.orm import Session
 from models.item_image import ItemImage
 from models.room import Room
@@ -22,26 +22,94 @@ ITEM_IMAGE_EMBEDDINGS = table(
     schema="public",
 )
 
-
 def is_valid_image_value(value) -> bool:
     if value is None:
         return False
-
     if not isinstance(value, str):
         return False
-
     normalized = value.strip()
     lowered = normalized.lower()
-
     if lowered in {"", "nan", "none", "null"}:
         return False
-
     return (
         normalized.startswith("http://")
         or normalized.startswith("https://")
         or normalized.startswith("/")
         or normalized.startswith("s3://")
     )
+
+
+def is_s3_image_value(value) -> bool:
+    return isinstance(value, str) and value.strip().startswith("s3://")
+
+
+def build_image_lookup(db: Session, rooms) -> dict[int, dict]:
+    item_ids = [
+        room.item_id
+        for room in rooms
+        if is_s3_image_value(room.image_thumbnail)
+    ]
+    if not item_ids:
+        return {}
+
+    image_lookup: dict[int, dict] = {}
+    images = db.execute(
+        select(ItemImage)
+        .where(ItemImage.item_id.in_(item_ids))
+        .order_by(ItemImage.item_id, ItemImage.is_main.desc(), ItemImage.id)
+    ).scalars().all()
+
+    for image in images:
+        lookup = image_lookup.setdefault(
+            image.item_id,
+            {"main_id": None, "by_url": {}},
+        )
+        if lookup["main_id"] is None:
+            lookup["main_id"] = image.id
+        lookup["by_url"][image.s3_url] = image.id
+
+    return image_lookup
+
+
+def to_public_thumbnail_url(room, image_lookup: dict[int, dict]) -> str | None:
+    thumbnail = room.image_thumbnail
+    if not is_valid_image_value(thumbnail):
+        return None
+
+    if not is_s3_image_value(thumbnail):
+        return thumbnail
+
+    lookup = image_lookup.get(room.item_id)
+    if not lookup:
+        return None
+
+    image_id = lookup["by_url"].get(thumbnail) or lookup["main_id"]
+    if image_id is None:
+        return None
+
+    return f"/api/rooms/{room.item_id}/images/{image_id}"
+
+
+def serialize_room_item(room, image_lookup: dict[int, dict]):
+    return {
+        "item_id": room.item_id,
+        "status": room.status,
+        "title": room.title,
+        "url": room.url,
+        "address": room.address,
+        "deposit": room.deposit,
+        "rent": room.rent,
+        "manage_cost": room.manage_cost,
+        "service_type": room.service_type,
+        "room_type": room.room_type,
+        "floor": room.floor,
+        "all_floors": room.all_floors,
+        "area_m2": float(room.area_m2) if room.area_m2 is not None else None,
+        "lat": float(room.lat),
+        "lng": float(room.lng),
+        "geohash": room.geohash,
+        "image_thumbnail": to_public_thumbnail_url(room, image_lookup),
+    }
 
 
 def format_korean_money(value: int | None) -> str:
@@ -56,10 +124,8 @@ def format_korean_money(value: int | None) -> str:
 def format_price(deposit: int | None, rent: int | None) -> str:
     safe_deposit = int(deposit or 0)
     safe_rent = int(rent or 0)
-
     if safe_rent <= 0:
         return f"전세 {format_korean_money(safe_deposit)}"
-
     return f"{format_korean_money(safe_deposit)} / {safe_rent}만"
 
 
@@ -71,9 +137,6 @@ def format_size(area_m2) -> str:
 
 def get_grid_size_by_level(level: int | None) -> float:
     safe_level = int(level or 4)
-
-    # level 숫자가 작을수록 확대, 클수록 축소
-    # 따라서 축소될수록 grid는 더 커져야 함
     if safe_level == 2:
         return 0.002
     if safe_level == 3:
@@ -88,10 +151,8 @@ def get_grid_size_by_level(level: int | None) -> float:
 def normalize_structures(structure) -> list[str]:
     if structure == "all" or structure is None:
         return []
-
     if isinstance(structure, str):
         return [structure]
-
     return [value for value in structure if value != "all"]
 
 
@@ -113,6 +174,7 @@ def get_basement_condition():
 
 def apply_room_filters(stmt, req):
     stmt = stmt.where(Room.status == "ACTIVE")
+    stmt = stmt.where(Room.is_embedded.is_(True))
 
     if req.search.strip():
         keyword = f"%{req.search.strip()}%"
@@ -157,13 +219,11 @@ def apply_room_filters(stmt, req):
 
     if req.floor != "all":
         basement_condition = get_basement_condition()
-
         if req.floor == "semi-basement":
             stmt = stmt.where(basement_condition)
         else:
             floor_number = get_floor_number_expression()
             stmt = stmt.where(Room.floor.isnot(None), not_(basement_condition))
-
             if req.floor == "4plus":
                 stmt = stmt.where(floor_number >= 4)
             else:
@@ -178,9 +238,13 @@ def apply_room_filters(stmt, req):
     return stmt
 
 
-def serialize_room_marker(room, embedding_similarity: float | None = None):
-    image_urls = [room.image_thumbnail] if is_valid_image_value(room.image_thumbnail) else []
-
+def serialize_room_marker(
+    room,
+    image_lookup: dict[int, dict],
+    embedding_similarity: float | None = None,
+):
+    thumbnail_url = to_public_thumbnail_url(room, image_lookup)
+    image_urls = [thumbnail_url] if thumbnail_url else []
     item = {
         "type": "marker",
         "id": str(room.item_id),
@@ -198,10 +262,8 @@ def serialize_room_marker(room, embedding_similarity: float | None = None):
         "structure": room.room_type or "매물",
         "options": [],
     }
-
     if embedding_similarity is not None:
         item["embeddingSimilarity"] = float(embedding_similarity)
-
     return item
 
 
@@ -214,35 +276,57 @@ def get_rooms(db, req):
 
     total = db.execute(count_stmt).scalar_one()
 
-    sort = getattr(req, "sort", "latest")
+    sort = getattr(req, "sort", "recommended")
+    transaction_type = getattr(req, "transaction_type", "all")
+    recommendation_order = Room.recommendation_score.desc().nullslast()
+    latest_orders = [
+        Room.first_crawled_at.desc().nullslast(),
+        Room.item_id.desc(),
+    ]
+
     if sort == "price_asc":
-        order_expr = (Room.deposit + Room.rent * 100).asc()
+        if transaction_type == "monthly":
+            order_expr = Room.rent.asc()
+        elif transaction_type == "jeonse":
+            order_expr = Room.deposit.asc()
+        else:
+            order_expr = case(
+                (Room.rent > 0, Room.rent),
+                else_=Room.deposit
+            ).asc()
     elif sort == "price_desc":
-        order_expr = (Room.deposit + Room.rent * 100).desc()
+        if transaction_type == "monthly":
+            order_expr = Room.rent.desc()
+        elif transaction_type == "jeonse":
+            order_expr = Room.deposit.desc()
+        else:
+            order_expr = case(
+                (Room.rent > 0, Room.rent),
+                else_=Room.deposit
+            ).desc()
     else:
         order_expr = None
 
     if order_expr is not None:
-        stmt = stmt.order_by(order_expr)
+        stmt = stmt.order_by(order_expr, recommendation_order, *latest_orders)
+    elif sort == "latest":
+        stmt = stmt.order_by(*latest_orders)
     else:
-        stmt = stmt.order_by(Room.first_crawled_at.desc().nullslast(), Room.item_id.desc())
+        stmt = stmt.order_by(recommendation_order, *latest_orders)
 
     rows = db.execute(
         stmt.offset(req.offset).limit(req.limit)
     ).scalars().all()
+    image_lookup = build_image_lookup(db, rows)
 
     return {
-        "items": rows,
+        "items": [serialize_room_item(room, image_lookup) for room in rows],
         "total": total,
         "has_more": req.offset + req.limit < total,
     }
 
 
 def get_rooms_by_similarity(db: Session, req, embedding: list[float] | None = None):
-    """
-    기존 get_rooms 기능을 그대로 쓰되,
-    중복 없이 '가장 비슷한 이미지가 있는 방' 순서로 정렬함.
-    """
     count_stmt = select(func.count(distinct(Room.item_id)))
     has_embedding = bool(embedding)
     exclude_item_id = getattr(req, "exclude_item_id", None)
@@ -254,7 +338,6 @@ def get_rooms_by_similarity(db: Session, req, embedding: list[float] | None = No
         )
         embedding_similarity_expr = (-embedding_distance_expr).label("embedding_similarity")
 
-        # 조인: Room -> ItemImage -> item_image_embeddings
         stmt = select(Room, embedding_similarity_expr)
         stmt = stmt.join(ItemImage, Room.item_id == ItemImage.item_id)
         stmt = stmt.join(ITEM_IMAGE_EMBEDDINGS, ItemImage.id == ITEM_IMAGE_EMBEDDINGS.c.image_id)
@@ -285,12 +368,16 @@ def get_rooms_by_similarity(db: Session, req, embedding: list[float] | None = No
 
     result = db.execute(stmt.offset(req.offset).limit(req.limit))
     if has_embedding:
+        result_rows = result.all()
+        image_lookup = build_image_lookup(db, [room for room, _ in result_rows])
         items = [
-            serialize_room_marker(room, embedding_similarity)
-            for room, embedding_similarity in result.all()
+            serialize_room_marker(room, image_lookup, embedding_similarity)
+            for room, embedding_similarity in result_rows
         ]
     else:
-        items = [serialize_room_marker(room) for room in result.scalars().all()]
+        rooms = result.scalars().all()
+        image_lookup = build_image_lookup(db, rooms)
+        items = [serialize_room_marker(room, image_lookup) for room in rooms]
 
     return {
         "items": items,
@@ -306,10 +393,8 @@ def get_map_items(db, req):
     level = int(req.level or 4)
     print(f"[get_map_items] level={level}")
 
-    # level 2 이상이면 무조건 클러스터
     if level >= 2:
         grid_size = get_grid_size_by_level(level)
-
         lat_bucket = cast(func.floor(Room.lat / grid_size), Integer)
         lng_bucket = cast(func.floor(Room.lng / grid_size), Integer)
 
@@ -349,15 +434,17 @@ def get_map_items(db, req):
             "items": items,
         }
 
-    # level 1일 때만 개별 마커
     rows = db.execute(
         base_stmt.order_by(
+            Room.recommendation_score.desc().nullslast(),
             Room.first_crawled_at.desc().nullslast(),
             Room.item_id.desc(),
         ).limit(1000)
     ).scalars().all()
 
+    image_lookup = build_image_lookup(db, rows)
+
     return {
         "mode": "marker",
-        "items": [serialize_room_marker(room) for room in rows],
+        "items": [serialize_room_marker(room, image_lookup) for room in rows],
     }

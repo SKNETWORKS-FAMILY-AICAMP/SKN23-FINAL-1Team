@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { X } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { LogIn, X } from "lucide-react";
 import { Header } from "@/components/room-finder/header";
 import { FilterBar, type Filters } from "@/components/room-finder/filter-bar";
 import {
@@ -30,10 +31,13 @@ import {
   removeFavorite,
 } from "@/lib/api/favorites";
 import { useRecentStore } from "@/store/recentStore";
+import { useMapViewStore } from "@/store/mapViewStore";
 import { OnboardingGuide } from "@/components/room-finder/OnboardingGuide";
 import { useFavoriteToast } from "@/hooks/useFavoriteToast";
 import { Toast } from "@/components/common/Toast";
 import { SimilarListingsOverlay } from "@/components/common/SimilarListingsOverlay";
+import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 const PAGE_SIZE = 20;
 const BOUNDS_PRECISION = 5;
@@ -45,6 +49,20 @@ const ONE_ROOM_MAX_SIZE_M2 = 66;
 const TWO_ROOM_MAX_SIZE_M2 = 99;
 const ONE_ROOM_MAX_SIZE_PYEONG = 20;
 const TWO_ROOM_MAX_SIZE_PYEONG = 30;
+const DEFAULT_MAP_BOUNDS: MapBounds = {
+  swLat: 37.4388,
+  swLng: 126.7647,
+  neLat: 37.7019,
+  neLng: 127.1833,
+  centerLat: 37.5665,
+  centerLng: 126.978,
+  level: 4,
+  source: "initial",
+};
+
+const LISTING_FOCUS_LEVEL = 2;
+const LISTING_FOCUS_LAT_DELTA = 0.018;
+const LISTING_FOCUS_LNG_DELTA = 0.024;
 
 function getMaxDepositByRoomType(roomType: "oneroom" | "tworoom") {
   return roomType === "tworoom" ? TWO_ROOM_MAX_DEPOSIT : ONE_ROOM_MAX_DEPOSIT;
@@ -107,12 +125,49 @@ function isSameBounds(a: MapBounds | null, b: MapBounds | null) {
   return getBoundsKey(a) === getBoundsKey(b);
 }
 
+function getListingFocusBounds(listing: Listing): MapBounds | null {
+  const lat = Number(listing.lat);
+  const lng = Number(listing.lng);
+
+  if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+
+  return normalizeBounds({
+    swLat: lat - LISTING_FOCUS_LAT_DELTA,
+    swLng: lng - LISTING_FOCUS_LNG_DELTA,
+    neLat: lat + LISTING_FOCUS_LAT_DELTA,
+    neLng: lng + LISTING_FOCUS_LNG_DELTA,
+    centerLat: lat,
+    centerLng: lng,
+    level: LISTING_FOCUS_LEVEL,
+    source: "selection",
+  });
+}
+
+function isInBounds(
+  latValue: number | string | null | undefined,
+  lngValue: number | string | null | undefined,
+  bounds: MapBounds,
+) {
+  const lat = Number(latValue);
+  const lng = Number(lngValue);
+
+  if (Number.isNaN(lat) || Number.isNaN(lng)) return false;
+
+  return (
+    lat >= bounds.swLat &&
+    lat <= bounds.neLat &&
+    lng >= bounds.swLng &&
+    lng <= bounds.neLng
+  );
+}
+
 function shouldReloadByBounds(source?: MapBounds["source"]) {
   return (
     source === "initial" ||
     source === "user" ||
     source === "cluster" ||
-    source === "search"
+    source === "search" ||
+    source === "selection"
   );
 }
 
@@ -141,6 +196,11 @@ function logSimilarRoomScores(items: Listing[], context: string) {
 }
 
 export function HomeContainer() {
+  const { locale, t } = useI18n();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const savedMapBounds = useMapViewStore((state) => state.lastMapBounds);
+  const setLastMapBounds = useMapViewStore((state) => state.setLastMapBounds);
   const [roomType, setRoomType] = useState<"oneroom" | "tworoom">("oneroom");
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [searchQuery, setSearchQuery] = useState("");
@@ -148,14 +208,15 @@ export function HomeContainer() {
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
+  const [isDesktopLayout, setIsDesktopLayout] = useState<boolean | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
-  const [sort, setSort] = useState<"latest" | "price_asc" | "price_desc">(
-    "latest",
+  const [sort, setSort] = useState<"recommended" | "latest" | "price_asc" | "price_desc">(
+    "recommended",
   );
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenImages, setFullscreenImages] = useState<string[]>([]);
   const [fullscreenIndex, setFullscreenIndex] = useState(0);
-  const [aiFullscreenUrl, setAiFullscreenUrl] = useState<string | null>(null);
+  const [isLoginGuideOpen, setIsLoginGuideOpen] = useState(false);
   const { toast, showToast, hideToast } = useFavoriteToast();
 
   const [listings, setListings] = useState<Listing[]>([]);
@@ -175,8 +236,10 @@ export function HomeContainer() {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasRequestFailed, setHasRequestFailed] = useState(false);
-  const [isLocationReady, setIsLocationReady] = useState(false);
-  const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const [isLocationReady, setIsLocationReady] = useState(true);
+  const [mapBounds, setMapBounds] = useState<MapBounds | null>(
+    () => savedMapBounds ?? DEFAULT_MAP_BOUNDS,
+  );
   const [mapFocusRequest, setMapFocusRequest] =
     useState<MapFocusRequest | null>(null);
   const [listScrollResetKey, setListScrollResetKey] = useState(0);
@@ -184,13 +247,44 @@ export function HomeContainer() {
     null,
   );
   const mapFocusRequestIdRef = useRef(0);
+  const pendingSimilarOverlayListingRef = useRef<Listing | null>(null);
 
   const user = useAuthStore((state) => state.user);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const updateUser = useAuthStore((state) => state.updateUser);
   const addRecent = useRecentStore((state) => state.addRecent);
   const canFindSimilarRooms = Boolean(
     mapBounds && mapBounds.level <= MAX_SIMILAR_SEARCH_LEVEL,
   );
+  const gallerySimilarImageUrl = searchParams.get("similarImageUrl");
+  const galleryImageIdParam = searchParams.get("galleryImageId");
+  const galleryImageId =
+    galleryImageIdParam && /^\d+$/.test(galleryImageIdParam)
+      ? Number(galleryImageIdParam)
+      : null;
+  const [similarGalleryImageId, setSimilarGalleryImageId] = useState<
+    number | null
+  >(null);
+
+  useEffect(() => {
+    if (!gallerySimilarImageUrl) return;
+
+    setSimilarImageUrl(gallerySimilarImageUrl);
+    setSimilarGalleryImageId(galleryImageId);
+    router.replace(`/${locale}/home`, { scroll: false });
+  }, [galleryImageId, gallerySimilarImageUrl, locale, router]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const updateLayout = () => setIsDesktopLayout(mediaQuery.matches);
+
+    updateLayout();
+    mediaQuery.addEventListener("change", updateLayout);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateLayout);
+    };
+  }, []);
 
   const recordRecentListing = useCallback(
     (listing: Listing) => {
@@ -247,8 +341,6 @@ export function HomeContainer() {
   // listings와 분리된 찜 목록 상태 — 지도 이동해도 유지됨
   const [favoriteListings, setFavoriteListings] = useState<Listing[]>([]);
 
-  const panelListings = visibleListings.length > 0 ? visibleListings : listings;
-
   const requestKey = useMemo(() => {
     return JSON.stringify({
       search: "",
@@ -276,6 +368,31 @@ export function HomeContainer() {
     sort,
   ]);
 
+  const filterKey = useMemo(() => {
+    return JSON.stringify({
+      search: "",
+      transactionType: filters.transactionType,
+      deposit: filters.deposit,
+      monthlyRent: filters.monthlyRent,
+      structure: roomType === "oneroom" ? filters.structure : [],
+      size: filters.size,
+      sizeUnit: filters.sizeUnit,
+      floor: filters.floor,
+      options: filters.options,
+      roomType,
+    });
+  }, [
+    filters.transactionType,
+    filters.deposit,
+    filters.monthlyRent,
+    filters.structure,
+    filters.size,
+    filters.sizeUnit,
+    filters.floor,
+    filters.options,
+    roomType,
+  ]);
+
   const similarSearchParams = useMemo<RoomSearchParams>(
     () => ({
       search: "",
@@ -288,7 +405,7 @@ export function HomeContainer() {
       sizeUnit: filters.sizeUnit,
       floor: filters.floor,
       options: filters.options,
-      sort,
+      sort: "recommended",
       lat: canFindSimilarRooms ? mapBounds?.centerLat : undefined,
       lng: canFindSimilarRooms ? mapBounds?.centerLng : undefined,
       swLat: canFindSimilarRooms ? mapBounds?.swLat : undefined,
@@ -307,7 +424,6 @@ export function HomeContainer() {
       filters.floor,
       filters.options,
       roomType,
-      sort,
       canFindSimilarRooms,
       mapBounds?.centerLat,
       mapBounds?.centerLng,
@@ -320,7 +436,7 @@ export function HomeContainer() {
   );
 
   const handleFindSimilarBlocked = useCallback(() => {
-    showToast("지역을 검색하거나, 지도를 확대해주세요", "info");
+    showToast(t("home.searchAreaFirst"), "info");
   }, [showToast]);
 
   useEffect(() => {
@@ -333,8 +449,19 @@ export function HomeContainer() {
   }, []);
 
   const prevRequestKeyRef = useRef<string>("");
+  const prevFilterKeyRef = useRef<string>("");
   const prevSimilarRequestKeyRef = useRef<string>("");
   const activeListRequestKeyRef = useRef<string>("");
+  const listRequestSeqRef = useRef(0);
+  const mapRequestSeqRef = useRef(0);
+  const prevBoundsRef = useRef<MapBounds | null>(null);
+  const directlyLoadedBoundsKeyRef = useRef<string>("");
+  const loadedListBoundsKeyRef = useRef<string>("");
+
+  const currentBoundsKey = mapBounds ? getBoundsKey(mapBounds) : "";
+  const isListingResultForCurrentBounds =
+    Boolean(currentBoundsKey) && loadedListBoundsKeyRef.current === currentBoundsKey;
+  const panelListings = isListingResultForCurrentBounds ? listings : [];
 
   const getSimilarRequestKey = useCallback(
     (imageUrl: string) =>
@@ -354,6 +481,7 @@ export function HomeContainer() {
       const topSimilar = similar.slice(0, 4);
       if (imageUrl) {
         setSimilarImageUrl(imageUrl);
+        setSimilarGalleryImageId(null);
         prevSimilarRequestKeyRef.current = getSimilarRequestKey(imageUrl);
       }
       setRecommendedListings(topSimilar);
@@ -384,6 +512,7 @@ export function HomeContainer() {
               excludeItemId: listingId,
             }),
             image_url: imageUrl,
+            user_id: user?.user_id ?? null,
             source_image_id: imageId ?? null,
           }),
         });
@@ -396,6 +525,12 @@ export function HomeContainer() {
         }
 
         const data = await response.json();
+        if (typeof data.remain === "number" || typeof data.credit === "number") {
+          updateUser({
+            remain: typeof data.remain === "number" ? data.remain : user?.remain,
+            credit: typeof data.credit === "number" ? data.credit : user?.credit,
+          });
+        }
         const similar = Array.isArray(data.items)
           ? data.items.map(mapSimilarItemToListing).slice(0, 3)
           : [];
@@ -418,12 +553,33 @@ export function HomeContainer() {
       handleFindSimilarBlocked,
       similarSearchParams,
       showToast,
+      updateUser,
+      user?.credit,
+      user?.remain,
+      user?.user_id,
     ],
   );
 
   useEffect(() => {
     if (prevRequestKeyRef.current === requestKey) return;
+    const isFirstRequest = prevRequestKeyRef.current === "";
+    const isSortOnlyChange = prevFilterKeyRef.current === filterKey;
+
     prevRequestKeyRef.current = requestKey;
+    prevFilterKeyRef.current = filterKey;
+
+    if (isSortOnlyChange) {
+      setVisibleListings([]);
+      activeListRequestKeyRef.current = "";
+      directlyLoadedBoundsKeyRef.current = "";
+      loadedListBoundsKeyRef.current = "";
+      setOffset(0);
+      setHasMore(true);
+      setHasRequestFailed(false);
+      setIsInitialLoading(false);
+      return;
+    }
+
     if (!similarImageUrl) {
       setRecommendedListings(null);
     }
@@ -435,11 +591,14 @@ export function HomeContainer() {
       setSelectedListing(null);
       setIsDetailOpen(false);
     }
+    activeListRequestKeyRef.current = "";
+    directlyLoadedBoundsKeyRef.current = "";
+    loadedListBoundsKeyRef.current = "";
     setOffset(0);
     setHasMore(true);
     setHasRequestFailed(false);
-    setIsInitialLoading(false);
-  }, [requestKey, similarImageUrl]);
+    setIsInitialLoading(isFirstRequest);
+  }, [filterKey, requestKey, similarImageUrl]);
 
   useEffect(() => {
     if (!similarImageUrl) return;
@@ -467,6 +626,8 @@ export function HomeContainer() {
               limit: 4,
             }),
             image_url: similarImageUrl,
+            user_id: user?.user_id ?? null,
+            gallery_image_id: similarGalleryImageId,
           }),
           signal: controller.signal,
         });
@@ -476,6 +637,12 @@ export function HomeContainer() {
         }
 
         const data = await response.json();
+        if (typeof data.remain === "number" || typeof data.credit === "number") {
+          updateUser({
+            remain: typeof data.remain === "number" ? data.remain : user?.remain,
+            credit: typeof data.credit === "number" ? data.credit : user?.credit,
+          });
+        }
         const similar = Array.isArray(data.items)
           ? data.items.map(mapSimilarItemToListing).slice(0, 4)
           : [];
@@ -501,8 +668,13 @@ export function HomeContainer() {
     canFindSimilarRooms,
     getSimilarRequestKey,
     mapBounds?.source,
+    similarGalleryImageId,
     similarImageUrl,
     similarSearchParams,
+    updateUser,
+    user?.credit,
+    user?.remain,
+    user?.user_id,
   ]);
 
   const handleInitialLocationResolved = useCallback(() => {
@@ -518,10 +690,21 @@ export function HomeContainer() {
     }
 
     const applyBounds = () => {
-      setMapBounds((prev) => {
-        if (isSameBounds(prev, normalizedBounds)) return prev;
-        return normalizedBounds;
-      });
+      if (isSameBounds(mapBounds, normalizedBounds)) return;
+
+      const nextBoundsKey = getBoundsKey(normalizedBounds);
+      if (directlyLoadedBoundsKeyRef.current !== nextBoundsKey) {
+        directlyLoadedBoundsKeyRef.current = "";
+      }
+      loadedListBoundsKeyRef.current = "";
+      setOffset(0);
+      setHasMore(true);
+      setHasRequestFailed(false);
+      setListings([]);
+      setMapItems([]);
+      setVisibleListings([]);
+      setLastMapBounds(normalizedBounds);
+      setMapBounds(normalizedBounds);
     };
 
     if (normalizedBounds.source === "user") {
@@ -533,7 +716,7 @@ export function HomeContainer() {
     }
 
     applyBounds();
-  }, []);
+  }, [mapBounds, setLastMapBounds]);
 
   const handleVisibleListingsChange = useCallback((nextListings: Listing[]) => {
     setVisibleListings(nextListings);
@@ -550,6 +733,7 @@ export function HomeContainer() {
   useEffect(() => {
     if (!selectedListing) return;
     if (isPendingOpenRef.current) return; // pending으로 열린 매물은 스킵
+    if (isDetailOpen) return;
     const stillExistsInPanel =
       panelListings.some((listing) => listing.id === selectedListing.id) ||
       (recommendedListings ?? []).some(
@@ -568,6 +752,7 @@ export function HomeContainer() {
     recommendedListings,
     photoSimilarListings,
     favoriteListings,
+    isDetailOpen,
     selectedListing,
   ]);
 
@@ -576,6 +761,12 @@ export function HomeContainer() {
 
     const loadPagedItems = async () => {
       if (!isLocationReady || !mapBounds) return;
+      if (
+        offset === 0 &&
+        directlyLoadedBoundsKeyRef.current === getBoundsKey(mapBounds)
+      ) {
+        return;
+      }
       const isFilterReload = activeListRequestKeyRef.current !== requestKey;
       if (!shouldReloadByBounds(mapBounds.source) && !isFilterReload) return;
       if (activeListRequestKeyRef.current !== requestKey && offset !== 0) return;
@@ -585,10 +776,11 @@ export function HomeContainer() {
         activeListRequestKeyRef.current = requestKey;
       }
 
+      const requestSeq = ++listRequestSeqRef.current;
       setIsLoading(true);
 
       try {
-        const data = await fetchItems({
+        const searchParams: RoomSearchParams = {
           offset,
           limit: PAGE_SIZE,
           search: "",
@@ -609,20 +801,30 @@ export function HomeContainer() {
           neLat: mapBounds.neLat,
           neLng: mapBounds.neLng,
           signal: controller.signal,
-        });
+        };
 
-        const mapped = data.items.map(mapItemToListing);
+        const data = await fetchItems(searchParams);
+        if (requestSeq !== listRequestSeqRef.current) return;
+
+        const boundedItems = data.items.filter((item) =>
+          isInBounds(item.lat, item.lng, mapBounds),
+        );
+        const droppedOutOfBounds = boundedItems.length !== data.items.length;
+        const mapped = boundedItems.map(mapItemToListing);
         setListings((prev) => (offset === 0 ? mapped : [...prev, ...mapped]));
         if (offset === 0) {
+          loadedListBoundsKeyRef.current = getBoundsKey(mapBounds);
           setListScrollResetKey((prev) => prev + 1);
         }
-        setHasMore(data.has_more);
+        setHasMore(droppedOutOfBounds ? false : data.has_more);
         setHasRequestFailed(false);
       } catch (error) {
+        if (requestSeq !== listRequestSeqRef.current) return;
         if (controller.signal.aborted || isAbortError(error)) return;
         console.error(error);
         setHasRequestFailed(true);
       } finally {
+        if (requestSeq !== listRequestSeqRef.current) return;
         if (controller.signal.aborted) return;
         setIsLoading(false);
         setIsInitialLoading(false);
@@ -657,7 +859,11 @@ export function HomeContainer() {
 
     const loadMapItems = async () => {
       if (!isLocationReady || !mapBounds) return;
-      if (!shouldReloadByBounds(mapBounds.source)) return;
+      if (directlyLoadedBoundsKeyRef.current === getBoundsKey(mapBounds)) return;
+      const isFilterReload = activeListRequestKeyRef.current !== requestKey;
+      if (!shouldReloadByBounds(mapBounds.source) && !isFilterReload) return;
+
+      const requestSeq = ++mapRequestSeqRef.current;
 
       try {
         const data = await fetchMapItems({
@@ -681,8 +887,12 @@ export function HomeContainer() {
           signal: controller.signal,
         });
 
-        setMapItems(data.items);
+        if (requestSeq !== mapRequestSeqRef.current) return;
+        setMapItems(
+          data.items.filter((item) => isInBounds(item.lat, item.lng, mapBounds)),
+        );
       } catch (error) {
+        if (requestSeq !== mapRequestSeqRef.current) return;
         if (controller.signal.aborted || isAbortError(error)) return;
         console.error(error);
       }
@@ -708,8 +918,6 @@ export function HomeContainer() {
     sort,
   ]);
 
-  const prevBoundsRef = useRef<MapBounds | null>(null);
-
   useEffect(() => {
     if (!mapBounds) return;
     const prevBounds = prevBoundsRef.current;
@@ -728,14 +936,148 @@ export function HomeContainer() {
     setOffset((prev) => prev + PAGE_SIZE);
   }, [hasMore, isLoading]);
 
-  // 매물목록 클릭 → 지도 이동 + 상세패널 오픈
+  const loadListingArea = useCallback(
+    async (listing: Listing, settledBounds?: MapBounds) => {
+      const focusBounds = settledBounds
+        ? normalizeBounds({ ...settledBounds, source: "selection" })
+        : getListingFocusBounds(listing);
+      if (!focusBounds) return;
+
+      const listRequestSeq = ++listRequestSeqRef.current;
+      const mapRequestSeq = ++mapRequestSeqRef.current;
+      directlyLoadedBoundsKeyRef.current = getBoundsKey(focusBounds);
+
+      setLastMapBounds(focusBounds);
+      setMapBounds(focusBounds);
+      setOffset(0);
+      setHasMore(true);
+      setHasRequestFailed(false);
+      setVisibleListings([]);
+      setIsLoading(true);
+      setIsInitialLoading(false);
+
+      const baseParams: RoomSearchParams = {
+        search: "",
+        transactionType: filters.transactionType,
+        roomType: roomType === "oneroom" ? "원룸" : "투룸",
+        structure: roomType === "oneroom" ? filters.structure : [],
+        deposit: filters.deposit,
+        monthlyRent: filters.monthlyRent,
+        size: filters.size,
+        sizeUnit: filters.sizeUnit,
+        floor: filters.floor,
+        options: filters.options,
+        sort,
+        lat: focusBounds.centerLat,
+        lng: focusBounds.centerLng,
+        swLat: focusBounds.swLat,
+        swLng: focusBounds.swLng,
+        neLat: focusBounds.neLat,
+        neLng: focusBounds.neLng,
+        level: focusBounds.level,
+      };
+
+      try {
+        const [listData, mapData] = await Promise.all([
+          fetchItems({
+            ...baseParams,
+            offset: 0,
+            limit: PAGE_SIZE,
+          }),
+          fetchMapItems(baseParams),
+        ]);
+
+        if (
+          listRequestSeq !== listRequestSeqRef.current ||
+          mapRequestSeq !== mapRequestSeqRef.current
+        ) {
+          return;
+        }
+
+        const boundedListItems = listData.items.filter((item) =>
+          isInBounds(item.lat, item.lng, focusBounds),
+        );
+        const droppedOutOfBounds =
+          boundedListItems.length !== listData.items.length;
+
+        setListings(boundedListItems.map(mapItemToListing));
+        setHasMore(droppedOutOfBounds ? false : listData.has_more);
+        setMapItems(
+          mapData.items.filter((item) =>
+            isInBounds(item.lat, item.lng, focusBounds),
+          ),
+        );
+        activeListRequestKeyRef.current = requestKey;
+        prevBoundsRef.current = focusBounds;
+        loadedListBoundsKeyRef.current = getBoundsKey(focusBounds);
+        setListScrollResetKey((prev) => prev + 1);
+      } catch (error) {
+        if (isAbortError(error)) return;
+        console.error(error);
+        setHasRequestFailed(true);
+      } finally {
+        if (
+          listRequestSeq !== listRequestSeqRef.current ||
+          mapRequestSeq !== mapRequestSeqRef.current
+        ) {
+          return;
+        }
+
+        setIsLoading(false);
+      }
+    },
+    [
+      filters.transactionType,
+      filters.deposit,
+      filters.monthlyRent,
+      filters.structure,
+      filters.size,
+      filters.sizeUnit,
+      filters.floor,
+      filters.options,
+      requestKey,
+      roomType,
+      setLastMapBounds,
+      sort,
+    ],
+  );
+
+  const focusMapOnListing = useCallback((listing: Listing) => {
+    const lat = Number(listing.lat);
+    const lng = Number(listing.lng);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+    mapFocusRequestIdRef.current += 1;
+    setMapFocusRequest({
+      id: mapFocusRequestIdRef.current,
+      lat,
+      lng,
+      level: LISTING_FOCUS_LEVEL,
+      source: "selection",
+    });
+  }, []);
+
+  const handleMapFocusSettled = useCallback(
+    (settledBounds: MapBounds) => {
+      const listing = pendingSimilarOverlayListingRef.current;
+      if (!listing) return;
+
+      pendingSimilarOverlayListingRef.current = null;
+      void loadListingArea(listing, settledBounds);
+    },
+    [loadListingArea],
+  );
+
   const handleListingClick = useCallback(
     (listing: Listing) => {
       recordRecentListing(listing);
       setSelectedListing(listing);
       setIsDetailOpen(true);
+      focusMapOnListing(listing);
+      void loadListingArea(listing);
     },
-    [recordRecentListing],
+    [focusMapOnListing, loadListingArea, recordRecentListing],
   );
 
   // 찜목록 클릭 → 지도 이동 + 상세패널 오픈 (매물목록과 동일)
@@ -744,39 +1086,27 @@ export function HomeContainer() {
       recordRecentListing(listing);
       setSelectedListing(listing);
       setIsDetailOpen(true);
+      focusMapOnListing(listing);
+      void loadListingArea(listing);
     },
-    [recordRecentListing],
+    [focusMapOnListing, loadListingArea, recordRecentListing],
   );
 
   const handleSimilarOverlayListingClick = useCallback(
     (listing: Listing) => {
-      const lat = Number(listing.lat);
-      const lng = Number(listing.lng);
-
       recordRecentListing(listing);
       setSelectedListing(listing);
       setIsPanelOpen(true);
       setIsDetailOpen(true);
-      setListings([]);
-      setMapItems([]);
-      setVisibleListings([]);
       setOffset(0);
       setHasMore(true);
       setHasRequestFailed(false);
       setListScrollResetKey((prev) => prev + 1);
-
-      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-        mapFocusRequestIdRef.current += 1;
-        setMapFocusRequest({
-          id: mapFocusRequestIdRef.current,
-          lat,
-          lng,
-          level: 2,
-          source: "search",
-        });
-      }
+      setIsLoading(true);
+      pendingSimilarOverlayListingRef.current = listing;
+      focusMapOnListing(listing);
     },
-    [recordRecentListing],
+    [focusMapOnListing, recordRecentListing],
   );
 
   // favoriteIds DB에서 로드
@@ -803,41 +1133,45 @@ export function HomeContainer() {
   }, [isLoggedIn, user?.user_id]);
 
   // favoriteListings DB에서 로드 — listings와 완전히 분리, 지도 이동해도 유지
+  const [hasLoadedFavoriteListings, setHasLoadedFavoriteListings] =
+    useState(false);
+
   useEffect(() => {
-    if (!isLoggedIn || !user?.user_id) {
-      setFavoriteListings([]);
-      return;
-    }
-
-    const controller = new AbortController();
-    const loadFavoriteListings = async () => {
-      try {
-        const data = await fetchFavorites(user.user_id!, controller.signal);
-        const ids = data.items.map((item) => item.item_id);
-
-        const details = await Promise.all(
-          ids.map((id) =>
-            fetchRoomDetail(id, controller.signal)
-              .then((d) => mapItemToListing(d.item))
-              .catch(() => null),
-          ),
-        );
-
-        setFavoriteListings(details.filter(Boolean) as Listing[]);
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        console.error(error);
-      }
-    };
-
-    loadFavoriteListings();
-    return () => controller.abort();
+    if (isLoggedIn && user?.user_id) return;
+    setFavoriteListings([]);
+    setHasLoadedFavoriteListings(false);
   }, [isLoggedIn, user?.user_id]);
+
+  const loadFavoriteListings = useCallback(async () => {
+    if (!isLoggedIn || !user?.user_id || hasLoadedFavoriteListings) return;
+
+    try {
+      const data = await fetchFavorites(user.user_id);
+      const ids = data.items.map((item) => item.item_id);
+
+      const details = await Promise.all(
+        ids.map((id) =>
+          fetchRoomDetail(id)
+            .then((d) => mapItemToListing(d.item))
+            .catch(() => null),
+        ),
+      );
+
+      setFavoriteListings(details.filter(Boolean) as Listing[]);
+      setHasLoadedFavoriteListings(true);
+    } catch (error) {
+      console.error(error);
+    }
+  }, [hasLoadedFavoriteListings, isLoggedIn, user?.user_id]);
+
+  useEffect(() => {
+    void loadFavoriteListings();
+  }, [loadFavoriteListings]);
 
   const handleToggleFavorite = useCallback(
     async (listingId: number) => {
       if (!isLoggedIn || !user?.user_id) {
-        alert("로그인 후 이용할 수 있습니다.");
+        setIsLoginGuideOpen(true);
         return;
       }
 
@@ -879,6 +1213,15 @@ export function HomeContainer() {
       showToast,
     ],
   );
+
+  const openLoginGuide = useCallback(() => {
+    setIsLoginGuideOpen(true);
+  }, []);
+
+  const handleLoginRedirect = useCallback(() => {
+    setIsLoginGuideOpen(false);
+    router.push(`/${locale}/login`);
+  }, [router]);
 
   const handleRoomTypeChange = useCallback(
     (nextRoomType: "oneroom" | "tworoom") => {
@@ -925,32 +1268,52 @@ export function HomeContainer() {
       {/* 찜 토스트 알림 */}
       <Toast toast={toast} onClose={hideToast} />
 
-      {/* AI 이미지 풀스크린 모달 */}
-      {aiFullscreenUrl && (
+      {isLoginGuideOpen && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85"
-          onClick={() => setAiFullscreenUrl(null)}
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="login-guide-title"
+          aria-describedby="login-guide-description"
+          onClick={() => setIsLoginGuideOpen(false)}
         >
           <div
-            className="relative w-[480px] max-w-[90vw] overflow-hidden rounded-2xl bg-black"
-            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[380px] overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
           >
-            <div className="relative aspect-square w-full">
-              <Image
-                src={aiFullscreenUrl}
-                alt="AI 생성 이미지"
-                fill
-                unoptimized
-                className="object-cover"
-              />
+            <div className="px-6 pt-7 text-center">
+              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-500">
+                <LogIn className="h-5 w-5" />
+              </div>
+              <h2
+                id="login-guide-title"
+                className="text-xl font-bold tracking-normal text-stone-900"
+              >
+                {t("home.loginRequiredTitle")}
+              </h2>
+              <p
+                id="login-guide-description"
+                className="mt-2 text-sm leading-6 text-stone-500"
+              >
+                {t("home.loginRequiredDescription")}
+              </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setAiFullscreenUrl(null)}
-              className="absolute right-3 top-3 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex flex-col gap-2 px-6 pb-6 pt-5">
+              <button
+                type="button"
+                onClick={handleLoginRedirect}
+                className="inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-xl bg-stone-900 px-4 text-sm font-semibold text-white transition hover:bg-stone-800"
+              >
+                {t("home.goLogin")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsLoginGuideOpen(false)}
+                className="inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-stone-600 transition hover:bg-stone-50"
+              >
+                {t("home.continueBrowsing")}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -971,11 +1334,21 @@ export function HomeContainer() {
               <X className="h-5 w-5" />
             </button>
           </div>
-          <div className="relative flex flex-1 items-center justify-center">
+          <div
+            className={cn(
+              "relative flex flex-1 items-center justify-center",
+              fullscreenImages.length > 1 && "cursor-pointer",
+            )}
+            onClick={() => {
+              if (fullscreenImages.length <= 1) return;
+              setFullscreenIndex((prev) => (prev + 1) % fullscreenImages.length);
+            }}
+          >
             <Image
               src={fullscreenImages[fullscreenIndex]}
               alt={`사진 ${fullscreenIndex + 1}`}
               fill
+              unoptimized
               className="object-contain"
               sizes="100vw"
             />
@@ -983,13 +1356,14 @@ export function HomeContainer() {
               <>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={(event) => {
+                    event.stopPropagation();
                     setFullscreenIndex(
                       (prev) =>
                         (prev - 1 + fullscreenImages.length) %
                         fullscreenImages.length,
-                    )
-                  }
+                    );
+                  }}
                   className="absolute left-3 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
                   aria-label="이전 사진"
                 >
@@ -1005,11 +1379,12 @@ export function HomeContainer() {
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={(event) => {
+                    event.stopPropagation();
                     setFullscreenIndex(
                       (prev) => (prev + 1) % fullscreenImages.length,
-                    )
-                  }
+                    );
+                  }}
                   className="absolute right-3 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
                   aria-label="다음 사진"
                 >
@@ -1065,7 +1440,7 @@ export function HomeContainer() {
                   : "text-stone-500 hover:text-stone-800"
               }`}
             >
-              지도
+              {t("home.map")}
             </button>
             <button
               onClick={() => setMobileView("list")}
@@ -1075,16 +1450,18 @@ export function HomeContainer() {
                   : "text-stone-500 hover:text-stone-800"
               }`}
             >
-              매물목록
+              {t("home.listings")}
             </button>
           </div>
         </div>
 
-        <main className="relative hidden flex-1 overflow-hidden lg:block scroll-none">
+        {isDesktopLayout === true && (
+        <main className="relative flex-1 overflow-hidden scroll-none">
           <section className="absolute inset-0 z-0">
             <MapView
               searchQuery={mapSearchQuery}
               mapItems={mapItems}
+              initialBounds={savedMapBounds}
               selectedListing={selectedListing}
               focusRequest={mapFocusRequest}
               onMarkerClick={(listing) => {
@@ -1095,6 +1472,7 @@ export function HomeContainer() {
               onVisibleListingsChange={handleVisibleListingsChange}
               onInitialLocationResolved={handleInitialLocationResolved}
               onBoundsChange={handleBoundsChange}
+              onFocusSettled={handleMapFocusSettled}
             />
           </section>
 
@@ -1164,11 +1542,17 @@ export function HomeContainer() {
               onSimilarListingsFound={handleSimilarListingsFound}
               aiRecommendedListings={recommendedListings ?? []}
               favoriteListings={favoriteListings}
+              onWishTabOpen={loadFavoriteListings}
               isLoggedIn={isLoggedIn}
+              onLoginRequired={openLoginGuide}
               onWishClick={handleWishClick}
               sort={sort}
               onSortChange={setSort}
-              onAIPhotoClick={(url) => setAiFullscreenUrl(url)}
+              onAIPhotoClick={(images, index) => {
+                setFullscreenImages(images);
+                setFullscreenIndex(index);
+                setIsFullscreen(true);
+              }}
               similarSearchParams={similarSearchParams}
               canFindSimilarRooms={canFindSimilarRooms}
               onFindSimilarBlocked={handleFindSimilarBlocked}
@@ -1208,27 +1592,33 @@ export function HomeContainer() {
             </div>
           </aside>
         </main>
+        )}
 
-        <main className="flex flex-1 overflow-hidden lg:hidden">
+        {isDesktopLayout === false && (
+        <main className="relative flex min-h-0 flex-1 overflow-hidden">
           {mobileView === "map" ? (
-            <section className="relative flex-1">
-              <MapView
-                searchQuery={mapSearchQuery}
-                mapItems={mapItems}
-                selectedListing={selectedListing}
-                focusRequest={mapFocusRequest}
-                onMarkerClick={(listing) => {
-                  recordRecentListing(listing);
-                  setSelectedListing(listing);
-                  setMobileView("list");
-                }}
-                onVisibleListingsChange={handleVisibleListingsChange}
-                onInitialLocationResolved={handleInitialLocationResolved}
-                onBoundsChange={handleBoundsChange}
-              />
+            <section className="relative flex min-h-0 flex-1 bg-ivory px-2 pb-2">
+              <div className="min-h-0 flex-1 overflow-hidden rounded-xl">
+                <MapView
+                  searchQuery={mapSearchQuery}
+                  mapItems={mapItems}
+                  initialBounds={savedMapBounds}
+                  selectedListing={selectedListing}
+                  focusRequest={mapFocusRequest}
+                  onMarkerClick={(listing) => {
+                    recordRecentListing(listing);
+                    setSelectedListing(listing);
+                    setMobileView("list");
+                  }}
+                  onVisibleListingsChange={handleVisibleListingsChange}
+                  onInitialLocationResolved={handleInitialLocationResolved}
+                  onBoundsChange={handleBoundsChange}
+                  onFocusSettled={handleMapFocusSettled}
+                />
+              </div>
             </section>
           ) : (
-            <aside className="flex-1">
+            <aside className="min-w-0 flex-1 overflow-hidden">
               <ListingPanel
                 listings={panelListings}
                 selectedListing={selectedListing}
@@ -1243,23 +1633,67 @@ export function HomeContainer() {
                 onSimilarListingsFound={handleSimilarListingsFound}
                 aiRecommendedListings={recommendedListings ?? []}
                 favoriteListings={favoriteListings}
+                onWishTabOpen={loadFavoriteListings}
                 isLoggedIn={isLoggedIn}
+                onLoginRequired={openLoginGuide}
                 onWishClick={handleWishClick}
-                onAIPhotoClick={(url) => setAiFullscreenUrl(url)}
+                onAIPhotoClick={(images, index) => {
+                  setFullscreenImages(images);
+                  setFullscreenIndex(index);
+                  setIsFullscreen(true);
+                }}
                 similarSearchParams={similarSearchParams}
                 canFindSimilarRooms={canFindSimilarRooms}
                 onFindSimilarBlocked={handleFindSimilarBlocked}
               />
             </aside>
           )}
-        </main>
 
-        {(!isLocationReady ||
-          (isInitialLoading && listings.length === 0 && !selectedListing)) &&
+          <div
+            className={`absolute inset-0 z-40 transition-transform duration-300 ease-in-out ${
+              isDetailOpen && selectedListing
+                ? "translate-x-0 pointer-events-auto"
+                : "translate-x-full pointer-events-none"
+            }`}
+          >
+            <ListingDetailPanel
+              listing={selectedListing}
+              isOpen={isDetailOpen && !!selectedListing}
+              onClose={() => {
+                setIsDetailOpen(false);
+                setSelectedListing(null);
+                isPendingOpenRef.current = false;
+                setIsInitialLoading(false);
+                setIsLocationReady(true);
+              }}
+              listPanelOpen={isPanelOpen}
+              favoriteIds={favoriteIds}
+              favoriteLoadingIds={favoriteLoadingIds}
+              onToggleFavorite={handleToggleFavorite}
+              onPhotoClick={(images, index) => {
+                setFullscreenImages(images);
+                setFullscreenIndex(index);
+                setIsFullscreen(true);
+              }}
+              onFindSimilarFromPhoto={handleFindSimilarFromPhoto}
+              isFindingSimilarFromPhoto={isFindingPhotoSimilar}
+            />
+          </div>
+        </main>
+        )}
+
+        {(isInitialLoading && isLoading && listings.length === 0 && !selectedListing) &&
           !isPendingOpenRef.current && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/10">
-              <div className="rounded-lg bg-white px-4 py-3 shadow-md">
-                현재 위치 기준 매물 불러오는 중...
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/10 px-4 backdrop-blur-[1px]">
+              <div className="w-full max-w-[640px] overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
+                <Image
+                  src="/loading-room-finder.png"
+                  alt={t("home.loadingCurrentLocation")}
+                  width={1024}
+                  height={576}
+                  priority
+                  className="block aspect-video w-full object-cover"
+                />
               </div>
             </div>
           )}

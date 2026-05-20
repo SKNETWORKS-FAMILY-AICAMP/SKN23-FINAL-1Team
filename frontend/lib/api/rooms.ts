@@ -20,7 +20,7 @@ export interface RoomSearchParams {
   neLat?: number;
   neLng?: number;
   level?: number;
-  sort?: "latest" | "price_asc" | "price_desc";
+  sort?: "recommended" | "latest" | "price_asc" | "price_desc";
   excludeItemId?: number;
   signal?: AbortSignal;
 }
@@ -123,6 +123,40 @@ export interface ListingDetailResponse {
     url: string;
     is_main?: boolean | null;
   }[];
+  broker: {
+    name: string | null;
+    office_name: string | null;
+    phone: string | null;
+    photo_url: string | null;
+  } | null;
+}
+
+export interface MarketPriceResponse {
+  umdNm: string;
+  guNm: string | null;
+  market_type: string | null;
+  grade: string | null;
+  analysis_scope: string | null;
+  current_rent_per_m2_won: number | null;
+  five_year_change_rate: number | null;
+  predicted_rent_per_m2_won: number | null;
+  change_rate: number | null;
+  status_label: string | null;
+  timeseries: {
+    dealDate: string;
+    rent_per_m2_won: number | null;
+  }[];
+  recent_prices: {
+    price_id: number;
+    deal_year: number;
+    deal_month: number;
+    build_year: number;
+    deposit: number;
+    monthly_rent: number;
+    area_m2: number;
+    floor: number;
+    room_class: string;
+  }[];
 }
 
 export function buildSearchBody(params: RoomSearchParams) {
@@ -149,7 +183,7 @@ export function buildSearchBody(params: RoomSearchParams) {
     ne_lat: params.neLat ?? null,
     ne_lng: params.neLng ?? null,
     level: params.level ?? null,
-    sort: params.sort ?? "latest",
+    sort: params.sort ?? "recommended",
     exclude_item_id: params.excludeItemId ?? null,
   };
 }
@@ -212,8 +246,29 @@ export async function fetchRoomDetail(
   itemId: number,
   signal?: AbortSignal,
 ): Promise<ListingDetailResponse> {
-  return requestJson<ListingDetailResponse>(`/api/rooms?item_id=${itemId}`, {
+  return requestJson<ListingDetailResponse>(`/backend/api/rooms/${itemId}`, {
     method: "GET",
     signal,
   });
+}
+
+export async function fetchMarketPrice(
+  itemId: number,
+  signal?: AbortSignal,
+): Promise<MarketPriceResponse | null> {
+  try {
+    return await requestJson<MarketPriceResponse>(
+      `/backend/api/market-price?item_id=${itemId}`,
+      {
+        method: "GET",
+        signal,
+      },
+    );
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    console.warn("[market-price] unavailable", error);
+    return null;
+  }
 }

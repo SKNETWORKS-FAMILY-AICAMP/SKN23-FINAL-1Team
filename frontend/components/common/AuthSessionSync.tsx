@@ -7,6 +7,7 @@ import { useAuthStore } from "@/store/authStore";
 export default function AuthSessionSync() {
   const { data: session, status } = useSession();
   const setUser = useAuthStore((state) => state.setUser);
+  const updateUser = useAuthStore((state) => state.updateUser);
   const clearUser = useAuthStore((state) => state.clearUser);
 
   useEffect(() => {
@@ -19,6 +20,7 @@ export default function AuthSessionSync() {
         provider_id: (session.user as any).provider_id,
         remain: (session.user as any).remain,
         credit: (session.user as any).credit,
+        role: (session.user as any).role,
         image: session.user.image,
         backend_access_token: (session.user as any).backend_access_token,
         backend_refresh_token: (session.user as any).backend_refresh_token,
@@ -37,24 +39,22 @@ export default function AuthSessionSync() {
 
     const syncUserCredit = async () => {
       try {
-        const response = await fetch(`/api/user-credit?user_id=${userId}`);
-        const data = (await response.json().catch(() => null)) as
+        const [creditResponse, roleResponse] = await Promise.all([
+          fetch(`/api/user-credit?user_id=${userId}`),
+          fetch(`/backend/api/user-role/role/${userId}`),
+        ]);
+
+        const data = (await creditResponse.json().catch(() => null)) as
           | { credit?: number; remain?: number }
           | null;
+        const roleData = await roleResponse.json().catch(() => null);
 
-        if (!response.ok || ignore || !data) return;
+        if (!creditResponse.ok || ignore || !data) return;
 
-        setUser({
-          user_id: userId,
-          email: session?.user?.email,
-          nickname: (session?.user as any).nickname,
-          social_type: (session?.user as any).social_type,
-          provider_id: (session?.user as any).provider_id,
+        updateUser({
           remain: data.remain,
           credit: data.credit,
-          image: session?.user?.image,
-          backend_access_token: (session?.user as any).backend_access_token,
-          backend_refresh_token: (session?.user as any).backend_refresh_token,
+          role: roleData?.role ?? undefined,
         });
       } catch (error) {
         console.error("[AuthSessionSync] Failed to sync user credit:", error);
@@ -66,7 +66,7 @@ export default function AuthSessionSync() {
     return () => {
       ignore = true;
     };
-  }, [session, status, setUser]);
+  }, [session, status, updateUser]);
 
   return null;
 }

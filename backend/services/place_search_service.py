@@ -8,6 +8,7 @@ from models.room import Room
 from services.seoul_places_seed import (
     SEOUL_DISTRICTS,
     SEOUL_DONGS_BY_DISTRICT,
+    SEOUL_LEGAL_DONGS_BY_DISTRICT,
     SEOUL_SUBWAY_STATIONS,
 )
 
@@ -36,6 +37,10 @@ def _normalize(value: str) -> str:
     return re.sub(r"\s+", "", value.strip().lower())
 
 
+def _normalize_station_name(value: str) -> str:
+    return re.sub(r"(역)+$", "역", value) if value else value
+
+
 def _score_place(place: dict, query: str) -> int:
     normalized_query = _normalize(query)
     if not normalized_query:
@@ -60,16 +65,31 @@ def _score_place(place: dict, query: str) -> int:
         elif normalized_query in normalized_value:
             score = max(score, 50)
 
+    if place.get("sido") == SEOUL_SIDO:
+        score += 10
+
+    if place.get("type") == "dong" and _normalize(str(place.get("dong", ""))) == normalized_query:
+        score += 20
+
     return score
 
 
 def _place_response(place: dict) -> dict:
     location = place.get("location") or {}
+    name = place["name"]
+    display_name = place["display_name"]
+
+    if place["type"] == "subway_station":
+        normalized_name = _normalize_station_name(name)
+        if normalized_name != name:
+            display_name = display_name.replace(name, normalized_name, 1)
+            name = normalized_name
+
     return {
         "id": place["id"],
         "type": place["type"],
-        "name": place["name"],
-        "display_name": place["display_name"],
+        "name": name,
+        "display_name": display_name,
         "sido": place.get("sido"),
         "sigungu": place.get("sigungu"),
         "dong": place.get("dong"),
@@ -150,6 +170,34 @@ def _static_dong_places() -> list[dict]:
     return places
 
 
+def _static_legal_dong_places() -> list[dict]:
+    places = []
+
+    for sigungu, dongs in SEOUL_LEGAL_DONGS_BY_DISTRICT.items():
+        for dong in dongs:
+            places.append(
+                {
+                    "id": f"legal-dong-seoul-{sigungu}-{dong}",
+                    "type": "dong",
+                    "name": dong,
+                    "display_name": f"{SEOUL_SIDO} {sigungu} {dong}",
+                    "sido": SEOUL_SIDO,
+                    "sigungu": sigungu,
+                    "dong": dong,
+                    "aliases": [
+                        dong,
+                        dong.removesuffix("동"),
+                        f"{sigungu} {dong}",
+                        f"{SEOUL_SIDO} {sigungu} {dong}",
+                    ],
+                    "lines": [],
+                    "priority": 38,
+                }
+            )
+
+    return places
+
+
 def _parse_seoul_dong(address: str) -> tuple[str, str] | None:
     parts = address.split()
     if not parts or parts[0] not in {"서울", "서울시", "서울특별시"}:
@@ -220,6 +268,7 @@ def build_places(db: Session) -> list[dict]:
     for place in [
         *_district_places(),
         *_static_dong_places(),
+        *_static_legal_dong_places(),
         *_subway_places(),
         *_dong_places_from_rooms(db),
     ]:
@@ -296,6 +345,17 @@ def _search_places_in_memory(db: Session, query: str, limit: int) -> list[dict]:
     return [_place_response(place) for _, place in scored[:limit]]
 
 
+def _sort_places_for_query(places: list[dict], query: str) -> list[dict]:
+    return sorted(
+        places,
+        key=lambda place: (
+            -_score_place(place, query),
+            -place.get("priority", 0),
+            place.get("name", ""),
+        ),
+    )
+
+
 def search_places(db: Session, query: str, limit: int = 10) -> list[dict]:
     clean_query = query.strip()
     if not clean_query:
@@ -311,7 +371,7 @@ def search_places(db: Session, query: str, limit: int = 10) -> list[dict]:
     try:
         result = es.search(
             index=PLACES_INDEX,
-            size=limit,
+            size=min(limit * 3, 50),
             query={
                 "bool": {
                     "should": [
@@ -330,7 +390,8 @@ def search_places(db: Session, query: str, limit: int = 10) -> list[dict]:
                 {"name.keyword": {"order": "asc"}},
             ],
         )
-        return [_place_response(hit["_source"]) for hit in result["hits"]["hits"]]
+        places = [hit["_source"] for hit in result["hits"]["hits"]]
+        return [_place_response(place) for place in _sort_places_for_query(places, clean_query)[:limit]]
     except Exception as exc:
         print(f"[places] Elasticsearch search failed, using fallback: {exc}")
         return _search_places_in_memory(db, clean_query, limit)

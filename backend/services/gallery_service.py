@@ -1,7 +1,24 @@
+import json
+import os
+from urllib.parse import unquote, urlparse
+
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from models.user_item_image import UserItemImage
 from datetime import datetime, timedelta, timezone
-from services.embedding_service import EmbeddingService 
+
+
+def _serialize_embedding(embedding: list[float] | None) -> str | None:
+    if embedding is None:
+        return None
+    return json.dumps(embedding)
+
+
+def _get_image_filename(image_url: str) -> str | None:
+    path = urlparse(image_url).path or image_url
+    filename = os.path.basename(unquote(path))
+    return filename or None
+
 
 def save_gallery_image(db: Session, user_id: int, image_url: str, embedding: list[float] | None = None, prompt: str | None = None):
     """
@@ -10,7 +27,7 @@ def save_gallery_image(db: Session, user_id: int, image_url: str, embedding: lis
     gallery_item = UserItemImage(
         user_id=user_id,
         image_url=image_url,
-        embedding=embedding,
+        embedding=_serialize_embedding(embedding),
         prompt=prompt,
         expires_at=datetime.now(timezone.utc) + timedelta(days=7),
     )
@@ -18,6 +35,76 @@ def save_gallery_image(db: Session, user_id: int, image_url: str, embedding: lis
     db.commit()
     db.refresh(gallery_item)
     return gallery_item
+
+
+def save_or_update_gallery_embedding(
+    db: Session,
+    user_id: int,
+    image_url: str,
+    embedding: list[float],
+    gallery_image_id: int | None = None,
+):
+    serialized_embedding = _serialize_embedding(embedding)
+    if gallery_image_id is not None:
+        updated_id = db.execute(
+            text(
+                """
+                UPDATE public.user_item_image
+                SET embedding = :embedding
+                WHERE id = :gallery_image_id
+                  AND user_id = :user_id
+                RETURNING id
+                """
+            ),
+            {
+                "embedding": serialized_embedding,
+                "gallery_image_id": gallery_image_id,
+                "user_id": user_id,
+            },
+        ).scalar_one_or_none()
+
+        if updated_id is not None:
+            db.commit()
+            return (
+                db.query(UserItemImage)
+                .filter(UserItemImage.id == updated_id)
+                .first()
+            )
+
+    gallery_item = (
+        db.query(UserItemImage)
+        .filter(UserItemImage.user_id == user_id, UserItemImage.image_url == image_url)
+        .order_by(UserItemImage.created_at.desc(), UserItemImage.id.desc())
+        .first()
+    )
+
+    filename = _get_image_filename(image_url)
+    if gallery_item is None and filename is not None:
+        gallery_item = (
+            db.query(UserItemImage)
+            .filter(
+                UserItemImage.user_id == user_id,
+                UserItemImage.image_url.contains(filename),
+            )
+            .order_by(UserItemImage.created_at.desc(), UserItemImage.id.desc())
+            .first()
+        )
+
+    if gallery_item is None:
+        gallery_item = UserItemImage(
+            user_id=user_id,
+            image_url=image_url,
+            embedding=serialized_embedding,
+            expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+        )
+        db.add(gallery_item)
+    else:
+        gallery_item.embedding = serialized_embedding
+
+    db.commit()
+    db.refresh(gallery_item)
+    return gallery_item
+
 
 def get_user_gallery(db: Session, user_id: int):
     return (

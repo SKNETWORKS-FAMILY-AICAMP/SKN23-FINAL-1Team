@@ -26,6 +26,7 @@ EDIT_IMAGE_MODEL = os.getenv("IMAGE_EDIT_IMAGE_MODEL") or "gpt-image-1"
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CREATE_IMAGE_DIR = os.path.join(BACKEND_DIR, "create_image")
+MAX_IMAGE_ATTEMPTS = 3
 
 if not os.path.exists(CREATE_IMAGE_DIR):
     os.makedirs(CREATE_IMAGE_DIR, exist_ok=True)
@@ -240,25 +241,46 @@ def generate_image(
     quality: str = "low",
     n: int = 4,
 ):
-    image_count = max(1, n)
-    max_workers = min(image_count, 4)
+    image_count = max(1, min(n, 4))
+    file_paths = []
+    errors = []
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(_generate_single, user_prompt, size, quality, index)
-            for index in range(image_count)
-        ]
-        results = [future.result() for future in futures]
+    for attempt in range(MAX_IMAGE_ATTEMPTS):
+        remaining_count = image_count - len(file_paths)
+        if remaining_count <= 0:
+            break
 
-    file_paths = [result["file_path"] for result in results if result["file_path"]]
-    if file_paths:
+        max_workers = min(remaining_count, 4)
+        start_index = len(file_paths)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(
+                    _generate_single,
+                    user_prompt,
+                    size,
+                    quality,
+                    start_index + index,
+                )
+                for index in range(remaining_count)
+            ]
+            results = [future.result() for future in futures]
+
+        file_paths.extend(
+            result["file_path"] for result in results if result["file_path"]
+        )
+        errors.extend(result["error"] for result in results if result["error"])
+
+    if len(file_paths) == image_count:
         return file_paths
 
     first_error = next(
-        (result["error"] for result in results if result["error"]),
+        (error for error in errors if error),
         "이미지 생성에 실패했습니다.",
     )
-    raise ImageGenerationError(first_error)
+    raise ImageGenerationError(
+        f"Requested {image_count} images, but only generated {len(file_paths)}. "
+        f"First error: {first_error}"
+    )
 
 
 def resolve_saved_image_path(source_image_url: str):
@@ -420,26 +442,48 @@ def edit_image(
     refined_prompt, file_summary = _build_edit_prompt(base_prompt, edit_prompt)
     uploaded_file_id = _upload_image_file_to_openai(image_path)
     image_count = max(1, min(n, 4))
+    file_paths = []
+    errors = []
 
     try:
-        with ThreadPoolExecutor(max_workers=image_count) as executor:
-            futures = [
-                executor.submit(
-                    _edit_single,
-                    uploaded_file_id,
-                    _build_edit_variant_prompt(refined_prompt, index),
-                    size,
-                    file_summary,
-                    index,
-                )
-                for index in range(image_count)
-            ]
-            results = [future.result() for future in futures]
+        for attempt in range(MAX_IMAGE_ATTEMPTS):
+            remaining_count = image_count - len(file_paths)
+            if remaining_count <= 0:
+                break
+
+            start_index = len(file_paths)
+            with ThreadPoolExecutor(max_workers=remaining_count) as executor:
+                futures = [
+                    executor.submit(
+                        _edit_single,
+                        uploaded_file_id,
+                        _build_edit_variant_prompt(refined_prompt, start_index + index),
+                        size,
+                        file_summary,
+                        start_index + index,
+                    )
+                    for index in range(remaining_count)
+                ]
+                results = [future.result() for future in futures]
+
+            file_paths.extend(
+                result["file_path"] for result in results if result["file_path"]
+            )
+            errors.extend(result["error"] for result in results if result["error"])
     finally:
         try:
             client.files.delete(uploaded_file_id)
         except Exception as exc:
             print(f"[edit_image] Failed to delete uploaded source file: {exc}")
 
-    file_paths = [result["file_path"] for result in results if result["file_path"]]
-    return file_paths if file_paths else None
+    if len(file_paths) == image_count:
+        return file_paths
+
+    first_error = next(
+        (error for error in errors if error),
+        "Image edit failed.",
+    )
+    raise ImageGenerationError(
+        f"Requested {image_count} edited images, but only generated {len(file_paths)}. "
+        f"First error: {first_error}"
+    )
