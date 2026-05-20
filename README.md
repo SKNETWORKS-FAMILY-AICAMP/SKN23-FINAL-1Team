@@ -7,6 +7,7 @@
 
 | PM | APM | 팀원 | 팀원 |
 | :---: | :---: | :---: | :---: |
+|![alt text](img/1.png) |![alt text](img/2.png) | ![alt text](img/3.png)|![alt text](img/4.png) |
 | **유헌상** | **정희영** | **김도영** | **신승훈** |
 | [![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/hunsang-you) | [![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/JUNGHEEYOUNG9090) | [![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/rubyheartsping) | [![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/seunghun92-lab) |
 
