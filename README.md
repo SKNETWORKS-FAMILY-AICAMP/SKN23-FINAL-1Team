@@ -5,11 +5,39 @@
 ---
 ## **1. 팀원소개**
 
-| **PM** | **APM** | **팀원** | **팀원**  |
-| :---: | :---: | :---: | :---: |
-|![alt text](img/1.png) |![alt text](img/2.png) | ![alt text](img/3.png)|![alt text](img/4.png) |
-| **유헌상** | **정희영** | **김도영** | **신승훈** |
-| [![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/hunsang-you) | [![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/JUNGHEEYOUNG9090) | [![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/rubyheartsping) | [![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/seunghun92-lab) |
+<table style="background-color: #fafafa; border-radius: 8px;">
+  <tr>
+    <td align="center" style="color: #4A90E2;"><b>PM</b></td>
+    <td align="center" style="color: #F5A623;"><b>APM</b></td>
+    <td align="center" style="color: #7F8C8D;"><b>팀원</b></td>
+    <td align="center" style="color: #7F8C8D;"><b>팀원</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="img/1.png" alt="유헌상" width="120" /></td>
+    <td align="center"><img src="img/2.png" alt="정희영" width="120" /></td>
+    <td align="center"><img src="img/3.png" alt="김도영" width="120" /></td>
+    <td align="center"><img src="img/4.png" alt="신승훈" width="120" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>유헌상</b></td>
+    <td align="center"><b>정희영</b></td>
+    <td align="center"><b>김도영</b></td>
+    <td align="center"><b>신승훈</b></td>
+  </tr>
+  <tr>
+    <td align="center"><b>AI / Full-Stack</b></td>
+    <td align="center"><b>AI / Data</b></td>
+    <td align="center"><b>AI / Infra</b></td>
+    <td align="center"><b>AI / Full-Stack</b></td>
+  </tr>
+  <tr>
+  <tr>
+    <td align="center"><a href="https://github.com/hunsang-you"><img src="https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white" /></a></td>
+    <td align="center"><a href="https://github.com/JUNGHEEYOUNG9090"><img src="https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white" /></a></td>
+    <td align="center"><a href="https://github.com/rubyheartsping"><img src="https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white" /></a></td>
+    <td align="center"><a href="https://github.com/seunghun92-lab"><img src="https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white" /></a></td>
+  </tr>
+</table>
 
 
 
