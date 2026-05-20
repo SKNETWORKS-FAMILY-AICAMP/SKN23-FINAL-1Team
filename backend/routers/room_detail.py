@@ -11,7 +11,7 @@ from utils.s3 import get_s3_client, parse_s3_uri
 router = APIRouter(prefix="/rooms", tags=["rooms"])
 
 
-@router.get("/{item_id}/images/{image_id}")
+@router.get("/{item_id:int}/images/{image_id:int}")
 def read_room_image(item_id: int, image_id: int, db: Session = Depends(get_db)):
     image = (
         db.query(ItemImage)
@@ -45,7 +45,7 @@ def read_room_image(item_id: int, image_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.get("/{item_id}", response_model=RoomDetailResponse)
+@router.get("/{item_id:int}", response_model=RoomDetailResponse)
 def read_room_detail(item_id: int, db: Session = Depends(get_db)):
     result = get_room_detail(db, item_id)
 

@@ -59,14 +59,34 @@ export interface MarkerMapItem {
 
 export type MapItem = ClusterMapItem | MarkerMapItem;
 
+export interface MapFocusRequest {
+  id: number;
+  lat: number;
+  lng: number;
+  level: number;
+  source: MapBounds["source"];
+}
+
 interface MapViewProps {
   searchQuery: string;
   mapItems: MapItem[];
+  initialBounds?: MapBounds | null;
   selectedListing?: Listing | null;
+  focusRequest?: MapFocusRequest | null;
   onMarkerClick?: (listing: Listing) => void;
   onVisibleListingsChange?: (listings: Listing[]) => void;
   onInitialLocationResolved?: (coords: { lat: number; lng: number }) => void;
   onBoundsChange?: (bounds: MapBounds) => void;
+  onFocusSettled?: (bounds: MapBounds) => void;
+}
+
+interface KakaoPlaceResult {
+  place_name?: string;
+  category_name?: string;
+  address_name?: string;
+  road_address_name?: string;
+  x: string | number;
+  y: string | number;
 }
 
 declare global {
@@ -123,11 +143,14 @@ function mapMarkerItemToListing(item: MarkerMapItem): Listing {
 export function MapView({
   searchQuery,
   mapItems,
+  initialBounds,
   selectedListing,
+  focusRequest,
   onMarkerClick,
   onVisibleListingsChange,
   onInitialLocationResolved,
   onBoundsChange,
+  onFocusSettled,
 }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -142,6 +165,9 @@ export function MapView({
   const selectedListingRef = useRef<Listing | null>(selectedListing ?? null);
 
   const pendingSourceRef = useRef<MapBounds["source"]>("initial");
+  const focusRequestIdRef = useRef<number | null>(null);
+  const isApplyingFocusRef = useRef(false);
+  const suppressBoundsUntilRef = useRef(0);
 
   const [isMapReady, setIsMapReady] = useState(false);
 
@@ -172,18 +198,18 @@ export function MapView({
     infoWindowsRef.current = [];
   };
 
-  const emitBounds = (map: any) => {
-    if (!window.kakao) return;
+  const getCurrentBounds = (
+    map: any,
+    source: MapBounds["source"],
+  ): MapBounds | null => {
+    if (!window.kakao) return null;
 
     const bounds = map.getBounds();
     const sw = bounds.getSouthWest();
     const ne = bounds.getNorthEast();
     const center = map.getCenter();
 
-    const source = pendingSourceRef.current;
-    pendingSourceRef.current = "user";
-
-    const nextBounds: MapBounds = {
+    return {
       swLat: roundBoundsValue(sw.getLat()),
       swLng: roundBoundsValue(sw.getLng()),
       neLat: roundBoundsValue(ne.getLat()),
@@ -193,6 +219,14 @@ export function MapView({
       level: typeof map.getLevel === "function" ? map.getLevel() : 4,
       source,
     };
+  };
+
+  const emitBounds = (map: any) => {
+    const source = pendingSourceRef.current;
+    pendingSourceRef.current = "user";
+
+    const nextBounds = getCurrentBounds(map, source);
+    if (!nextBounds) return;
 
     const nextKey = boundsToKey(nextBounds);
 
@@ -404,9 +438,47 @@ export function MapView({
     places.keywordSearch(keyword, (data: any, status: any) => {
       if (status !== kakao.maps.services.Status.OK || !data.length) return;
 
+      if (keyword.trim().endsWith("역")) {
+        const normalizedKeyword = keyword.trim().replace(/\s+/g, "");
+        const placeResults = data as KakaoPlaceResult[];
+        const isSeoulPlace = (place: KakaoPlaceResult) => {
+          const addressText = `${place.address_name ?? ""} ${place.road_address_name ?? ""}`;
+          return addressText.includes("서울");
+        };
+        const isMatchingStation = (place: KakaoPlaceResult) => {
+          const placeName = String(place.place_name ?? "").replace(/\s+/g, "");
+          const category = String(place.category_name ?? "");
+          return (
+            placeName === normalizedKeyword ||
+            (placeName.startsWith(normalizedKeyword) && category.includes("교통"))
+          );
+        };
+        const exactStation =
+          placeResults.find((place) => isMatchingStation(place) && isSeoulPlace(place)) ??
+          placeResults.find(isSeoulPlace) ??
+          placeResults.find(isMatchingStation) ??
+          placeResults[0];
+        const position = new kakao.maps.LatLng(
+          Number(exactStation.y),
+          Number(exactStation.x),
+        );
+
+        pendingSourceRef.current = "search";
+        map.setLevel(3, { anchor: position });
+        map.panTo(position);
+        window.setTimeout(() => emitBounds(map), 300);
+        return;
+      }
+
+      const placeResults = data as KakaoPlaceResult[];
+      const seoulResults = placeResults.filter((place) => {
+        const addressText = `${place.address_name ?? ""} ${place.road_address_name ?? ""}`;
+        return addressText.includes("서울");
+      });
+      const targetResults = seoulResults.length > 0 ? seoulResults : placeResults;
       const bounds = new kakao.maps.LatLngBounds();
 
-      data.forEach((place: any) => {
+      targetResults.forEach((place) => {
         bounds.extend(new kakao.maps.LatLng(Number(place.y), Number(place.x)));
       });
 
@@ -443,13 +515,13 @@ export function MapView({
 
         if (!mapInstanceRef.current) {
           const center = new kakao.maps.LatLng(
-            DEFAULT_CENTER.lat,
-            DEFAULT_CENTER.lng,
+            initialBounds?.centerLat ?? DEFAULT_CENTER.lat,
+            initialBounds?.centerLng ?? DEFAULT_CENTER.lng,
           );
 
           mapInstanceRef.current = new kakao.maps.Map(mapRef.current, {
             center,
-            level: 4,
+            level: initialBounds?.level ?? 4,
           });
         }
 
@@ -473,6 +545,24 @@ export function MapView({
             hasMovedToCurrentLocationRef.current = true;
             emitBounds(map);
             onInitialLocationResolved?.(initialSelectedCoords);
+            return;
+          }
+
+          if (initialBounds) {
+            const savedPos = new kakao.maps.LatLng(
+              initialBounds.centerLat,
+              initialBounds.centerLng,
+            );
+
+            pendingSourceRef.current = "initial";
+            map.setCenter(savedPos);
+            map.setLevel(initialBounds.level);
+            hasMovedToCurrentLocationRef.current = true;
+            emitBounds(map);
+            onInitialLocationResolved?.({
+              lat: initialBounds.centerLat,
+              lng: initialBounds.centerLng,
+            });
             return;
           }
 
@@ -531,6 +621,8 @@ export function MapView({
     const kakao = window.kakao;
 
     const handleIdle = () => {
+      if (Date.now() < suppressBoundsUntilRef.current) return;
+      if (isApplyingFocusRef.current) return;
       updateVisibleListings(map, kakao);
       emitBounds(map);
     };
@@ -563,6 +655,7 @@ export function MapView({
   useEffect(() => {
     if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
     if (!selectedListing) return;
+    if (focusRequest) return;
 
     const lat = Number(selectedListing.lat);
     const lng = Number(selectedListing.lng);
@@ -580,7 +673,43 @@ export function MapView({
     // Selection move should not be treated as a list refresh trigger
     pendingSourceRef.current = "selection";
     map.panTo(position);
-  }, [selectedListing, isMapReady]);
+  }, [selectedListing, focusRequest, isMapReady]);
+
+  useEffect(() => {
+    if (!isMapReady || !mapInstanceRef.current || !window.kakao) return;
+    if (!focusRequest) return;
+    if (focusRequestIdRef.current === focusRequest.id) return;
+    focusRequestIdRef.current = focusRequest.id;
+
+    const lat = Number(focusRequest.lat);
+    const lng = Number(focusRequest.lng);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+    const map = mapInstanceRef.current;
+    const kakao = window.kakao;
+    const position = new kakao.maps.LatLng(lat, lng);
+
+    isApplyingFocusRef.current = true;
+    pendingSourceRef.current = focusRequest.source;
+    suppressBoundsUntilRef.current =
+      focusRequest.source === "selection" ? Date.now() + 1000 : 0;
+    map.setLevel(focusRequest.level);
+    map.setCenter(position);
+
+    window.setTimeout(() => {
+      isApplyingFocusRef.current = false;
+      updateVisibleListings(map, kakao);
+      if (focusRequest.source === "selection") {
+        const settledBounds = getCurrentBounds(map, focusRequest.source);
+        if (settledBounds) {
+          onFocusSettled?.(settledBounds);
+        }
+        return;
+      }
+      emitBounds(map);
+    }, 150);
+  }, [focusRequest, isMapReady, onBoundsChange, onFocusSettled]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -598,14 +727,14 @@ export function MapView({
   }, [onBoundsChange]);
 
   return (
-    <div className="relative h-full min-h-[400px] w-full">
+    <div className="relative h-full min-h-0 w-full md:min-h-[400px]">
       {!isMapReady && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-100">
           {"\uC9C0\uB3C4 \uB85C\uB529 \uC911."}
         </div>
       )}
 
-      <div ref={mapRef} className="h-full min-h-[400px] w-full" />
+      <div ref={mapRef} className="h-full min-h-0 w-full md:min-h-[400px]" />
 
       {searchQuery && (
         <div className="absolute top-2 left-2 z-10 rounded-lg bg-linen/90 px-3 py-1.5 shadow-md backdrop-blur-sm md:top-4 md:left-4 md:px-4 md:py-2">

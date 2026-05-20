@@ -8,13 +8,16 @@
 """
 
 import os
+import re
+import json
 
 import requests
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from openai import BadRequestError
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from db.session import SessionLocal
 from db.session import get_db
@@ -33,9 +36,18 @@ from services.ai_image_job_service import (
     update_edit_job,
     update_generate_job,
 )
+from services.ai_image_queue_service import enqueue_image_job
 from services.embedding_service import EmbeddingService
+from services.gallery_service import save_or_update_gallery_embedding
 from services.room_service import get_rooms_by_similarity
-from services.user_credit_service import decrement_user_remain, get_user_by_id
+from services.user_credit_service import (
+    decrement_user_remain,
+    ensure_user_has_edit_remain,
+    get_user_by_id,
+    recharge_user_remain_from_credit,
+)
+from models.item_image import ItemImage
+from utils.s3 import get_s3_client, parse_s3_uri
 
 router = APIRouter(prefix="/api")
 
@@ -57,6 +69,7 @@ class EditImageRequest(BaseModel):
     source_image_url: str
     base_prompt: str
     edit_prompt: str
+    edit_count: int = 0
     size: str = "1024x1024"
     n: int = 4
 
@@ -73,6 +86,8 @@ class EditImageResponse(ImageResponse):
 class EditImageJobCreateResponse(BaseModel):
     job_id: str
     status: str
+    remain: int | None = None
+    credit: int | None = None
 
 
 class GenerateImageJobCreateResponse(BaseModel):
@@ -98,9 +113,81 @@ class GenerateImageJobStatusResponse(BaseModel):
 
 class FindSimilarRoomsRequest(RoomListRequest):
     image_url: str
+    user_id: int | None = None
+    gallery_image_id: int | None = None
+    exclude_item_id: int | None = None
+    source_image_id: int | None = None
 
 
-def _read_similarity_image(image_url: str) -> bytes:
+ROOM_IMAGE_API_PATTERN = re.compile(r"/api/rooms/(\d+)/images/(\d+)")
+
+
+def _parse_vector_text(value) -> list[float] | None:
+    if value is None:
+        return None
+
+    if isinstance(value, list):
+        return [float(item) for item in value]
+
+    if isinstance(value, str):
+        try:
+            return [float(item) for item in json.loads(value)]
+        except Exception:
+            return [
+                float(item.strip())
+                for item in value.strip("[]").split(",")
+                if item.strip()
+            ]
+
+    return None
+
+
+def _get_existing_room_image_embedding(db: Session, image_id: int) -> list[float] | None:
+    row = db.execute(
+        text(
+            """
+            SELECT embedding::text
+            FROM public.item_image_embeddings
+            WHERE image_id = :image_id
+            LIMIT 1
+            """
+        ),
+        {"image_id": image_id},
+    ).scalar_one_or_none()
+
+    return _parse_vector_text(row)
+
+
+def _read_room_image_from_storage(db: Session, item_id: int, image_id: int) -> bytes:
+    image = (
+        db.query(ItemImage)
+        .filter(ItemImage.item_id == item_id, ItemImage.id == image_id)
+        .first()
+    )
+
+    if image is None:
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.")
+
+    image_url = image.s3_url
+
+    if image_url.startswith("http://") or image_url.startswith("https://"):
+        image_response = requests.get(image_url, timeout=15)
+        if image_response.status_code != 200:
+            raise HTTPException(status_code=400, detail="이미지를 불러올 수 없습니다.")
+        return image_response.content
+
+    if image_url.startswith("s3://"):
+        try:
+            bucket, key = parse_s3_uri(image_url)
+            s3_object = get_s3_client().get_object(Bucket=bucket, Key=key)
+            return s3_object["Body"].read()
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail="이미지를 불러올 수 없습니다.") from exc
+
+    raise HTTPException(status_code=400, detail="지원하지 않는 이미지 경로입니다.")
+
+
+def _read_similarity_image(image_url: str, db: Session) -> bytes:
     """
     create_image에 저장된 생성/수정 이미지는 자기 자신에게 HTTP 요청하지 않고
     로컬 파일에서 바로 읽는다.
@@ -109,6 +196,12 @@ def _read_similarity_image(image_url: str) -> bytes:
         image_path = resolve_saved_image_path(image_url)
         with open(image_path, "rb") as image_file:
             return image_file.read()
+
+    room_image_match = ROOM_IMAGE_API_PATTERN.search(image_url)
+    if room_image_match:
+        item_id = int(room_image_match.group(1))
+        image_id = int(room_image_match.group(2))
+        return _read_room_image_from_storage(db, item_id, image_id)
 
     image_response = requests.get(image_url, timeout=15)
     if image_response.status_code != 200:
@@ -174,11 +267,18 @@ def _run_generate_image_job(job_id: str, body: GenerateImageRequest):
 @router.post("/generate-image-jobs", response_model=GenerateImageJobCreateResponse)
 async def create_generate_image_job(
     body: GenerateImageRequest,
-    background_tasks: BackgroundTasks,
 ):
     print(f"[generate-image-job] user_prompt={body.user_prompt}")
     job = create_generate_job()
-    background_tasks.add_task(_run_generate_image_job, job["job_id"], body)
+    queue_size = enqueue_image_job(
+        job["job_id"],
+        "generate",
+        lambda: _run_generate_image_job(job["job_id"], body),
+    )
+    print(
+        f"[generate-image-job] queued job_id={job['job_id']}, queue_size={queue_size}",
+        flush=True,
+    )
 
     return {
         "job_id": job["job_id"],
@@ -207,12 +307,14 @@ async def edit_image_endpoint(body: EditImageRequest, db: Session = Depends(get_
         f"base_prompt={body.base_prompt}, edit_prompt={body.edit_prompt}"
     )
 
-    user = get_user_by_id(db, body.user_id)
+    user = ensure_user_has_edit_remain(db, body.user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
-    if user.remain <= 0:
+    if user is False:
         raise HTTPException(status_code=400, detail="남은 수정 횟수가 없습니다.")
+    if body.edit_count >= 2:
+        raise HTTPException(status_code=400, detail="이미지 수정은 최대 2번까지 가능합니다.")
 
     try:
         file_paths = edit_image(
@@ -301,7 +403,6 @@ def _run_edit_image_job(job_id: str, body: EditImageRequest):
 @router.post("/edit-image-jobs", response_model=EditImageJobCreateResponse)
 async def create_edit_image_job(
     body: EditImageRequest,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     print(
@@ -309,19 +410,31 @@ async def create_edit_image_job(
         f"base_prompt={body.base_prompt}, edit_prompt={body.edit_prompt}"
     )
 
-    user = get_user_by_id(db, body.user_id)
+    user = ensure_user_has_edit_remain(db, body.user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
-    if user.remain <= 0:
+    if user is False:
         raise HTTPException(status_code=400, detail="남은 수정 횟수가 없습니다.")
+    if body.edit_count >= 2:
+        raise HTTPException(status_code=400, detail="이미지 수정은 최대 2번까지 가능합니다.")
 
     job = create_edit_job(body.user_id)
-    background_tasks.add_task(_run_edit_image_job, job["job_id"], body)
+    queue_size = enqueue_image_job(
+        job["job_id"],
+        "edit",
+        lambda: _run_edit_image_job(job["job_id"], body),
+    )
+    print(
+        f"[edit-image-job] queued job_id={job['job_id']}, queue_size={queue_size}",
+        flush=True,
+    )
 
     return {
         "job_id": job["job_id"],
         "status": job["status"],
+        "remain": user.remain,
+        "credit": user.credit,
     }
 
 
@@ -361,8 +474,27 @@ async def find_similar_rooms_endpoint(
     4. 무한 스크롤 지원 형식으로 반환
     """
     try:
-        image_data = _read_similarity_image(body.image_url)
-        embedding = EmbeddingService.get_image_embedding(image_data)
+        embedding = None
+        is_existing_room_image = body.source_image_id is not None
+        if body.source_image_id is not None:
+            embedding = _get_existing_room_image_embedding(db, body.source_image_id)
+
+        if embedding is None:
+            room_image_match = ROOM_IMAGE_API_PATTERN.search(body.image_url)
+            if room_image_match:
+                is_existing_room_image = True
+                image_id = int(room_image_match.group(2))
+                embedding = _get_existing_room_image_embedding(db, image_id)
+
+        if embedding is None and is_existing_room_image:
+            raise HTTPException(
+                status_code=404,
+                detail="해당 매물 사진의 임베딩을 찾을 수 없습니다.",
+            )
+
+        if embedding is None:
+            image_data = _read_similarity_image(body.image_url, db)
+            embedding = EmbeddingService.get_image_embedding(image_data)
 
         if not embedding:
             raise HTTPException(
@@ -370,7 +502,33 @@ async def find_similar_rooms_endpoint(
                 detail="이미지 임베딩 추출에 실패했습니다.",
             )
 
-        return get_rooms_by_similarity(db, req=body, embedding=embedding)
+        result = get_rooms_by_similarity(db, req=body, embedding=embedding)
+
+        if body.user_id is not None and not is_existing_room_image:
+            try:
+                save_or_update_gallery_embedding(
+                    db,
+                    user_id=body.user_id,
+                    image_url=body.image_url,
+                    embedding=embedding,
+                    gallery_image_id=body.gallery_image_id,
+                )
+            except Exception as exc:
+                db.rollback()
+                print(
+                    "[WARN] failed to save gallery embedding: "
+                    f"user_id={body.user_id}, "
+                    f"gallery_image_id={body.gallery_image_id}, "
+                    f"image_url={body.image_url}, error={exc}"
+                )
+
+        if body.user_id is not None:
+            user = recharge_user_remain_from_credit(db, body.user_id)
+            if user is not None:
+                result["remain"] = user.remain
+                result["credit"] = user.credit
+
+        return result
     except HTTPException:
         raise
     except Exception as exc:

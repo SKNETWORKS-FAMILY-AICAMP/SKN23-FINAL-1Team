@@ -20,13 +20,16 @@ def update_bathroom_score(text_embedding_list):
         update_query = """
             UPDATE item_image_embeddings
             SET bathroom_score = -(embedding <#> %s::vector)
-            WHERE embedding IS NOT NULL;
+            WHERE embedding IS NOT NULL AND bathroom_score IS NULL;
         """
         cur.execute(update_query, (embedding_str,))
         conn.commit()
         
         updated_rows = cur.rowcount
-        print(f"완료! 총 {updated_rows}개의 이미지 점수가 업데이트됐어.")
+        if updated_rows > 0:
+            print(f"완료! 총 {updated_rows}개의 신규 이미지 점수가 업데이트됐어.")
+        else:
+            print("새로 업데이트할 이미지가 없네? 넘어가자고.")
 
     except Exception as e:
         print(f"하... 쿼리 날리다가 에러 났어: {e}")
@@ -52,8 +55,8 @@ def update_bathroom_labels(threshold=0.263):
         conn.commit()
 
         # 2. 모든 라벨 초기화 (중복 방지 및 최신화)
-        print("🔄 기존 is_bathroom 라벨 초기화 중...")
-        cur.execute("UPDATE item_image_embeddings SET is_bathroom = FALSE;")
+        #print("🔄 기존 is_bathroom 라벨 초기화 중...")
+        #cur.execute("UPDATE item_image_embeddings SET is_bathroom = FALSE;")
         
         # 3. 매물별 최고 점수 사진 1장씩 선별하여 업데이트
         # 로직: 매물별로 bathroom_score가 가장 높은 사진을 고르되, 그 점수가 threshold 이상이어야 함.
@@ -68,6 +71,12 @@ def update_bathroom_labels(threshold=0.263):
                     FROM item_images img
                     JOIN item_image_embeddings emb ON img.id = emb.image_id
                     WHERE emb.bathroom_score >= %s
+                    AND NOT EXISTS (
+                        SELECT 1 
+                        FROM item_images i2
+                        JOIN item_image_embeddings e2 ON i2.id = e2.image_id
+                        WHERE i2.item_id = img.item_id AND e2.is_bathroom = TRUE
+                    )
                     ORDER BY img.item_id, emb.bathroom_score DESC
                 ) sub
             );
