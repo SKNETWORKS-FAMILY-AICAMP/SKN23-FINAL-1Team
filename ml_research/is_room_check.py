@@ -24,13 +24,16 @@ def update_room_score(text_embedding_list):
         update_query = """
             UPDATE item_image_embeddings
             SET room_score = -(embedding <#> %s::vector)
-            WHERE embedding IS NOT NULL;
+            WHERE embedding IS NOT NULL AND room_score IS NULL;
         """
         cur.execute(update_query, (embedding_str,))
         conn.commit()
         
         updated_rows = cur.rowcount
-        print(f"완료! 총 {updated_rows}개의 이미지 점수가 업데이트됐어.")
+        if updated_rows > 0:
+            print(f"완료! 총 {updated_rows}개의 신규 이미지 점수가 업데이트됐어.")
+        else:
+            print("새로 업데이트할 이미지가 없네? 넘어가자고.")
 
     except Exception as e:
         print(f"하... 쿼리 날리다가 에러 났어: {e}")
@@ -55,17 +58,18 @@ def update_room_labels(threshold=0.225):
         cur.execute("ALTER TABLE item_image_embeddings ADD COLUMN IF NOT EXISTS is_room BOOLEAN DEFAULT FALSE;")
         conn.commit()
 
-        # 2. 모든 라벨 초기화 (중복 방지 및 최신화)
-        print("🔄 기존 is_room 라벨 초기화 중...")
-        cur.execute("UPDATE item_image_embeddings SET is_room = FALSE;")
+        # 2. 모든 라벨 초기화 (중복 방지 및 최신화) - 이제 안 함!
+        # print("🔄 기존 is_room 라벨 초기화 중...")
+        # cur.execute("UPDATE item_image_embeddings SET is_room = FALSE;")
         
         # 3. 임계값 이상의 사진을 방 사진으로 취급
-        print("방 사진 골라내는 중")
+        print("방 사진 골라내는 중 (신규 데이터 위주)")
         update_query = """
             UPDATE item_image_embeddings
             SET is_room = TRUE
             WHERE room_score >= %s
-            and is_bathroom = FALSE;
+            AND is_bathroom is null
+            AND is_room is null;
         """
         cur.execute(update_query, (threshold,))
         
